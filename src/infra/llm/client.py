@@ -53,9 +53,7 @@ def _load_raw_settings():
                 try:
                     import asyncio
 
-                    value = asyncio.get_event_loop().run_until_complete(
-                        service.get_raw(key)
-                    )
+                    value = asyncio.get_event_loop().run_until_complete(service.get_raw(key))
                     if value:
                         _setting_cache[key] = value
                 except Exception:
