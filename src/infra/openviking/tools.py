@@ -106,7 +106,11 @@ async def save_memory(
         client = await _get_client()
         user_id = _get_user_id(runtime)
 
-        uri = f"viking://user/{user_id}/memories/{category}"
+        # OpenViking 的 memory 系统通过 session commit 机制工作
+        # 我们需要创建一个临时 session 来保存 memory
+        # 注意：add_resource 只支持 resources scope，不支持 user/agent scope
+        # 因此我们将 memory 保存到 resources scope 下的用户目录
+        uri = f"viking://resources/users/{user_id}/memories/{category}"
         await client.add_resource(content, to=uri, wait=True)
         return f"已保存到 {category} 分类。"
 
@@ -135,9 +139,9 @@ async def browse_memory(
         client = await _get_client()
         user_id = _get_user_id(runtime)
 
-        # 构建 viking URI
+        # 构建 viking URI - 使用 resources scope
         clean_path = path.strip("/")
-        base = f"viking://user/{user_id}/memories"
+        base = f"viking://resources/users/{user_id}/memories"
         uri = f"{base}/{clean_path}" if clean_path else base
 
         items = await client.ls(uri, simple=True)

@@ -250,7 +250,7 @@ async def get_global_mcp_tools(user_id: str) -> tuple[list[BaseTool], Optional[M
         entry = _global_entries[user_id]
         if entry.manager._initialized and not entry.is_expired():
             entry.touch()
-            logger.debug(f"[Global MCP] Hit singleton for user {user_id}, {len(entry.tools)} tools")
+            logger.info(f"[Global MCP] Hit singleton for user {user_id}, {len(entry.tools)} tools")
             return entry.tools, entry.manager
 
     # 2. 获取本地锁（防止同一进程内并发）
@@ -261,7 +261,7 @@ async def get_global_mcp_tools(user_id: str) -> tuple[list[BaseTool], Optional[M
             entry = _global_entries[user_id]
             if entry.manager._initialized and not entry.is_expired():
                 entry.touch()
-                logger.debug(f"[Global MCP] Hit singleton (double-check) for user {user_id}")
+                logger.info(f"[Global MCP] Hit singleton (double-check) for user {user_id}")
                 return entry.tools, entry.manager
 
         # 4. 获取 Redis 分布式锁

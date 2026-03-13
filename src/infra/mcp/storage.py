@@ -57,18 +57,18 @@ class MCPStorage:
         self._preferences_collection: Optional["AsyncIOMotorCollection"] = None
 
     async def _invalidate_user_cache(self, user_id: str) -> None:
-        """Invalidate MCP tools Redis cache for a specific user"""
-        from src.infra.tool.mcp_cache import invalidate_user_cache
+        """Invalidate MCP tools cache for a specific user"""
+        from src.infra.tool.mcp_global import invalidate_global_cache
 
-        await invalidate_user_cache(user_id)
-        logger.info(f"[MCP Storage] Invalidated Redis cache for user {user_id}")
+        await invalidate_global_cache(user_id)
+        logger.info(f"[MCP Storage] Invalidated global cache for user {user_id}")
 
     async def _invalidate_all_cache(self) -> None:
-        """Invalidate MCP tools Redis cache for all users (system config changed)"""
-        from src.infra.tool.mcp_cache import invalidate_all_cache
+        """Invalidate MCP tools cache for all users (system config changed)"""
+        from src.infra.tool.mcp_global import invalidate_all_global_cache
 
-        count = await invalidate_all_cache()
-        logger.info(f"[MCP Storage] Invalidated all Redis cache, {count} entries")
+        count = await invalidate_all_global_cache()
+        logger.info(f"[MCP Storage] Invalidated all global cache, {count} entries")
 
     def _get_system_collection(self) -> "AsyncIOMotorCollection":
         """Get system MCP servers collection lazily"""

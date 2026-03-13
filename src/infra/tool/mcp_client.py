@@ -15,7 +15,7 @@ from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import BaseTool
 from langchain_mcp_adapters.client import MultiServerMCPClient
 
-from src.infra.tool.mcp_cache import get_cached_tools
+from src.infra.tool.mcp_global import get_global_mcp_tools
 
 logger = logging.getLogger(__name__)
 
@@ -358,15 +358,12 @@ class MCPClientManager:
             self._initialized = True
             return
 
-        # 如果有 user_id，尝试使用缓存
+        # 如果有 user_id，使用全局缓存
         if self._user_id:
-            tools, client = await get_cached_tools(
-                user_id=self._user_id,
-                config=config,
-                create_client_func=self._create_mcp_client,
-            )
+            tools, manager = await get_global_mcp_tools(self._user_id)
             self._tools = tools
-            self._client = client
+            # 从全局管理器获取客户端
+            self._client = manager._client if manager else None
             self._initialized = True
             return
 
