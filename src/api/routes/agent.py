@@ -325,26 +325,13 @@ async def list_tools(
     # 3. Reveal Project 工具
     tools.extend(REVEAL_PROJECT_TOOLS)
 
-    # 4. MCP 工具（实际连接获取工具列表）
+    # 4. MCP 工具 - 使用全局单例（分布式优化）
     if settings.ENABLE_MCP:
-        mcp_manager = None
         try:
-            from src.infra.tool.mcp_client import MCPClientManager
+            from src.infra.tool.mcp_global import get_global_mcp_tools
 
-            # 使用缓存机制，避免每次都重新连接
-            # 缓存会在以下情况自动失效：
-            # 1. 用户修改 MCP 配置时
-            # 2. 管理员修改系统配置时
-            # 3. 配置哈希变更时
-            # 4. 30 分钟 TTL 过期
-            mcp_manager = MCPClientManager(
-                user_id=user.sub,
-            )
-            await mcp_manager.initialize()
-            mcp_tools = await mcp_manager.get_tools()
-
-            # 按首字母排序 MCP 工具
-            mcp_tools = sorted(mcp_tools, key=lambda t: t.name.lower())
+            # 使用全局单例，避免重复初始化
+            mcp_tools, _ = await get_global_mcp_tools(user.sub)
 
             # 获取服务器名称映射（从工具名推断）
             # MCP 工具名格式通常是 "server_name:tool_name" 或直接是 tool_name
@@ -374,11 +361,9 @@ async def list_tools(
                     )
                 )
 
-            logger.info(f"Loaded {len(mcp_tools)} MCP tools for user {user.sub}")
+            logger.info(f"[Tools API] Got {len(mcp_tools)} MCP tools from global cache for user {user.sub}")
 
         except Exception as e:
-            logger.warning(f"Failed to get MCP tools: {e}")
-        # 注意：不要在这里关闭 mcp_manager
-        # 让缓存的客户端保持连接，下次请求可以复用
+            logger.warning(f"[Tools API] Failed to get MCP tools: {e}")
 
     return ToolsListResponse(tools=tools, count=len(tools))

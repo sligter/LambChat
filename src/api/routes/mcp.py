@@ -4,6 +4,8 @@ MCP (Model Context Protocol) API router
 Provides endpoints for managing MCP server configurations.
 """
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException
 
 from src.api.deps import require_permissions
@@ -21,6 +23,8 @@ from src.kernel.schemas.mcp import (
     MCPServerUpdate,
 )
 from src.kernel.schemas.user import TokenPayload
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 admin_router = APIRouter()
@@ -229,6 +233,14 @@ async def update_server(
             status_code=404, detail=f"Server '{name}' not found or not owned by user"
         )
 
+    # 失效全局缓存
+    try:
+        from src.infra.tool.mcp_global import invalidate_global_cache
+        await invalidate_global_cache(user.sub)
+        logger.info(f"[MCP API] Invalidated cache for user {user.sub} after server update")
+    except Exception as e:
+        logger.warning(f"[MCP API] Failed to invalidate cache: {e}")
+
     return MCPServerResponse(
         name=server.name,
         transport=server.transport,
@@ -257,6 +269,15 @@ async def delete_server(
         raise HTTPException(
             status_code=404, detail=f"Server '{name}' not found or not owned by user"
         )
+    
+    # 失效全局缓存
+    try:
+        from src.infra.tool.mcp_global import invalidate_global_cache
+        await invalidate_global_cache(user.sub)
+        logger.info(f"[MCP API] Invalidated cache for user {user.sub} after server deletion")
+    except Exception as e:
+        logger.warning(f"[MCP API] Failed to invalidate cache: {e}")
+    
     return {"message": f"Server '{name}' deleted successfully"}
 
 
@@ -271,6 +292,14 @@ async def toggle_server(
 
     if not server:
         raise HTTPException(status_code=404, detail=f"Server '{name}' not found")
+
+    # 失效全局缓存
+    try:
+        from src.infra.tool.mcp_global import invalidate_global_cache
+        await invalidate_global_cache(user.sub)
+        logger.info(f"[MCP API] Invalidated cache for user {user.sub} after server toggle")
+    except Exception as e:
+        logger.warning(f"[MCP API] Failed to invalidate cache: {e}")
 
     status_text = "enabled" if server.enabled else "disabled"
     return MCPServerToggleResponse(
@@ -377,6 +406,15 @@ async def admin_update_server(
     if not server:
         raise HTTPException(status_code=404, detail=f"System server '{name}' not found")
 
+    # 失效所有用户的全局缓存（系统服务器影响所有用户）
+    try:
+        from src.infra.tool.mcp_global import invalidate_all_global_cache
+        
+        count = await invalidate_all_global_cache()
+        logger.info(f"[MCP API] Invalidated {count} cache entries after system server update")
+    except Exception as e:
+        logger.warning(f"[MCP API] Failed to invalidate cache: {e}")
+
     return MCPServerResponse(
         name=server.name,
         transport=server.transport,
@@ -403,6 +441,15 @@ async def admin_delete_server(
     deleted = await storage.delete_system_server(name)
     if not deleted:
         raise HTTPException(status_code=404, detail=f"System server '{name}' not found")
+    
+    # 失效所有用户的全局缓存（系统服务器影响所有用户）
+    try:
+        from src.infra.tool.mcp_global import invalidate_all_global_cache
+        count = await invalidate_all_global_cache()
+        logger.info(f"[MCP API] Invalidated {count} cache entries after system server deletion")
+    except Exception as e:
+        logger.warning(f"[MCP API] Failed to invalidate cache: {e}")
+    
     return {"message": f"System server '{name}' deleted successfully"}
 
 
@@ -417,6 +464,14 @@ async def admin_toggle_server(
 
     if not server:
         raise HTTPException(status_code=404, detail=f"System server '{name}' not found")
+
+    # 失效所有用户的全局缓存（系统服务器影响所有用户）
+    try:
+        from src.infra.tool.mcp_global import invalidate_all_global_cache
+        count = await invalidate_all_global_cache()
+        logger.info(f"[MCP API] Invalidated {count} cache entries after system server toggle")
+    except Exception as e:
+        logger.warning(f"[MCP API] Failed to invalidate cache: {e}")
 
     status_text = "enabled" if server.enabled else "disabled"
     return MCPServerToggleResponse(
@@ -455,6 +510,14 @@ async def promote_server(
             status_code=404,
             detail=f"User server '{name}' not found or system server with same name exists",
         )
+
+    # 失效所有用户缓存（系统服务器影响所有用户）
+    try:
+        from src.infra.tool.mcp_global import invalidate_all_global_cache
+        count = await invalidate_all_global_cache()
+        logger.info(f"[MCP API] Invalidated {count} cache entries after server promotion")
+    except Exception as e:
+        logger.warning(f"[MCP API] Failed to invalidate cache: {e}")
 
     return MCPServerMoveResponse(
         server=MCPServerResponse(
@@ -502,6 +565,14 @@ async def demote_server(
             status_code=404,
             detail=f"System server '{name}' not found or user already has server with same name",
         )
+
+    # 失效所有用户缓存（系统服务器变更影响所有用户）
+    try:
+        from src.infra.tool.mcp_global import invalidate_all_global_cache
+        count = await invalidate_all_global_cache()
+        logger.info(f"[MCP API] Invalidated {count} cache entries after server demotion")
+    except Exception as e:
+        logger.warning(f"[MCP API] Failed to invalidate cache: {e}")
 
     return MCPServerMoveResponse(
         server=MCPServerResponse(
