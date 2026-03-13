@@ -21,6 +21,10 @@ class OpenVikingClient:
     def __init__(self, inner_client: Any):
         self._client = inner_client
 
+    def __getattr__(self, name: str) -> Any:
+        """将未定义的方法代理到底层 client。"""
+        return getattr(self._client, name)
+
     async def search(
         self,
         query: str,
