@@ -170,18 +170,18 @@ class SearchAgentContext:
                 logger.warning("[SearchAgentContext] Failed to load OpenViking tools: %s", e)
 
         # 初始化 OpenViking session
-        if settings.ENABLE_OPENVIKING and self.user_id:
-            try:
-                from src.infra.openviking.session import ensure_ov_session
+        # if settings.ENABLE_OPENVIKING and self.user_id:
+        #     try:
+        #         from src.infra.openviking.session import ensure_ov_session
 
-                self.ov_session_id = await ensure_ov_session(
-                    lambchat_session_id=self.session_id,
-                    user_id=self.user_id,
-                )
-                if self.ov_session_id:
-                    logger.info("[SearchAgentContext] OpenViking session: %s", self.ov_session_id)
-            except Exception as e:
-                logger.warning("[SearchAgentContext] OpenViking session init failed: %s", e)
+        #         self.ov_session_id = await ensure_ov_session(
+        #             lambchat_session_id=self.session_id,
+        #             user_id=self.user_id,
+        #         )
+        #         if self.ov_session_id:
+        #             logger.info("[SearchAgentContext] OpenViking session: %s", self.ov_session_id)
+        #     except Exception as e:
+        #         logger.warning("[SearchAgentContext] OpenViking session init failed: %s", e)
 
     async def close(self) -> None:
         """清理

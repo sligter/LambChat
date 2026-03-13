@@ -313,19 +313,39 @@ async def agent_node(state: Dict[str, Any], config: RunnableConfig) -> Dict[str,
 
     final_messages = new_messages if len(new_messages) > len(all_messages) else all_messages
 
-    # 同步消息到 OpenViking session
+    # 同步消息到 OpenViking session（只同步新增的消息）
     # if settings.ENABLE_OPENVIKING:
     #     try:
-    #         from src.infra.openviking.session import sync_messages
+    #         from src.infra.openviking.session import (
+    #             commit_and_rotate_session,
+    #             sync_messages,
+    #         )
 
     #         ov_session_id = getattr(context, "ov_session_id", None)
     #         if ov_session_id:
-    #             await sync_messages(
-    #                 ov_session_id=ov_session_id,
-    #                 user_message=state.get("input", ""),
-    #                 assistant_message=event_processor.output_text or "",
-    #                 lambchat_session_id=state.get("session_id"),
-    #             )
+    #             # 计算本轮新增的消息（从已有消息之后）
+    #             incremental_messages = final_messages[len(existing_messages) :]
+    #             synced_count = 0
+    #             if incremental_messages:
+    #                 synced_count = len(incremental_messages)
+    #                 await sync_messages(
+    #                     ov_session_id=ov_session_id,
+    #                     messages=incremental_messages,
+    #                     lambchat_session_id=state.get("session_id"),
+    #                 )
+
+    #                 # 对话结束后 commit 旧 session 并创建新 session（触发记忆提取）
+    #                 new_ov_session_id = await commit_and_rotate_session(
+    #                     lambchat_session_id=state.get("session_id"),
+    #                     user_id=context.user_id or "default",
+    #                     synced_messages_count=synced_count,
+    #                 )
+    #                 if new_ov_session_id:
+    #                     context.ov_session_id = new_ov_session_id
+    #                     logger.debug(
+    #                         "[SearchAgent] OpenViking session rotated: %s",
+    #                         new_ov_session_id,
+    #                     )
     #     except Exception as e:
     #         logger.warning("[SearchAgent] OpenViking message sync failed: %s", e)
 
