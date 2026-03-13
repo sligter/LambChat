@@ -270,14 +270,19 @@ async def get_global_mcp_tools(
 
         # 4. 获取 Redis 分布式锁
         lock_key = f"{LOCK_KEY_PREFIX}{user_id}"
+        logger.info(f"[Global MCP] Attempting to acquire lock: {lock_key}")
         lock_acquired, lock_value = await acquire_distributed_lock(lock_key)
+        logger.info(f"[Global MCP] Lock result: {lock_acquired} for {lock_key}")
 
         if not lock_acquired:
             # 其他实例正在初始化，等待其完成标记
-            logger.info(f"[Global MCP] Waiting for other instance: {user_id}")
+            logger.info(
+                f"[Global MCP] Waiting for other instance (lock held by someone else): {user_id}"
+            )
 
             # 等待完成标记（最多 30 秒）
             for attempt in range(30):
+                logger.info(f"[Global MCP] Waiting... attempt {attempt + 1}/30 for {user_id}")
                 await asyncio.sleep(1)
 
                 # 检查本实例是否已有缓存（可能通过其他协程获取）
@@ -324,8 +329,11 @@ async def get_global_mcp_tools(
                 user_id=user_id,
                 use_database=True,
             )
+            logger.info(f"[Global MCP] Initializing manager for {user_id}...")
             await manager.initialize()
+            logger.info(f"[Global MCP] Getting tools for {user_id}...")
             tools = await manager.get_tools()
+            logger.info(f"[Global MCP] Got {len(tools)} tools for {user_id}")
 
             # 7. 保存到全局单例
             _global_entries[user_id] = GlobalMCPEntry(

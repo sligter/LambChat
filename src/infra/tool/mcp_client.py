@@ -15,8 +15,6 @@ from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import BaseTool
 from langchain_mcp_adapters.client import MultiServerMCPClient
 
-from src.infra.tool.mcp_global import get_global_mcp_tools
-
 logger = logging.getLogger(__name__)
 
 # MCP 重试配置
@@ -352,22 +350,14 @@ class MCPClientManager:
         return command, args, True
 
     async def _initialize_with_config(self, config: dict) -> None:
-        """使用配置初始化 MCP 客户端（支持缓存）"""
+        """使用配置初始化 MCP 客户端"""
         mcp_servers = config.get("mcpServers", {})
         if not mcp_servers:
             self._initialized = True
             return
 
-        # 如果有 user_id，使用全局缓存
-        if self._user_id:
-            tools, manager = await get_global_mcp_tools(self._user_id)
-            self._tools = tools
-            # 从全局管理器获取客户端
-            self._client = manager._client if manager else None
-            self._initialized = True
-            return
-
-        # 没有 user_id 时，直接创建（不使用缓存）
+        # 直接创建 MCP 客户端（不使用缓存，避免循环调用）
+        # 全局缓存逻辑在 mcp_global.py 的 get_global_mcp_tools 中处理
         tools, client = await self._create_mcp_client(config)
         self._tools = tools
         self._client = client

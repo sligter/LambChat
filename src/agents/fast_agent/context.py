@@ -6,14 +6,17 @@ Fast Agent 上下文管理 - 无沙箱，支持工具和 Skills
 
 import logging
 import uuid
-from typing import Any, List, Optional
+from typing import TYPE_CHECKING, Any, List, Optional
 
 from src.infra.skill.storage import SkillStorage
 from src.infra.tool.human_tool import get_human_tool
-from src.infra.tool.mcp_client import MCPClientManager
+from src.infra.tool.mcp_global import get_global_mcp_tools
 from src.infra.tool.reveal_file_tool import get_reveal_file_tool
 from src.infra.tool.reveal_project_tool import get_reveal_project_tool
 from src.kernel.config import settings
+
+if TYPE_CHECKING:
+    from src.infra.tool.mcp_client import MCPClientManager
 
 logger = logging.getLogger(__name__)
 
@@ -107,11 +110,8 @@ class FastAgentContext:
 
         try:
             logger.info(f"[FastAgentContext] Lazy loading MCP tools for user {self.user_id}")
-            self.mcp_manager = MCPClientManager(
-                config_path=None, user_id=self.user_id, use_database=True
-            )
-            await self.mcp_manager.initialize()
-            mcp_tools = await self.mcp_manager.get_tools()
+            # 使用全局缓存，避免重复初始化
+            mcp_tools, self.mcp_manager = await get_global_mcp_tools(self.user_id)
             logger.info(
                 f"[FastAgentContext] Loaded {len(mcp_tools)} MCP tools: {[t.name for t in mcp_tools]}"
             )
@@ -193,9 +193,7 @@ class FastAgentContext:
                 logger.warning("[FastAgentContext] OpenViking session init failed: %s", e)
 
     async def close(self) -> None:
-        """清理"""
-        if self.mcp_manager:
-            try:
-                await self.mcp_manager.close()
-            except Exception:
-                pass
+        """清理（注意：不关闭 mcp_manager，因为它是全局缓存的）"""
+        # mcp_manager 是全局缓存的，不应该在这里关闭
+        # 它会在 mcp_global.py 的缓存过期/失效时自动清理
+        self.mcp_manager = None
