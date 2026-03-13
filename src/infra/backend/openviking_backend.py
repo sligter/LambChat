@@ -11,7 +11,7 @@ OpenViking Backend
 import asyncio
 import logging
 import threading
-from typing import Any, Optional
+from typing import Any
 
 from deepagents.backends.protocol import (
     BackendProtocol,

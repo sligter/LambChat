@@ -58,7 +58,6 @@ async def search_memory(
 
     try:
         client = await _get_client()
-        user_id = _get_user_id(runtime)
 
         results = await client.find(query, limit=limit)
         if not results:
