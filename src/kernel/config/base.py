@@ -198,6 +198,7 @@ class Settings(BaseSettings):
     HINDSIGHT_ENABLED: bool = False
     HINDSIGHT_BASE_URL: str = ""
     HINDSIGHT_API_KEY: str = ""
+    HINDSIGHT_MAX_CONCURRENT: int = 64
 
     model_config = {
         "env_file": str(PROJECT_ROOT / ".env"),

@@ -4,6 +4,8 @@ Hindsight Memory Service - Cross-session Long-term Memory
 Provides integration with Hindsight API for persistent, cross-session memory storage.
 Uses a shared Hindsight server with bank_id isolation for multi-tenancy.
 
+Optimized for multi-user high-concurrency scenarios with native async support.
+
 Documentation: https://docs.hindsight.ai
 """
 
@@ -11,8 +13,9 @@ import asyncio
 import json
 import logging
 import os
-from concurrent.futures import ThreadPoolExecutor
-from typing import Annotated, Any, Optional
+import threading
+from datetime import datetime
+from typing import Annotated, Any, Callable, Literal, Optional
 
 from langchain.tools import ToolRuntime, tool
 from langchain_core.tools import BaseTool
@@ -25,53 +28,228 @@ logger = logging.getLogger(__name__)
 # Concurrency Configuration
 # ============================================================================
 
-# Thread pool size - configurable via environment variable
-_MAX_WORKERS = int(os.getenv("HINDSIGHT_MAX_WORKERS", "32"))
 
-# Max concurrent API calls - prevents overwhelming the service
-_MAX_CONCURRENT_REQUESTS = int(os.getenv("HINDSIGHT_MAX_CONCURRENT", "64"))
+def _get_max_concurrent() -> int:
+    """Get max concurrent requests from settings (dynamic)."""
+    try:
+        return int(settings.HINDSIGHT_MAX_CONCURRENT)
+    except (AttributeError, TypeError, ValueError):
+        return int(os.getenv("HINDSIGHT_MAX_CONCURRENT", "64"))
 
-# Thread pool for blocking Hindsight client calls
-_executor = ThreadPoolExecutor(max_workers=_MAX_WORKERS, thread_name_prefix="hindsight-")
 
-# Lazily initialized concurrency primitives (must be created within an event loop)
-_request_semaphore: Optional[asyncio.Semaphore] = None
-_client_lock: Optional[asyncio.Lock] = None
+# Event loop local storage for concurrency primitives
+_loop_locals: dict[int, dict[str, Any]] = {}
+_loop_locals_lock = threading.Lock()
+
+
+def _get_loop_id() -> int:
+    """Get unique identifier for current event loop."""
+    try:
+        return id(asyncio.get_running_loop())
+    except RuntimeError:
+        return 0
+
+
+def _get_loop_local(name: str, factory: Callable[[], Any]) -> Any:
+    """Get or create a loop-local resource."""
+    loop_id = _get_loop_id()
+    with _loop_locals_lock:
+        if loop_id not in _loop_locals:
+            _loop_locals[loop_id] = {}
+        if name not in _loop_locals[loop_id]:
+            _loop_locals[loop_id][name] = factory()
+        return _loop_locals[loop_id][name]
 
 
 def _get_request_semaphore() -> asyncio.Semaphore:
-    """Get or create the request semaphore (lazy initialization)."""
-    global _request_semaphore
-    if _request_semaphore is None:
-        _request_semaphore = asyncio.Semaphore(_MAX_CONCURRENT_REQUESTS)
-    return _request_semaphore
+    """Get or create the request semaphore for current event loop."""
+    return _get_loop_local("semaphore", lambda: asyncio.Semaphore(_get_max_concurrent()))
 
 
 def _get_client_lock() -> asyncio.Lock:
-    """Get or create the client lock (lazy initialization)."""
-    global _client_lock
-    if _client_lock is None:
-        _client_lock = asyncio.Lock()
-    return _client_lock
+    """Get or create the client lock for current event loop."""
+    return _get_loop_local("client_lock", lambda: asyncio.Lock())
+
+
+# ============================================================================
+# AsyncHindsight - Native Async Client
+# ============================================================================
+
+
+class AsyncHindsight:
+    """
+    Native async client for Hindsight API.
+
+    Directly uses hindsight_client_api's async methods, bypassing the sync wrapper
+    that causes issues with running event loops.
+    """
+
+    def __init__(self, base_url: str, api_key: str | None = None, timeout: float = 30.0):
+        import hindsight_client_api
+        from hindsight_client_api.api import banks_api, memory_api
+
+        config = hindsight_client_api.Configuration(host=base_url, access_token=api_key)
+        self._api_client = hindsight_client_api.ApiClient(config)
+        self._timeout = timeout
+        self._base_url = base_url.rstrip("/")
+        self._api_key = api_key
+
+        if api_key:
+            self._api_client.set_default_header("Authorization", f"Bearer {api_key}")
+
+        self._memory_api = memory_api.MemoryApi(self._api_client)
+        self._banks_api = banks_api.BanksApi(self._api_client)
+
+    async def retain(
+        self,
+        bank_id: str,
+        content: str,
+        timestamp: datetime | None = None,
+        context: str | None = None,
+        metadata: dict[str, str] | None = None,
+        tags: list[str] | None = None,
+    ) -> Any:
+        """Store a single memory."""
+        from hindsight_client_api.models import memory_item, retain_request
+        from hindsight_client_api.models.timestamp import Timestamp
+
+        ts = Timestamp(actual_instance=timestamp) if timestamp else None
+        item = memory_item.MemoryItem(
+            content=content,
+            timestamp=ts,
+            context=context,
+            metadata=metadata,
+            tags=tags,
+        )
+        request_obj = retain_request.RetainRequest(items=[item], async_=False)
+        return await self._memory_api.retain_memories(
+            bank_id, request_obj, _request_timeout=self._timeout
+        )
+
+    async def recall(
+        self,
+        bank_id: str,
+        query: str,
+        types: list[str] | None = None,
+        max_tokens: int = 4096,
+        budget: str = "mid",
+        tags: list[str] | None = None,
+        tags_match: Literal["any", "all", "any_strict", "all_strict"] = "any",
+    ) -> Any:
+        """Recall memories using semantic similarity."""
+        from hindsight_client_api.models import recall_request
+
+        request_obj = recall_request.RecallRequest(
+            query=query,
+            types=types,
+            budget=budget,
+            max_tokens=max_tokens,
+            tags=tags,
+            tags_match=tags_match,
+        )
+        return await self._memory_api.recall_memories(
+            bank_id, request_obj, _request_timeout=self._timeout
+        )
+
+    async def reflect(
+        self,
+        bank_id: str,
+        query: str,
+        budget: str = "low",
+        context: str | None = None,
+        max_tokens: int | None = None,
+        tags: list[str] | None = None,
+        tags_match: Literal["any", "all", "any_strict", "all_strict"] = "any",
+    ) -> Any:
+        """Generate a contextual answer based on memories."""
+        from hindsight_client_api.models import reflect_request
+
+        request_obj = reflect_request.ReflectRequest(
+            query=query,
+            budget=budget,
+            context=context,
+            max_tokens=max_tokens,
+            tags=tags,
+            tags_match=tags_match,
+        )
+        return await self._memory_api.reflect(bank_id, request_obj, _request_timeout=self._timeout)
+
+    async def list_memories(
+        self,
+        bank_id: str,
+        type: str | None = None,
+        search_query: str | None = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> Any:
+        """List memory units with pagination."""
+        return await self._memory_api.list_memories(
+            bank_id=bank_id,
+            type=type,
+            q=search_query,
+            limit=limit,
+            offset=offset,
+            _request_timeout=self._timeout,
+        )
+
+    async def create_bank(
+        self,
+        bank_id: str,
+        name: str | None = None,
+        mission: str | None = None,
+    ) -> Any:
+        """Create or update a memory bank."""
+        import aiohttp
+
+        body: dict[str, Any] = {}
+        if name is not None:
+            body["name"] = name
+        if mission is not None:
+            body["mission"] = mission
+
+        url = f"{self._base_url}/v1/default/banks/{bank_id}"
+        headers = {"Authorization": f"Bearer {self._api_key}"} if self._api_key else {}
+
+        async with aiohttp.ClientSession() as session:
+            async with session.put(
+                url, json=body, headers=headers, timeout=aiohttp.ClientTimeout(total=self._timeout)
+            ) as resp:
+                resp.raise_for_status()
+                return await resp.json()
+
+    async def delete_memory(self, bank_id: str, memory_id: str) -> Any:
+        """Delete a specific memory by ID."""
+        return await self._memory_api.delete_memory(
+            bank_id=bank_id,
+            memory_id=memory_id,
+            _request_timeout=self._timeout,
+        )
+
+    async def close(self) -> None:
+        """Close the API client."""
+        if self._api_client:
+            await self._api_client.close()
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        await self.close()
 
 
 # Global shared client
-_shared_client: Optional[Any] = None
+_shared_client: Optional[AsyncHindsight] = None
 
 
-async def get_hindsight_client() -> Optional[Any]:
+async def get_hindsight_client() -> Optional[AsyncHindsight]:
     """
-    Get or create the shared Hindsight client (thread-safe async singleton).
-
-    Uses a single shared HindsightClient connected to a Hindsight server.
-    Multi-tenancy is achieved through bank_id isolation (each user gets unique banks).
+    Get or create the shared AsyncHindsight client.
 
     Returns:
-        HindsightClient instance or None if not configured
+        AsyncHindsight instance or None if not configured
     """
     global _shared_client
 
-    # Fast path: return cached client without lock
     if _shared_client is not None:
         return _shared_client
 
@@ -83,46 +261,28 @@ async def get_hindsight_client() -> Optional[Any]:
         logger.warning("[Hindsight] HINDSIGHT_BASE_URL not configured")
         return None
 
-    # Thread-safe initialization with lock
     async with _get_client_lock():
-        # Double-check after acquiring lock
         if _shared_client is not None:
             return _shared_client
 
         try:
-            # Lazy import to avoid startup dependency
-            from hindsight_client import Hindsight
-
-            # Create shared client connected to Hindsight server
-            _shared_client = Hindsight(
+            _shared_client = AsyncHindsight(
                 base_url=settings.HINDSIGHT_BASE_URL,
                 api_key=settings.HINDSIGHT_API_KEY or None,
                 timeout=30.0,
             )
-
             logger.info(
-                f"[Hindsight] Created shared client for server: {settings.HINDSIGHT_BASE_URL}"
+                f"[Hindsight] Created async client for server: {settings.HINDSIGHT_BASE_URL}"
             )
             return _shared_client
 
-        except ImportError:
-            logger.warning(
-                "[Hindsight] hindsight-client package not installed. "
-                "Install with: pip install hindsight-client"
-            )
-            return None
         except Exception as e:
             logger.error(f"[Hindsight] Failed to create client: {e}")
             return None
 
 
-def get_hindsight_client_sync() -> Optional[Any]:
-    """
-    Get the cached Hindsight client synchronously (for non-async contexts).
-
-    This only returns the cached client and does NOT initialize it.
-    Use get_hindsight_client() for initialization.
-    """
+def get_hindsight_client_sync() -> Optional[AsyncHindsight]:
+    """Get the cached Hindsight client synchronously (for non-async contexts)."""
     return _shared_client
 
 
@@ -146,98 +306,56 @@ def get_user_id_from_runtime(runtime: Optional[ToolRuntime]) -> Optional[str]:
 
 
 def _get_bank_id(user_id: str, bank_name: Optional[str] = None) -> str:
-    """
-    Generate bank ID for user isolation.
-
-    Each user gets isolated memory banks identified by their user_id.
-    Bank names allow organizing memories within a user's scope.
-
-    Args:
-        user_id: User identifier for multi-tenant isolation
-        bank_name: Optional custom bank name for organizing memories
-
-    Returns:
-        Bank ID string (format: "user-{user_id}" or "user-{user_id}-{bank_name}")
-    """
-    # Base bank ID with user isolation
+    """Generate bank ID for user isolation."""
     base_id = f"user-{user_id}"
-
     if bank_name:
-        # Sanitize bank name (alphanumeric, hyphens, underscores only)
         safe_name = "".join(c if c.isalnum() or c in "-_" else "-" for c in bank_name)
         return f"{base_id}-{safe_name}"
-
     return base_id
 
 
-def _ensure_bank_exists(client: Any, bank_id: str, bank_name: Optional[str] = None) -> bool:
-    """
-    Ensure a memory bank exists, creating it if necessary.
-
-    Args:
-        client: Hindsight client
-        bank_id: Bank identifier
-        bank_name: Human-readable bank name
-
-    Returns:
-        True if bank exists or was created, False on error
-    """
+async def _ensure_bank_exists(
+    client: AsyncHindsight, bank_id: str, bank_name: Optional[str] = None
+) -> bool:
+    """Ensure a memory bank exists, creating it if necessary."""
     try:
-        client.create_bank(
+        await client.create_bank(
             bank_id=bank_id,
             name=f"{bank_name or 'Default'} Memory Bank",
             mission="Store and retrieve user memories for cross-session persistence",
         )
         return True
     except Exception:
-        # Bank likely already exists
         return True
 
 
-async def _run_sync(func: Any, *args: Any, **kwargs: Any) -> Any:
-    """
-    Run a synchronous function in a thread pool to avoid blocking the event loop.
-
-    This is necessary because the Hindsight client uses synchronous HTTP calls
-    that may internally use asyncio, which conflicts with the running event loop.
-
-    Includes semaphore limiting to prevent overwhelming the service.
-    """
-    async with _get_request_semaphore():
-        loop = asyncio.get_running_loop()
-        return await loop.run_in_executor(_executor, lambda: func(*args, **kwargs))
-
-
-async def _run_sync_with_retry(
-    func: Any,
-    *args: Any,
+async def _with_retry(
+    func: Callable[[], Any],
+    *,
     max_retries: int = 3,
     retry_delay: float = 0.5,
-    **kwargs: Any,
 ) -> Any:
     """
-    Run a synchronous function with retry logic for transient failures.
+    Execute an async operation with retry logic.
 
     Args:
-        func: The function to run
+        func: A callable that returns an awaitable (e.g., lambda: client.retain(...))
         max_retries: Maximum number of retry attempts
         retry_delay: Base delay between retries (exponential backoff)
-        **kwargs: Arguments to pass to the function
     """
     import random
 
     last_error: BaseException | None = None
     for attempt in range(max_retries):
         try:
-            return await _run_sync(func, *args, **kwargs)
+            async with _get_request_semaphore():
+                return await func()
         except Exception as e:
             last_error = e
             if attempt < max_retries - 1:
-                # Exponential backoff with jitter
                 delay = retry_delay * (2**attempt) + random.uniform(0, 0.1)
                 logger.warning(
-                    f"[Hindsight] Retry {attempt + 1}/{max_retries} after error: {e}. "
-                    f"Waiting {delay:.2f}s"
+                    f"[Hindsight] Retry {attempt + 1}/{max_retries} after error: {e}. Waiting {delay:.2f}s"
                 )
                 await asyncio.sleep(delay)
 
@@ -286,16 +404,11 @@ async def memory_retain(
     try:
         bank_id = _get_bank_id(user_id, bank_name)
 
-        # Ensure bank exists (with retry for transient failures)
-        await _run_sync_with_retry(_ensure_bank_exists, client, bank_id, bank_name)
+        # Ensure bank exists
+        await _ensure_bank_exists(client, bank_id, bank_name)
 
-        # Retain the memory (with retry for transient failures)
-        await _run_sync_with_retry(
-            client.retain,
-            bank_id=bank_id,
-            content=content,
-            context=context,
-        )
+        # Retain the memory
+        await _with_retry(lambda: client.retain(bank_id=bank_id, content=content, context=context))
 
         logger.info(f"[Hindsight] Retained memory for user {user_id}: {content}...")
 
@@ -346,13 +459,9 @@ async def memory_recall(
     try:
         bank_id = _get_bank_id(user_id, bank_name)
 
-        # Recall memories (with retry for transient failures)
-        results = await _run_sync_with_retry(
-            client.recall,
-            bank_id=bank_id,
-            query=query,
-            max_tokens=4096,
-            budget="mid",
+        # Recall memories
+        results = await _with_retry(
+            lambda: client.recall(bank_id=bank_id, query=query, max_tokens=4096, budget="mid")
         )
 
         memories = []
@@ -419,13 +528,9 @@ async def memory_reflect(
     try:
         bank_id = _get_bank_id(user_id, bank_name)
 
-        # Reflect on memories (with retry for transient failures)
-        answer = await _run_sync_with_retry(
-            client.reflect,
-            bank_id=bank_id,
-            query=query,
-            context=context,
-            budget="mid",
+        # Reflect on memories
+        answer = await _with_retry(
+            lambda: client.reflect(bank_id=bank_id, query=query, context=context, budget="mid")
         )
 
         logger.info(f"[Hindsight] Reflected on query for user {user_id}: {query}...")
@@ -478,12 +583,9 @@ async def memory_list(
     try:
         bank_id = _get_bank_id(user_id, bank_name)
 
-        # List memories (with retry for transient failures)
-        result = await _run_sync_with_retry(
-            client.list_memories,
-            bank_id=bank_id,
-            type=memory_type,
-            limit=limit,
+        # List memories
+        result = await _with_retry(
+            lambda: client.list_memories(bank_id=bank_id, type=memory_type, limit=limit)
         )
 
         memories = []
@@ -547,13 +649,9 @@ async def memory_delete(
     try:
         bank_id = _get_bank_id(user_id, bank_name)
 
-        # Check if delete_memory method exists (may not be available in all versions)
+        # Delete memory
         if hasattr(client, "delete_memory"):
-            await _run_sync_with_retry(
-                client.delete_memory,
-                bank_id=bank_id,
-                memory_id=memory_id,
-            )
+            await _with_retry(lambda: client.delete_memory(bank_id=bank_id, memory_id=memory_id))
             logger.info(f"[Hindsight] Deleted memory {memory_id} for user {user_id}")
         else:
             # Delete operation not supported by current client version
@@ -657,14 +755,13 @@ async def auto_retain_conversation(
         bank_id = _get_bank_id(user_id, bank_name)
 
         # Ensure bank exists
-        await _run_sync_with_retry(_ensure_bank_exists, client, bank_id, bank_name)
+        await _ensure_bank_exists(client, bank_id, bank_name)
 
         # Retain the memory
-        await _run_sync_with_retry(
-            client.retain,
-            bank_id=bank_id,
-            content=conversation_summary,
-            context=context or "auto_retained",
+        await _with_retry(
+            lambda: client.retain(
+                bank_id=bank_id, content=conversation_summary, context=context or "auto_retained"
+            )
         )
 
         logger.info(
@@ -738,20 +835,21 @@ def _handle_background_task_error(task: asyncio.Task) -> None:
 
 
 async def close_hindsight_client() -> None:
-    """Close and cleanup the shared Hindsight client and thread pool."""
+    """Close and cleanup the shared Hindsight client."""
     global _shared_client
     if _shared_client is not None:
         try:
             if hasattr(_shared_client, "close"):
-                _shared_client.close()
+                await _shared_client.close()
             _shared_client = None
             logger.info("[Hindsight] Closed shared client")
         except Exception as e:
             logger.warning(f"[Hindsight] Error closing client: {e}")
 
-    # Shutdown thread pool executor
-    _executor.shutdown(wait=False)
-    logger.info("[Hindsight] Shutdown thread pool executor")
+    # Clear loop-local storage
+    with _loop_locals_lock:
+        _loop_locals.clear()
+    logger.info("[Hindsight] Cleared loop-local resources")
 
 
 def get_concurrency_stats() -> dict[str, Any]:
@@ -761,12 +859,20 @@ def get_concurrency_stats() -> dict[str, Any]:
     Returns:
         Dictionary with concurrency stats for monitoring
     """
-    sem_value = _request_semaphore._value if _request_semaphore else _MAX_CONCURRENT_REQUESTS  # type: ignore[attr-defined]
+    loop_id = _get_loop_id()
+    max_concurrent = _get_max_concurrent()
+    sem_value = max_concurrent
+
+    with _loop_locals_lock:
+        if loop_id in _loop_locals and "semaphore" in _loop_locals[loop_id]:
+            sem = _loop_locals[loop_id]["semaphore"]
+            sem_value = sem._value  # type: ignore[attr-defined]
+
     return {
-        "max_workers": _MAX_WORKERS,
-        "max_concurrent_requests": _MAX_CONCURRENT_REQUESTS,
+        "max_concurrent_requests": max_concurrent,
         "semaphore_available": sem_value,
         "client_initialized": _shared_client is not None,
+        "active_event_loops": len(_loop_locals),
     }
 
 

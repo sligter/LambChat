@@ -698,4 +698,12 @@ SETTING_DEFINITIONS: dict[str, dict] = {
         "default": "",
         "depends_on": "HINDSIGHT_ENABLED",
     },
+    "HINDSIGHT_MAX_CONCURRENT": {
+        "type": SettingType.NUMBER,
+        "category": SettingCategory.MEMORY,
+        "description": "Maximum concurrent API calls to Hindsight service (per worker process)",
+        "default": 64,
+        "depends_on": "HINDSIGHT_ENABLED",
+        "frontend_visible": True,
+    },
 }
