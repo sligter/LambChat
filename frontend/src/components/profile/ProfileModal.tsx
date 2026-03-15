@@ -771,7 +771,7 @@ function UserAgentPreferencePanel() {
         </div>
       )}
 
-      <div className="bg-gray-50 dark:bg-stone-700/50 rounded-lg p-4">
+      <div className="bg-gray-50 dark:bg-stone-700/50 rounded-lg p-3 sm:p-4">
         {availableAgents.length === 0 ? (
           <p className="text-sm text-gray-500 dark:text-stone-400">
             {t("agentConfig.noAvailableAgents")}
@@ -781,7 +781,7 @@ function UserAgentPreferencePanel() {
             {availableAgents.map((agent) => (
               <label
                 key={agent.id}
-                className={`flex cursor-pointer items-center gap-3 rounded-md p-3 transition-colors ${
+                className={`flex cursor-pointer items-start sm:items-center gap-2.5 sm:gap-3 rounded-lg p-2.5 sm:p-3 transition-colors ${
                   selectedAgent === agent.id
                     ? "bg-white dark:bg-stone-600 ring-2 ring-amber-500/50"
                     : "bg-white/50 dark:bg-stone-600/50 hover:bg-white dark:hover:bg-stone-600"
@@ -793,13 +793,13 @@ function UserAgentPreferencePanel() {
                   value={agent.id}
                   checked={selectedAgent === agent.id}
                   onChange={(e) => setSelectedAgent(e.target.value)}
-                  className="h-4 w-4 border-gray-300 dark:border-stone-500 text-amber-600 focus:ring-amber-500"
+                  className="h-4 w-4 mt-0.5 sm:mt-0 shrink-0 border-gray-300 dark:border-stone-500 text-amber-600 focus:ring-amber-500"
                 />
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1 overflow-hidden">
                   <div className="text-sm font-medium text-gray-900 dark:text-stone-100 truncate">
                     {t(agent.name)}
                   </div>
-                  <div className="text-xs text-gray-500 dark:text-stone-400 truncate">
+                  <div className="text-xs text-gray-500 dark:text-stone-400 line-clamp-2 sm:truncate">
                     {t(agent.description)}
                   </div>
                 </div>
