@@ -13,14 +13,15 @@ import {
   Check,
   X,
   AlertCircle,
-  Loader2,
   HelpCircle,
-  MessageCircle,
   ArrowLeft,
-  Radio,
+  MessageCircle,
 } from "lucide-react";
-import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
+import toast from "react-hot-toast";
+import { PanelHeader } from "../common/PanelHeader";
+import { LoadingSpinner } from "../common/LoadingSpinner";
+import { FeishuPanel } from "./channel/feishu/FeishuPanel";
 import { channelApi } from "../../services/api/channel";
 import type {
   ChannelType,
@@ -29,16 +30,6 @@ import type {
   ChannelConfigStatus,
   ConfigField,
 } from "../../types/channel";
-
-// Icon map for channel icons
-const CHANNEL_ICONS: Record<string, React.FC<{ className?: string }>> = {
-  feishu: Radio,
-  wechat: MessageCircle,
-  dingtalk: MessageCircle,
-  slack: MessageCircle,
-  telegram: MessageCircle,
-  discord: MessageCircle,
-};
 
 interface ChannelPanelProps {
   channelType: ChannelType;
@@ -50,33 +41,14 @@ export function ChannelPanel({ channelType, metadata }: ChannelPanelProps) {
   const navigate = useNavigate();
 
   // State
-  const [, setConfig] = useState<ChannelConfigResponse | null>(null);
+  const [config, setConfig] = useState<ChannelConfigResponse | null>(null);
   const [status, setStatus] = useState<ChannelConfigStatus | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
-  // Form state - dynamic based on config fields
   const [formValues, setFormValues] = useState<Record<string, unknown>>({});
   const [enabled, setEnabled] = useState(false);
-  // Track if config exists
   const [hasExistingConfig, setHasExistingConfig] = useState(false);
-
-  // Load config on mount
-  useEffect(() => {
-    loadConfig();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [channelType]);
-
-  // Initialize form defaults from metadata
-  useEffect(() => {
-    const defaults: Record<string, unknown> = {};
-    metadata.config_fields.forEach((field) => {
-      if (field.default !== undefined) {
-        defaults[field.name] = field.default;
-      }
-    });
-    setFormValues((prev) => ({ ...defaults, ...prev }));
-  }, [metadata]);
 
   const loadConfig = async () => {
     setIsLoading(true);
@@ -94,7 +66,6 @@ export function ChannelPanel({ channelType, metadata }: ChannelPanelProps) {
       } else {
         setHasExistingConfig(false);
         setEnabled(false);
-        // Reset to defaults
         const defaults: Record<string, unknown> = {};
         metadata.config_fields.forEach((field) => {
           if (field.default !== undefined) {
@@ -115,17 +86,42 @@ export function ChannelPanel({ channelType, metadata }: ChannelPanelProps) {
     }
   };
 
-  // Get required fields
+  // Load config on mount
+  useEffect(() => {
+    loadConfig();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [channelType]);
+
+  // Initialize form defaults from metadata
+  useEffect(() => {
+    const defaults: Record<string, unknown> = {};
+    metadata.config_fields.forEach((field) => {
+      if (field.default !== undefined) {
+        defaults[field.name] = field.default;
+      }
+    });
+    setFormValues((prev) => ({ ...defaults, ...prev }));
+  }, [metadata]);
+
   const requiredFields = useMemo(() => {
     return metadata.config_fields.filter((f) => f.required);
   }, [metadata.config_fields]);
 
-  // Validate form
+  // Use dedicated panel for feishu channel
+  if (channelType === "feishu") {
+    return (
+      <FeishuPanel
+        initialConfig={config}
+        initialStatus={status}
+        isLoading={isLoading}
+      />
+    );
+  }
+
   const validateForm = (): boolean => {
     for (const field of requiredFields) {
       const value = formValues[field.name];
       if (value === undefined || value === "" || value === null) {
-        // For sensitive fields on update, allow empty (keep existing)
         if (hasExistingConfig && field.sensitive) continue;
         toast.error(t("channel.fieldRequired", `${field.title} is required`));
         return false;
@@ -139,12 +135,10 @@ export function ChannelPanel({ channelType, metadata }: ChannelPanelProps) {
 
     setIsSaving(true);
     try {
-      // Build config object, excluding empty sensitive fields on update
       const configData: Record<string, unknown> = {};
       for (const field of metadata.config_fields) {
         const value = formValues[field.name];
         if (hasExistingConfig && field.sensitive && !value) {
-          // Skip empty sensitive fields on update
           continue;
         }
         configData[field.name] = value;
@@ -156,7 +150,6 @@ export function ChannelPanel({ channelType, metadata }: ChannelPanelProps) {
           enabled,
         });
         setConfig(updated);
-        // Clear sensitive fields after save
         const cleared = { ...formValues };
         metadata.config_fields
           .filter((f) => f.sensitive)
@@ -171,7 +164,6 @@ export function ChannelPanel({ channelType, metadata }: ChannelPanelProps) {
         });
         setConfig(created);
         setHasExistingConfig(true);
-        // Clear sensitive fields after create
         const cleared = { ...formValues };
         metadata.config_fields
           .filter((f) => f.sensitive)
@@ -183,7 +175,6 @@ export function ChannelPanel({ channelType, metadata }: ChannelPanelProps) {
 
       toast.success(t("channel.saveSuccess", "Configuration saved"));
 
-      // Reload status
       const newStatus = await channelApi.getStatus(channelType);
       setStatus(newStatus);
     } catch (error) {
@@ -199,7 +190,7 @@ export function ChannelPanel({ channelType, metadata }: ChannelPanelProps) {
       !window.confirm(
         t(
           "channel.deleteConfirm",
-          "Are you sure you want to delete this channel configuration? This action cannot be undone.",
+          "Are you sure you want to delete this channel configuration?",
         ),
       )
     ) {
@@ -211,7 +202,6 @@ export function ChannelPanel({ channelType, metadata }: ChannelPanelProps) {
       setConfig(null);
       setHasExistingConfig(false);
       setEnabled(false);
-      // Reset form to defaults
       const defaults: Record<string, unknown> = {};
       metadata.config_fields.forEach((field) => {
         if (field.default !== undefined) {
@@ -252,7 +242,6 @@ export function ChannelPanel({ channelType, metadata }: ChannelPanelProps) {
     setFormValues((prev) => ({ ...prev, [name]: value }));
   };
 
-  // Render a config field
   const renderField = (field: ConfigField) => {
     const value = formValues[field.name] ?? "";
 
@@ -261,31 +250,27 @@ export function ChannelPanel({ channelType, metadata }: ChannelPanelProps) {
         return (
           <div
             key={field.name}
-            className="flex items-center justify-between rounded-xl bg-stone-50 px-4 py-3 dark:bg-stone-800/50"
+            className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2.5 dark:bg-stone-800"
           >
             <div>
-              <label className="text-sm font-medium text-stone-700 dark:text-stone-300">
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
                 {field.title}
-              </label>
+              </span>
               {field.description && (
-                <p className="mt-0.5 text-xs text-stone-500 dark:text-stone-400">
+                <p className="text-xs text-gray-500 dark:text-gray-400">
                   {field.description}
                 </p>
               )}
             </div>
             <button
               onClick={() => updateFormField(field.name, !value)}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ${
-                value
-                  ? "bg-stone-900 shadow-sm dark:bg-stone-100"
-                  : "bg-stone-200 dark:bg-stone-700"
+              className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                value ? "bg-stone-900" : "bg-gray-200 dark:bg-stone-600"
               }`}
             >
               <span
-                className={`inline-block h-4 w-4 transform rounded-full shadow-sm transition-transform duration-200 ${
-                  value
-                    ? "translate-x-6 bg-stone-100 dark:bg-stone-900"
-                    : "translate-x-1 bg-white dark:bg-stone-300"
+                className={`inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${
+                  value ? "translate-x-4" : "translate-x-0.5"
                 }`}
               />
             </button>
@@ -294,14 +279,14 @@ export function ChannelPanel({ channelType, metadata }: ChannelPanelProps) {
 
       case "select":
         return (
-          <div key={field.name} className="space-y-1.5">
-            <label className="block text-sm font-medium text-stone-700 dark:text-stone-300">
+          <div key={field.name}>
+            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-200">
               {field.title}
             </label>
             <select
               value={String(value)}
               onChange={(e) => updateFormField(field.name, e.target.value)}
-              className="w-full rounded-xl border border-stone-200 bg-white px-4 py-2.5 text-sm text-stone-900 focus:border-stone-400 focus:outline-none focus:ring-2 focus:ring-stone-400/20 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-100"
+              className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:border-stone-500 focus:outline-none dark:border-stone-700 dark:bg-stone-800 dark:text-gray-100"
             >
               {field.options?.map((opt) => (
                 <option key={opt.value} value={opt.value}>
@@ -314,15 +299,15 @@ export function ChannelPanel({ channelType, metadata }: ChannelPanelProps) {
 
       case "password":
         return (
-          <div key={field.name} className="space-y-1.5">
-            <label className="block text-sm font-medium text-stone-700 dark:text-stone-300">
+          <div key={field.name}>
+            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-200">
               {field.title}{" "}
               {field.required && !hasExistingConfig && (
                 <span className="text-red-500">*</span>
               )}
               {hasExistingConfig && field.sensitive && (
-                <span className="ml-1 text-xs text-stone-400">
-                  ({t("channel.leaveEmpty", "leave empty to keep current")})
+                <span className="ml-1 text-xs text-gray-400">
+                  ({t("channel.leaveEmpty")})
                 </span>
               )}
             </label>
@@ -331,17 +316,18 @@ export function ChannelPanel({ channelType, metadata }: ChannelPanelProps) {
               value={String(value)}
               onChange={(e) => updateFormField(field.name, e.target.value)}
               placeholder={
-                field.placeholder || (hasExistingConfig ? "••••••••" : "")
+                field.placeholder ||
+                (hasExistingConfig ? t("common.masked") : "")
               }
-              className="w-full rounded-xl border border-stone-200 bg-white px-4 py-2.5 text-sm text-stone-900 placeholder-stone-400 focus:border-stone-400 focus:outline-none focus:ring-2 focus:ring-stone-400/20 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-100 dark:placeholder-stone-500"
+              className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-stone-500 focus:outline-none dark:border-stone-700 dark:bg-stone-800 dark:text-gray-100 dark:placeholder-gray-500"
             />
           </div>
         );
 
-      default: // text
+      default:
         return (
-          <div key={field.name} className="space-y-1.5">
-            <label className="block text-sm font-medium text-stone-700 dark:text-stone-300">
+          <div key={field.name}>
+            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-200">
               {field.title}
               {field.required && (!hasExistingConfig || !field.sensitive) && (
                 <span className="text-red-500"> *</span>
@@ -352,80 +338,83 @@ export function ChannelPanel({ channelType, metadata }: ChannelPanelProps) {
               value={String(value)}
               onChange={(e) => updateFormField(field.name, e.target.value)}
               placeholder={field.placeholder || ""}
-              className="w-full rounded-xl border border-stone-200 bg-white px-4 py-2.5 text-sm text-stone-900 placeholder-stone-400 focus:border-stone-400 focus:outline-none focus:ring-2 focus:ring-stone-400/20 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-100 dark:placeholder-stone-500"
+              className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-stone-500 focus:outline-none dark:border-stone-700 dark:bg-stone-800 dark:text-gray-100 dark:placeholder-gray-500"
             />
           </div>
         );
     }
   };
 
-  // Get icon component
-  const IconComponent = CHANNEL_ICONS[metadata.icon] || MessageCircle;
+  // Get icon based on channel type
+  const getChannelIcon = () => {
+    switch (channelType) {
+      case "wechat":
+        return (
+          <MessageCircle
+            size={18}
+            className="text-stone-600 dark:text-stone-400"
+          />
+        );
+      default:
+        return (
+          <MessageCircle
+            size={18}
+            className="text-stone-600 dark:text-stone-400"
+          />
+        );
+    }
+  };
 
   if (isLoading) {
     return (
-      <div className="flex h-full items-center justify-center bg-stone-50 dark:bg-stone-950">
-        <div className="flex flex-col items-center gap-3">
-          <div className="relative">
-            <div className="absolute inset-0 animate-ping rounded-full bg-stone-400/20" />
-            <Loader2 className="relative h-10 w-10 animate-spin text-stone-600 dark:text-stone-400" />
-          </div>
-          <p className="text-sm text-stone-500 dark:text-stone-400">
-            {t("common.loading", "Loading...")}
-          </p>
-        </div>
+      <div className="flex h-full items-center justify-center text-gray-500 dark:text-gray-400">
+        <LoadingSpinner size="sm" />
+        <span className="ml-2">{t("common.loading")}</span>
       </div>
     );
   }
 
   return (
-    <div className="flex h-full flex-col bg-stone-50 dark:bg-stone-950">
+    <div className="flex h-full flex-col min-h-0">
       {/* Header */}
-      <div className="flex-shrink-0 border-b border-stone-200 bg-white/80 backdrop-blur-sm px-4 py-5 dark:border-stone-800 dark:bg-stone-900/80 sm:px-6 lg:px-8 xl:py-6">
-        <div className="mx-auto max-w-2xl xl:max-w-3xl 2xl:max-w-4xl">
-          <div className="flex items-center gap-3 xl:gap-4">
-            {/* Back button */}
-            <button
-              onClick={() => navigate("/channels")}
-              className="flex h-9 w-9 items-center justify-center rounded-lg text-stone-500 transition-colors hover:bg-stone-100 hover:text-stone-700 dark:text-stone-400 dark:hover:bg-stone-800 dark:hover:text-stone-200 sm:-ml-3"
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </button>
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-stone-900 shadow-lg dark:bg-stone-100 xl:h-12 xl:w-12">
-              <IconComponent className="h-5 w-5 text-stone-100 dark:text-stone-900 xl:h-6 xl:w-6" />
-            </div>
-            <div className="min-w-0">
-              <h1 className="truncate text-xl font-semibold text-stone-900 dark:text-stone-100 sm:text-2xl xl:text-3xl">
-                {metadata.display_name}
-              </h1>
-              <p className="truncate text-sm text-stone-500 dark:text-stone-400 xl:text-base">
-                {metadata.description}
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
+      <PanelHeader
+        title={metadata.display_name}
+        subtitle={metadata.description}
+        icon={getChannelIcon()}
+        actions={
+          <button
+            onClick={() => navigate("/channels")}
+            className="btn-secondary"
+          >
+            <ArrowLeft size={16} />
+            <span className="hidden sm:inline">{t("common.back")}</span>
+          </button>
+        }
+      />
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto px-4 py-6 sm:px-6 lg:px-8 xl:py-8 2xl:py-10">
-        <div className="mx-auto max-w-2xl xl:max-w-3xl 2xl:max-w-4xl space-y-5 2xl:space-y-6">
+      <div className="flex-1 overflow-y-auto p-3 sm:p-4">
+        <div className="mx-auto max-w-2xl space-y-4">
           {/* Status Card */}
           {hasExistingConfig && status && (
-            <div className="rounded-2xl border border-stone-200 bg-white/80 backdrop-blur-sm p-5 shadow-sm dark:border-stone-800 dark:bg-stone-900/80 2xl:p-6">
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="rounded-xl border border-gray-200 bg-white p-4 dark:border-stone-700 dark:bg-stone-900">
+              <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   {status.connected ? (
-                    <div className="relative flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-green-100 to-emerald-100 dark:from-green-900/50 dark:to-emerald-900/50 2xl:h-12 2xl:w-12">
-                      <Check className="h-5 w-5 text-green-600 dark:text-green-400 2xl:h-6 2xl:w-6" />
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/50">
+                      <Check
+                        size={16}
+                        className="text-green-600 dark:text-green-400"
+                      />
                     </div>
                   ) : (
-                    <div className="relative flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-red-100 to-rose-100 dark:from-red-900/50 dark:to-rose-900/50 2xl:h-12 2xl:w-12">
-                      <X className="h-5 w-5 text-red-600 dark:text-red-400 2xl:h-6 2xl:w-6" />
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/50">
+                      <X size={16} className="text-red-600 dark:text-red-400" />
                     </div>
                   )}
                   <div>
                     <span
-                      className={`text-sm font-semibold 2xl:text-base ${
+                      className={`text-sm font-semibold ${
                         status.connected
                           ? "text-green-600 dark:text-green-400"
                           : "text-red-600 dark:text-red-400"
@@ -435,35 +424,27 @@ export function ChannelPanel({ channelType, metadata }: ChannelPanelProps) {
                         ? t("channel.connected", "Connected")
                         : t("channel.disconnected", "Disconnected")}
                     </span>
-                    <p className="text-xs text-stone-500 dark:text-stone-400">
-                      {status.connected
-                        ? t(
-                            "channel.connectionActive",
-                            "Connection is active and working",
-                          )
-                        : t(
-                            "channel.connectionInactive",
-                            "Check your configuration",
-                          )}
-                    </p>
                   </div>
                 </div>
                 <button
                   onClick={handleTest}
                   disabled={isTesting || !enabled}
-                  className="flex items-center justify-center gap-2 rounded-xl border border-stone-200 bg-white px-4 py-2 text-sm font-medium text-stone-600 transition-all hover:border-stone-300 hover:bg-stone-50 disabled:opacity-50 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-300 dark:hover:bg-stone-700 2xl:px-5 2xl:py-2.5"
+                  className="btn-secondary btn-sm"
                 >
                   {isTesting ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span className="animate-spin">⟳</span>
                   ) : (
-                    <RefreshCw className="h-4 w-4" />
+                    <RefreshCw size={14} />
                   )}
                   {t("channel.testConnection", "Test")}
                 </button>
               </div>
               {status.error_message && (
-                <div className="mt-4 flex items-start gap-3 rounded-xl bg-gradient-to-r from-red-50 to-rose-50 p-4 dark:from-red-900/20 dark:to-rose-900/20">
-                  <AlertCircle className="h-5 w-5 flex-shrink-0 text-red-500 dark:text-red-400" />
+                <div className="mt-3 flex items-start gap-2 rounded-lg bg-red-50 p-3 dark:bg-red-900/20">
+                  <AlertCircle
+                    size={16}
+                    className="flex-shrink-0 text-red-500 dark:text-red-400"
+                  />
                   <span className="text-sm text-red-700 dark:text-red-300">
                     {status.error_message}
                   </span>
@@ -472,39 +453,32 @@ export function ChannelPanel({ channelType, metadata }: ChannelPanelProps) {
             </div>
           )}
 
-          {/* Configuration Form */}
-          <div className="rounded-2xl border border-stone-200 bg-white/80 backdrop-blur-sm p-5 shadow-sm dark:border-stone-800 dark:bg-stone-900/80 2xl:p-6">
-            <h3 className="mb-4 text-sm font-semibold text-stone-900 dark:text-stone-100 2xl:text-base">
+          {/* Configuration Card */}
+          <div className="rounded-xl border border-gray-200 bg-white p-4 dark:border-stone-700 dark:bg-stone-900">
+            <h3 className="mb-4 text-sm font-semibold text-gray-900 dark:text-gray-100">
               {t("channel.configuration", "Configuration")}
             </h3>
 
-            <div className="space-y-4 2xl:space-y-5">
+            <div className="space-y-4">
               {/* Enable Toggle */}
-              <div className="flex items-center justify-between rounded-xl bg-gradient-to-r from-stone-50 to-stone-100/50 px-4 py-3 dark:from-stone-800/50 dark:to-stone-800/30 2xl:px-5 2xl:py-4">
+              <div className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2.5 dark:bg-stone-800">
                 <div>
-                  <label className="text-sm font-medium text-stone-700 dark:text-stone-300 2xl:text-base">
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
                     {t("channel.enabled", "Enable Channel")}
-                  </label>
-                  <p className="mt-0.5 text-xs text-stone-500 dark:text-stone-400">
-                    {t(
-                      "channel.enabledDesc",
-                      "Enable or disable this channel integration",
-                    )}
+                  </span>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    {t("channel.enabledDesc", "Enable or disable this channel")}
                   </p>
                 </div>
                 <button
                   onClick={() => setEnabled(!enabled)}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 2xl:h-7 2xl:w-12 ${
-                    enabled
-                      ? "bg-stone-900 shadow-sm dark:bg-stone-100"
-                      : "bg-stone-200 dark:bg-stone-700"
+                  className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                    enabled ? "bg-stone-900" : "bg-gray-200 dark:bg-stone-600"
                   }`}
                 >
                   <span
-                    className={`inline-block h-4 w-4 rounded-full shadow-sm transition-transform duration-200 2xl:h-5 2xl:w-5 ${
-                      enabled
-                        ? "translate-x-6 bg-stone-100 dark:translate-x-7 dark:bg-stone-900"
-                        : "translate-x-1 bg-white dark:bg-stone-300"
+                    className={`inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${
+                      enabled ? "translate-x-4" : "translate-x-0.5"
                     }`}
                   />
                 </button>
@@ -517,16 +491,19 @@ export function ChannelPanel({ channelType, metadata }: ChannelPanelProps) {
 
           {/* Help Card */}
           {metadata.setup_guide.length > 0 && (
-            <div className="rounded-2xl border border-stone-200 bg-gradient-to-br from-stone-50 to-stone-100/50 p-5 shadow-sm dark:border-stone-800 dark:from-stone-900/50 dark:to-stone-800/30 2xl:p-6">
+            <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-stone-700 dark:bg-stone-800/50">
               <div className="flex items-start gap-3">
-                <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-stone-200 dark:bg-stone-700 2xl:h-10 2xl:w-10">
-                  <HelpCircle className="h-4 w-4 text-stone-600 dark:text-stone-300 2xl:h-5 2xl:w-5" />
+                <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md bg-blue-100 dark:bg-blue-900/50">
+                  <HelpCircle
+                    size={14}
+                    className="text-blue-600 dark:text-blue-400"
+                  />
                 </div>
-                <div className="min-w-0">
-                  <p className="font-medium text-stone-900 dark:text-stone-100 2xl:text-lg">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
                     {t("channel.setupGuide", "Setup Guide")}
                   </p>
-                  <ol className="mt-2 list-decimal list-inside space-y-1.5 text-sm text-stone-600 dark:text-stone-300 2xl:mt-3 2xl:space-y-2 2xl:text-base">
+                  <ol className="mt-2 list-decimal list-outside ml-4 space-y-1 text-sm text-gray-600 dark:text-gray-300">
                     {metadata.setup_guide.map((step, index) => (
                       <li key={index} className="leading-relaxed">
                         {step}
@@ -539,26 +516,22 @@ export function ChannelPanel({ channelType, metadata }: ChannelPanelProps) {
           )}
 
           {/* Actions */}
-          <div className="flex flex-col gap-3 pt-2 sm:flex-row sm:items-center sm:justify-between 2xl:pt-3">
+          <div className="flex flex-col gap-2 pt-2 sm:flex-row sm:items-center sm:justify-between">
             <button
               onClick={handleDelete}
               disabled={!hasExistingConfig}
-              className="flex items-center justify-center gap-2 rounded-xl border border-red-200 bg-white px-4 py-2.5 text-sm font-medium text-red-600 transition-all hover:border-red-300 hover:bg-red-50 disabled:opacity-50 dark:border-red-900/50 dark:bg-stone-900 dark:text-red-400 dark:hover:bg-red-900/20 2xl:px-5 2xl:py-3 2xl:text-base"
+              className="btn-secondary !text-red-600 hover:!bg-red-50 disabled:opacity-50 dark:hover:!bg-red-900/20"
             >
-              <Trash2 className="h-4 w-4 2xl:h-5 2xl:w-5" />
+              <Trash2 size={16} />
               {t("common.delete")}
             </button>
 
             <button
               onClick={handleSave}
               disabled={isSaving}
-              className="flex items-center justify-center gap-2 rounded-xl bg-stone-900 px-6 py-2.5 text-sm font-medium text-stone-100 shadow-lg transition-all hover:bg-stone-800 disabled:opacity-50 dark:bg-stone-100 dark:text-stone-900 dark:hover:bg-stone-200 2xl:px-8 2xl:py-3 2xl:text-base"
+              className="btn-primary"
             >
-              {isSaving ? (
-                <Loader2 className="h-4 w-4 animate-spin 2xl:h-5 2xl:w-5" />
-              ) : (
-                <Save className="h-4 w-4 2xl:h-5 2xl:w-5" />
-              )}
+              {isSaving ? <LoadingSpinner size="sm" /> : <Save size={16} />}
               {t("common.save")}
             </button>
           </div>

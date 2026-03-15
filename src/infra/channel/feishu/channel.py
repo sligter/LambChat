@@ -9,212 +9,23 @@ import importlib.util
 import json
 import logging
 import threading
+import time
 from collections import OrderedDict
 from typing import Any, Callable, Optional
 
-from src.infra.channel.base import BaseChannel, UserChannelManager
-from src.infra.channel.channel_storage import ChannelStorage
+from src.infra.channel.base import BaseChannel
+from src.infra.channel.feishu.state import ConnectionState
+from src.infra.channel.feishu.utils import (
+    MSG_TYPE_MAP,
+    extract_post_content,
+    extract_share_card_content,
+)
 from src.kernel.schemas.channel import ChannelCapability, ChannelType
 from src.kernel.schemas.feishu import FeishuConfig, FeishuGroupPolicy
 
 logger = logging.getLogger(__name__)
+
 FEISHU_AVAILABLE = importlib.util.find_spec("lark_oapi") is not None
-
-# Message type display mapping
-MSG_TYPE_MAP = {
-    "image": "[image]",
-    "audio": "[audio]",
-    "file": "[file]",
-    "sticker": "[sticker]",
-}
-
-
-def _extract_share_card_content(content_json: dict, msg_type: str) -> str:
-    """Extract text representation from share cards and interactive messages."""
-    parts = []
-
-    if msg_type == "share_chat":
-        parts.append(f"[shared chat: {content_json.get('chat_id', '')}]")
-    elif msg_type == "share_user":
-        parts.append(f"[shared user: {content_json.get('user_id', '')}]")
-    elif msg_type == "interactive":
-        parts.extend(_extract_interactive_content(content_json))
-    elif msg_type == "share_calendar_event":
-        parts.append(f"[shared calendar event: {content_json.get('event_key', '')}]")
-    elif msg_type == "system":
-        parts.append("[system message]")
-    elif msg_type == "merge_forward":
-        parts.append("[merged forward messages]")
-
-    return "\n".join(parts) if parts else f"[{msg_type}]"
-
-
-def _extract_interactive_content(content: dict) -> list[str]:
-    """Recursively extract text and links from interactive card content."""
-    parts = []
-
-    if isinstance(content, str):
-        try:
-            content = json.loads(content)
-        except (json.JSONDecodeError, TypeError):
-            return [content] if content.strip() else []
-
-    if not isinstance(content, dict):
-        return parts
-
-    if "title" in content:
-        title = content["title"]
-        if isinstance(title, dict):
-            title_content = title.get("content", "") or title.get("text", "")
-            if title_content:
-                parts.append(f"title: {title_content}")
-        elif isinstance(title, str):
-            parts.append(f"title: {title}")
-
-    for elements in (
-        content.get("elements", []) if isinstance(content.get("elements"), list) else []
-    ):
-        for element in elements:
-            parts.extend(_extract_element_content(element))
-
-    card = content.get("card", {})
-    if card:
-        parts.extend(_extract_interactive_content(card))
-
-    header = content.get("header", {})
-    if header:
-        header_title = header.get("title", {})
-        if isinstance(header_title, dict):
-            header_text = header_title.get("content", "") or header_title.get("text", "")
-            if header_text:
-                parts.append(f"title: {header_text}")
-
-    return parts
-
-
-def _extract_element_content(element: dict) -> list[str]:
-    """Extract content from a single card element."""
-    parts = []
-
-    if not isinstance(element, dict):
-        return parts
-
-    tag = element.get("tag", "")
-
-    if tag in ("markdown", "lark_md"):
-        content = element.get("content", "")
-        if content:
-            parts.append(content)
-
-    elif tag == "div":
-        text = element.get("text", {})
-        if isinstance(text, dict):
-            text_content = text.get("content", "") or text.get("text", "")
-            if text_content:
-                parts.append(text_content)
-        elif isinstance(text, str):
-            parts.append(text)
-        for field in element.get("fields", []):
-            if isinstance(field, dict):
-                field_text = field.get("text", {})
-                if isinstance(field_text, dict):
-                    c = field_text.get("content", "")
-                    if c:
-                        parts.append(c)
-
-    elif tag == "a":
-        href = element.get("href", "")
-        text = element.get("text", "")
-        if href:
-            parts.append(f"link: {href}")
-        if text:
-            parts.append(text)
-
-    elif tag == "button":
-        text = element.get("text", {})
-        if isinstance(text, dict):
-            c = text.get("content", "")
-            if c:
-                parts.append(c)
-        url = element.get("url", "") or element.get("multi_url", {}).get("url", "")
-        if url:
-            parts.append(f"link: {url}")
-
-    elif tag == "img":
-        alt = element.get("alt", {})
-        parts.append(alt.get("content", "[image]") if isinstance(alt, dict) else "[image]")
-
-    elif tag == "note":
-        for ne in element.get("elements", []):
-            parts.extend(_extract_element_content(ne))
-
-    elif tag == "column_set":
-        for col in element.get("columns", []):
-            for ce in col.get("elements", []):
-                parts.extend(_extract_element_content(ce))
-
-    elif tag == "plain_text":
-        content = element.get("content", "")
-        if content:
-            parts.append(content)
-
-    else:
-        for ne in element.get("elements", []):
-            parts.extend(_extract_element_content(ne))
-
-    return parts
-
-
-def _extract_post_content(content_json: dict) -> tuple[str, list[str]]:
-    """Extract text and image keys from Feishu post (rich text) message."""
-
-    def _parse_block(block: dict) -> tuple[str | None, list[str]]:
-        if not isinstance(block, dict) or not isinstance(block.get("content"), list):
-            return None, []
-        texts, images = [], []
-        if title := block.get("title"):
-            texts.append(title)
-        for row in block["content"]:
-            if not isinstance(row, list):
-                continue
-            for el in row:
-                if not isinstance(el, dict):
-                    continue
-                tag = el.get("tag")
-                if tag in ("text", "a"):
-                    texts.append(el.get("text", ""))
-                elif tag == "at":
-                    texts.append(f"@{el.get('user_name', 'user')}")
-                elif tag == "img" and (key := el.get("image_key")):
-                    images.append(key)
-        return (" ".join(texts).strip() or None), images
-
-    # Unwrap optional {"post": ...} envelope
-    root = content_json
-    if isinstance(root, dict) and isinstance(root.get("post"), dict):
-        root = root["post"]
-    if not isinstance(root, dict):
-        return "", []
-
-    # Direct format
-    if "content" in root:
-        text, imgs = _parse_block(root)
-        if text or imgs:
-            return text or "", imgs
-
-    # Localized: prefer known locales, then fall back to any dict child
-    for key in ("zh_cn", "en_us", "ja_jp"):
-        if key in root:
-            text, imgs = _parse_block(root[key])
-            if text or imgs:
-                return text or "", imgs
-    for val in root.values():
-        if isinstance(val, dict):
-            text, imgs = _parse_block(val)
-            if text or imgs:
-                return text or "", imgs
-
-    return "", []
 
 
 class FeishuChannel(BaseChannel):
@@ -225,13 +36,28 @@ class FeishuChannel(BaseChannel):
     description = "Feishu/Lark enterprise communication platform"
     icon = "message-circle"
 
+    # Reconnection configuration
+    INITIAL_RECONNECT_DELAY = 1.0  # Initial delay in seconds
+    MAX_RECONNECT_DELAY = 60.0  # Maximum delay in seconds
+    RECONNECT_BACKOFF_FACTOR = 2.0  # Exponential backoff factor
+    HEALTH_CHECK_INTERVAL = 30.0  # Check connection health every 30 seconds
+    CONNECTION_TIMEOUT = 180.0  # Consider connection dead if no response for 3 minutes
+
     def __init__(self, config: FeishuConfig, message_handler: Optional[Callable] = None):
         super().__init__(config, message_handler)
         self._client: Any = None
         self._ws_client: Any = None
         self._ws_thread: threading.Thread | None = None
+        self._health_check_thread: threading.Thread | None = None
         self._loop: asyncio.AbstractEventLoop | None = None
         self._processed_message_ids: OrderedDict[str, None] = OrderedDict()
+
+        # Connection state tracking
+        self._connection_state = ConnectionState.DISCONNECTED
+        self._state_lock = threading.Lock()
+        self._last_activity_time = 0.0
+        self._reconnect_attempts = 0
+        self._current_reconnect_delay = self.INITIAL_RECONNECT_DELAY
 
     @classmethod
     def get_capabilities(cls) -> list[ChannelCapability]:
@@ -368,6 +194,53 @@ class FeishuChannel(BaseChannel):
             "Use WebSocket long connection (no public IP required)",
         ]
 
+    def _set_connection_state(self, new_state: ConnectionState) -> None:
+        """Update connection state with logging."""
+        with self._state_lock:
+            old_state = self._connection_state
+            if old_state != new_state:
+                self._connection_state = new_state
+                logger.info(
+                    f"Feishu connection state changed for user {self.config.user_id}: "
+                    f"{old_state.value} -> {new_state.value}"
+                )
+                # Reset reconnect delay on successful connection
+                if new_state == ConnectionState.CONNECTED:
+                    self._reconnect_attempts = 0
+                    self._current_reconnect_delay = self.INITIAL_RECONNECT_DELAY
+                    self._last_activity_time = time.time()
+
+    def _get_connection_state(self) -> ConnectionState:
+        """Get current connection state."""
+        with self._state_lock:
+            return self._connection_state
+
+    def _update_activity_time(self) -> None:
+        """Update last activity timestamp."""
+        self._last_activity_time = time.time()
+
+    def _get_reconnect_delay(self) -> float:
+        """Calculate reconnect delay with exponential backoff."""
+        delay = self._current_reconnect_delay
+        self._reconnect_attempts += 1
+        self._current_reconnect_delay = min(
+            self._current_reconnect_delay * self.RECONNECT_BACKOFF_FACTOR,
+            self.MAX_RECONNECT_DELAY,
+        )
+        return delay
+
+    def _reset_reconnect_delay(self) -> None:
+        """Reset reconnect delay to initial value."""
+        self._reconnect_attempts = 0
+        self._current_reconnect_delay = self.INITIAL_RECONNECT_DELAY
+
+    def _is_connection_healthy(self) -> bool:
+        """Check if connection is healthy based on activity."""
+        if self._last_activity_time == 0:
+            return True  # No activity recorded yet
+        elapsed = time.time() - self._last_activity_time
+        return elapsed < self.CONNECTION_TIMEOUT
+
     async def start(self) -> bool:
         """Start the Feishu bot with WebSocket long connection."""
         if not FEISHU_AVAILABLE:
@@ -386,6 +259,7 @@ class FeishuChannel(BaseChannel):
 
         self._running = True
         self._loop = asyncio.get_running_loop()
+        self._set_connection_state(ConnectionState.CONNECTING)
 
         # Create Lark client for sending messages
         self._client = (
@@ -413,37 +287,85 @@ class FeishuChannel(BaseChannel):
 
         # Start WebSocket client in a separate thread
         def run_ws():
-            import time
-
             import lark_oapi.ws.client as _lark_ws_client
 
             ws_loop = asyncio.new_event_loop()
             asyncio.set_event_loop(ws_loop)
             _lark_ws_client.loop = ws_loop
+
             try:
                 while self._running:
                     try:
+                        self._set_connection_state(ConnectionState.CONNECTING)
+                        logger.info(
+                            f"Feishu WebSocket connecting for user {self.config.user_id} "
+                            f"(attempt {self._reconnect_attempts + 1})"
+                        )
                         self._ws_client.start()
+                        # If start() returns normally, connection was established and then closed
+                        # Set to CONNECTED while the connection is active
+                        self._set_connection_state(ConnectionState.CONNECTED)
+                        # When start() returns, connection has ended
+                        if self._running:
+                            self._set_connection_state(ConnectionState.RECONNECTING)
+                            delay = self._get_reconnect_delay()
+                            logger.warning(
+                                f"Feishu WebSocket disconnected for user {self.config.user_id}, "
+                                f"reconnecting in {delay:.1f}s"
+                            )
+                            time.sleep(delay)
                     except Exception as e:
                         logger.warning(
                             f"Feishu WebSocket error for user {self.config.user_id}: {e}"
                         )
-                    if self._running:
-                        time.sleep(5)
+                        if self._running:
+                            self._set_connection_state(ConnectionState.RECONNECTING)
+                            delay = self._get_reconnect_delay()
+                            logger.info(
+                                f"Reconnecting in {delay:.1f}s (attempt {self._reconnect_attempts})"
+                            )
+                            time.sleep(delay)
+                # Loop exited, set final state
+                self._set_connection_state(ConnectionState.DISCONNECTED)
             finally:
                 ws_loop.close()
 
         self._ws_thread = threading.Thread(target=run_ws, daemon=True)
         self._ws_thread.start()
 
+        # Start health check thread
+        self._health_check_thread = threading.Thread(target=self._health_check_loop, daemon=True)
+        self._health_check_thread.start()
+
         logger.info(
             f"Feishu bot started for user {self.config.user_id} with WebSocket long connection"
         )
         return True
 
+    def _health_check_loop(self) -> None:
+        """Health check loop to detect zombie connections."""
+        while self._running:
+            time.sleep(self.HEALTH_CHECK_INTERVAL)
+            if not self._running:
+                break
+
+            state = self._get_connection_state()
+            if state == ConnectionState.CONNECTED:
+                if not self._is_connection_healthy():
+                    logger.warning(
+                        f"Feishu connection appears dead for user {self.config.user_id} "
+                        f"(no activity for {time.time() - self._last_activity_time:.0f}s), "
+                        "will attempt reconnect"
+                    )
+                    # The SDK should handle reconnection, but we log the issue
+                    self._set_connection_state(ConnectionState.RECONNECTING)
+                else:
+                    logger.debug(f"Feishu connection healthy for user {self.config.user_id}")
+
     async def stop(self) -> None:
         """Stop the Feishu bot."""
         self._running = False
+        self._set_connection_state(ConnectionState.DISCONNECTED)
         logger.info(f"Feishu bot stopped for user {self.config.user_id}")
 
     def _is_bot_mentioned(self, message: Any) -> bool:
@@ -571,7 +493,7 @@ class FeishuChannel(BaseChannel):
                     f"Failed to send Feishu {msg_type} message: code={response.code}, msg={response.msg}"
                 )
                 return False, None
-            # 返回 message_id (response.data 是属性，不是方法)
+            # Return message_id (response.data is an attribute, not a method)
             data = response.data
             message_id = data.message_id if data else None
             return True, message_id
@@ -608,7 +530,7 @@ class FeishuChannel(BaseChannel):
             reply_to_id: Optional message ID to reply to (for quote/reply)
         """
         try:
-            # 使用 ReplyMessageRequest API 进行回复
+            # Use ReplyMessageRequest API for replies
             if reply_to_id:
                 from lark_oapi.api.im.v1 import ReplyMessageRequest, ReplyMessageRequestBody
 
@@ -625,7 +547,7 @@ class FeishuChannel(BaseChannel):
                 )
                 response = self._client.im.v1.message.reply(request)
             else:
-                # 使用 CreateMessageRequest API 发送新消息
+                # Use CreateMessageRequest API for new messages
                 from lark_oapi.api.im.v1 import CreateMessageRequest, CreateMessageRequestBody
 
                 request = (
@@ -753,15 +675,28 @@ class FeishuChannel(BaseChannel):
 
         loop = asyncio.get_running_loop()
 
-        # 先尝试 update API（适用于文本消息）
+        # Try update API first (for text messages)
         success = await loop.run_in_executor(
             None, self._update_text_message_sync, message_id, content
         )
         if success:
             return True
 
-        # 降级到 patch API（仅适用于卡片消息）
+        # Fall back to patch API (for card messages only)
         return await loop.run_in_executor(None, self._patch_message_sync, message_id, text_body)
+
+    # File type mapping (consistent with nanobot)
+    _FILE_TYPE_MAP = {
+        ".opus": "opus",
+        ".mp4": "mp4",
+        ".pdf": "pdf",
+        ".doc": "doc",
+        ".docx": "doc",
+        ".xls": "xls",
+        ".xlsx": "xls",
+        ".ppt": "ppt",
+        ".pptx": "ppt",
+    }
 
     def _upload_file_sync(self, file_path: str, file_name: str) -> str | None:
         """Upload a file and return file_key."""
@@ -805,19 +740,6 @@ class FeishuChannel(BaseChannel):
         loop = asyncio.get_running_loop()
         return await loop.run_in_executor(None, self._upload_file_sync, file_path, file_name)
 
-    # 文件类型映射（与 nanobot 保持一致）
-    _FILE_TYPE_MAP = {
-        ".opus": "opus",
-        ".mp4": "mp4",
-        ".pdf": "pdf",
-        ".doc": "doc",
-        ".docx": "doc",
-        ".xls": "xls",
-        ".xlsx": "xls",
-        ".ppt": "ppt",
-        ".pptx": "ppt",
-    }
-
     def _upload_bytes_sync(self, file_data: bytes, file_name: str) -> str | None:
         """Upload file bytes and return file_key."""
         import os
@@ -826,7 +748,7 @@ class FeishuChannel(BaseChannel):
         from lark_oapi.api.im.v1 import CreateFileRequest, CreateFileRequestBody
 
         try:
-            # 将 bytes 包装成 BytesIO 对象
+            # Wrap bytes in BytesIO object
             file_obj = BytesIO(file_data)
             ext = os.path.splitext(file_name)[1].lower()
             file_type = self._FILE_TYPE_MAP.get(ext, "stream")
@@ -939,6 +861,11 @@ class FeishuChannel(BaseChannel):
 
     def _on_message_sync(self, data: Any) -> None:
         """Sync handler for incoming messages."""
+        # Update activity time to indicate connection is alive
+        self._update_activity_time()
+        # Set state to connected if not already
+        if self._get_connection_state() != ConnectionState.CONNECTED:
+            self._set_connection_state(ConnectionState.CONNECTED)
         if self._loop and self._loop.is_running():
             asyncio.run_coroutine_threadsafe(self._on_message(data), self._loop)
 
@@ -991,7 +918,7 @@ class FeishuChannel(BaseChannel):
                     content_parts.append(text)
 
             elif msg_type == "post":
-                text, _ = _extract_post_content(content_json)
+                text, _ = extract_post_content(content_json)
                 if text:
                     content_parts.append(text)
 
@@ -1006,7 +933,7 @@ class FeishuChannel(BaseChannel):
                 "system",
                 "merge_forward",
             ):
-                text = _extract_share_card_content(content_json, msg_type)
+                text = extract_share_card_content(content_json, msg_type)
                 if text:
                     content_parts.append(text)
 
@@ -1033,157 +960,3 @@ class FeishuChannel(BaseChannel):
 
         except Exception as e:
             logger.error(f"Error processing Feishu message for user {self.config.user_id}: {e}")
-
-
-class FeishuChannelManager(UserChannelManager):
-    """
-    Manager for all user Feishu channels.
-
-    Manages multiple Feishu bot connections, one per user.
-    """
-
-    channel_type = ChannelType.FEISHU
-    config_class = FeishuConfig
-
-    def __init__(self, message_handler: Optional[Callable] = None):
-        super().__init__(message_handler)
-        self._storage = ChannelStorage()
-        self._message_handler: Optional[Callable] = message_handler
-
-    @classmethod
-    def get_instance(cls) -> "FeishuChannelManager":
-        """Get the singleton instance, consistent with get_feishu_channel_manager()."""
-        return get_feishu_channel_manager()
-
-    def _dict_to_config(self, user_id: str, config_dict: dict[str, Any]) -> FeishuConfig:
-        """Convert a config dict to FeishuConfig."""
-        return FeishuConfig(
-            user_id=user_id,
-            app_id=config_dict.get("app_id") or "",
-            app_secret=config_dict.get("app_secret") or "",
-            encrypt_key=config_dict.get("encrypt_key") or "",
-            verification_token=config_dict.get("verification_token") or "",
-            react_emoji=config_dict.get("react_emoji") or "THUMBSUP",
-            group_policy=FeishuGroupPolicy(config_dict.get("group_policy") or "mention"),
-            enabled=config_dict.get("enabled", True),
-        )
-
-    async def start(self) -> None:
-        """Start all enabled Feishu channels."""
-        if not FEISHU_AVAILABLE:
-            logger.warning("Feishu SDK not installed. Run: pip install lark-oapi")
-            return
-
-        self._running = True
-
-        # Load all enabled configs from ChannelStorage
-        config_dicts = await self._storage.list_enabled_configs(ChannelType.FEISHU)
-        logger.info(f"Found {len(config_dicts)} enabled Feishu configurations")
-
-        for config_dict in config_dicts:
-            try:
-                user_id = config_dict.get("user_id")
-                if not user_id:
-                    logger.warning("Skipping config without user_id")
-                    continue
-
-                # Check if required fields are present (decryption may have failed)
-                app_id = config_dict.get("app_id") or ""
-                app_secret = config_dict.get("app_secret") or ""
-
-                if not app_id or not app_secret:
-                    logger.warning(
-                        f"Skipping Feishu config for user {user_id}: "
-                        "missing app_id or app_secret (decryption may have failed). "
-                        "Please re-save the channel configuration."
-                    )
-                    continue
-
-                config = self._dict_to_config(user_id, config_dict)
-                await self._start_user_client(config)
-            except Exception as e:
-                logger.error(
-                    f"Failed to start Feishu client for user {config_dict.get('user_id')}: {e}"
-                )
-
-    async def stop(self) -> None:
-        """Stop all Feishu channels."""
-        self._running = False
-
-        for user_id, client in list(self._channels.items()):
-            try:
-                await client.stop()
-            except Exception as e:
-                logger.error(f"Error stopping Feishu client for user {user_id}: {e}")
-
-        self._channels.clear()
-        await self._storage.close()
-
-    async def _start_user_client(self, config: FeishuConfig) -> bool:
-        """Start a user's Feishu client."""
-        if config.user_id in self._channels:
-            await self._channels[config.user_id].stop()
-
-        client = FeishuChannel(config, self._message_handler)
-        success = await client.start()
-
-        if success:
-            self._channels[config.user_id] = client
-            return True
-        return False
-
-    async def reload_user(self, user_id: str) -> bool:
-        """Reload a user's Feishu configuration and restart the client."""
-        config_dict = await self._storage.get_config(user_id, ChannelType.FEISHU)
-
-        # Stop existing client if any
-        if user_id in self._channels:
-            await self._channels[user_id].stop()
-            del self._channels[user_id]
-
-        # Start new client if enabled
-        if config_dict and config_dict.get("enabled", True):
-            config = self._dict_to_config(user_id, config_dict)
-            return await self._start_user_client(config)
-
-        return True
-
-    async def send_message(self, user_id: str, chat_id: str, content: str) -> bool:
-        """Send a message through a user's Feishu bot."""
-        client = self._channels.get(user_id)
-        if not client:
-            logger.warning(f"No Feishu client for user {user_id}")
-            return False
-
-        return await client.send_message(chat_id, content)
-
-    def is_connected(self, user_id: str) -> bool:
-        """Check if a user's Feishu bot is connected."""
-        return user_id in self._channels and self._channels[user_id]._running
-
-
-# Global instance
-_feishu_channel_manager: Optional[FeishuChannelManager] = None
-
-
-def get_feishu_channel_manager() -> FeishuChannelManager:
-    """Get the global Feishu channel manager instance."""
-    global _feishu_channel_manager
-    if _feishu_channel_manager is None:
-        _feishu_channel_manager = FeishuChannelManager()
-    return _feishu_channel_manager
-
-
-async def start_feishu_channels(message_handler=None) -> None:
-    """Start the Feishu channel manager with all enabled user bots."""
-    manager = get_feishu_channel_manager()
-    manager._message_handler = message_handler
-    await manager.start()
-
-
-async def stop_feishu_channels() -> None:
-    """Stop the Feishu channel manager."""
-    global _feishu_channel_manager
-    if _feishu_channel_manager:
-        await _feishu_channel_manager.stop()
-        _feishu_channel_manager = None

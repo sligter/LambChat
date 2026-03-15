@@ -285,7 +285,7 @@ class Presenter:
         agent_id = data.get("agent_id") if isinstance(data, dict) else None
         depth = data.get("depth") if isinstance(data, dict) else None
         if agent_id or (depth and depth > 0):
-            logger.info(
+            logger.debug(
                 f"[Presenter.emit] event_type={event_type}, agent_id={agent_id}, depth={depth}"
             )
         await self.save_event(event)

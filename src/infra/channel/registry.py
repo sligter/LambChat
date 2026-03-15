@@ -27,13 +27,27 @@ def discover_channel_modules() -> list[str]:
     Returns:
         List of module names that contain channel implementations.
     """
+    import os
+
     import src.infra.channel as pkg
 
-    return [
+    # Get modules (files)
+    modules = [
         name
         for _, name, ispkg in pkgutil.iter_modules(pkg.__path__)
         if name not in _INTERNAL and not ispkg
     ]
+
+    # Also discover packages (directories with __init__.py) in the channel directory
+    channel_dir = pkg.__path__[0]  # This is the channel directory itself
+    for item in os.listdir(channel_dir):
+        item_path = os.path.join(channel_dir, item)
+        if os.path.isdir(item_path) and item not in _INTERNAL:
+            init_file = os.path.join(item_path, "__init__.py")
+            if os.path.exists(init_file):
+                modules.append(item)
+
+    return modules
 
 
 def load_channel_class(module_name: str) -> Optional[type["BaseChannel"]]:

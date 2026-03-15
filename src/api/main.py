@@ -110,7 +110,7 @@ async def lifespan(app: FastAPI):
 
     # Start Feishu channels for all users with enabled configs
     try:
-        from src.infra.channel.feishu_handler import setup_feishu_handler
+        from src.infra.channel.feishu.handler import setup_feishu_handler
 
         await setup_feishu_handler(
             default_agent=settings.DEFAULT_AGENT,
@@ -155,7 +155,7 @@ async def lifespan(app: FastAPI):
 
     # 关闭 Feishu 渠道
     try:
-        from src.infra.channel.feishu_channel import stop_feishu_channels
+        from src.infra.channel.feishu import stop_feishu_channels
 
         await stop_feishu_channels()
         logger.info("Feishu channels stopped")

@@ -9,8 +9,7 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException
 
 from src.api.deps import get_current_user_required
-from src.infra.channel.feishu_channel import get_feishu_channel_manager
-from src.infra.channel.feishu_storage import FeishuStorage
+from src.infra.channel.feishu import FeishuStorage, get_feishu_channel_manager
 from src.kernel.schemas.feishu import (
     FeishuConfigCreate,
     FeishuConfigResponse,

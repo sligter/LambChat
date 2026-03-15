@@ -37,7 +37,7 @@ export function PanelHeader({
 }: PanelHeaderProps) {
   return (
     <div className="panel-header">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-3">
           {icon && (
             <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-stone-100 dark:bg-stone-800">
@@ -56,7 +56,7 @@ export function PanelHeader({
           </div>
         </div>
         {actions && (
-          <div className="flex flex-shrink-0 gap-1.5 sm:gap-2">
+          <div className="flex flex-nowrap flex-shrink-0 gap-1.5 sm:gap-2">
             {actions}
           </div>
         )}
