@@ -73,52 +73,6 @@ def _schedule_auto_retain(
     )
 
 
-async def _proactive_recall(user_input: str, user_id: str | None) -> str:
-    """
-    主动召回相关记忆。
-
-    在每次代理响应前，根据用户输入召回相关记忆（最多 1024 token）。
-    """
-    if not settings.HINDSIGHT_ENABLED or not user_id:
-        return ""
-
-    try:
-        from src.infra.memory.hindsight import get_hindsight_client
-
-        client = await get_hindsight_client()
-        if not client:
-            return ""
-
-        from src.infra.memory.hindsight import _get_bank_id, _with_retry
-
-        bank_id = _get_bank_id(user_id)
-
-        results = await _with_retry(
-            lambda: client.recall(
-                bank_id=bank_id,
-                query=user_input[:200],
-                max_tokens=1024,
-                budget="low",
-            )
-        )
-
-        if not results or not results.results:
-            return ""
-
-        memories = []
-        for r in results.results[:3]:
-            memories.append(f"- {r.text}")
-
-        if memories:
-            return "**Relevant Memories:**\n" + "\n".join(memories)
-
-        return ""
-
-    except Exception as e:
-        logger.warning(f"[SearchAgent] Proactive recall failed: {e}")
-        return ""
-
-
 # ============================================================================
 # 消息构建工具
 # ============================================================================
@@ -352,7 +306,9 @@ async def agent_node(state: Dict[str, Any], config: RunnableConfig) -> Dict[str,
             "base_url": configurable.get("base_url", ""),  # 传递 base_url 给工具使用
             "presenter": presenter,  # 传递 presenter 给工具调用
         },
-        "recursion_limit": config.get("recursion_limit", settings.SESSION_MAX_RUNS_PER_SESSION),
+        "recursion_limit": config.get(
+            "recursion_limit", settings.SESSION_MAX_RUNS_PER_SESSION
+        ),
     }
 
     # 从内层 graph 的 checkpoint 获取历史消息
@@ -363,16 +319,8 @@ async def agent_node(state: Dict[str, Any], config: RunnableConfig) -> Dict[str,
     user_input = state.get("input", "")
     new_message = _build_human_message(user_input, attachments)
 
-    # 不含记忆的消息列表（用于保存）
-    clean_messages = existing_messages + [new_message]
-
-    # 主动召回相关记忆，作为独立 HumanMessage 注入（仅用于推理，不参与保存）
-    recalled_memories = await _proactive_recall(user_input, context.user_id)
-    if recalled_memories:
-        memory_message = HumanMessage(content=f"[memory context]\n{recalled_memories}")
-        all_messages = existing_messages + [memory_message, new_message]
-    else:
-        all_messages = clean_messages
+    # 消息列表（记忆召回改为由 agent 通过 tool 主动触发）
+    all_messages = existing_messages + [new_message]
 
     # 传递 messages
     inner_config["configurable"]["messages"] = existing_messages
@@ -399,7 +347,9 @@ async def agent_node(state: Dict[str, Any], config: RunnableConfig) -> Dict[str,
     inner_state = await inner_graph.aget_state(inner_config)
     new_messages = inner_state.values.get("messages", [])
 
-    final_messages = new_messages if len(new_messages) > len(clean_messages) else clean_messages
+    final_messages = (
+        new_messages if len(new_messages) > len(all_messages) else all_messages
+    )
 
     # 自动记忆存储（异步，不阻塞响应）
     _schedule_auto_retain(user_input, event_processor.output_text, context.user_id)
@@ -442,7 +392,9 @@ async def _create_backend_and_prompt(
             logger.warning(f"Failed to build skills prompt: {e}")
 
     # 构建记忆系统提示
-    memory_guide = HINDSIGHT_MEMORY_SECTION if settings.HINDSIGHT_ENABLED else EMPTY_MEMORY_SECTION
+    memory_guide = (
+        HINDSIGHT_MEMORY_SECTION if settings.HINDSIGHT_ENABLED else EMPTY_MEMORY_SECTION
+    )
 
     # 根据设置决定是否使用长期存储
     if settings.ENABLE_LONG_TERM_STORAGE:
@@ -461,10 +413,16 @@ async def _create_backend_and_prompt(
             logger.info(
                 f"Sandbox disabled, using CompositeBackend with PostgresStore for assistant: {assistant_id}"
             )
-            backend_factory = create_postgres_backend_factory(assistant_id, user_id=user_id)
+            backend_factory = create_postgres_backend_factory(
+                assistant_id, user_id=user_id
+            )
         else:
-            logger.info(f"Sandbox disabled, using in-memory backend for assistant: {assistant_id}")
-            backend_factory = create_memory_backend_factory(assistant_id, user_id=user_id)
+            logger.info(
+                f"Sandbox disabled, using in-memory backend for assistant: {assistant_id}"
+            )
+            backend_factory = create_memory_backend_factory(
+                assistant_id, user_id=user_id
+            )
         return (
             backend_factory,
             DEFAULT_SYSTEM_PROMPT.replace("{skills}", skills_prompt).replace(
@@ -500,7 +458,9 @@ async def _create_backend_and_prompt(
         except Exception as e:
             logger.warning(f"Failed to emit sandbox:ready event: {e}")
 
-        logger.info(f"Sandbox enabled, using sandbox backend for assistant: {assistant_id}")
+        logger.info(
+            f"Sandbox enabled, using sandbox backend for assistant: {assistant_id}"
+        )
 
         # 格式化沙箱提示词，注入 work_dir, skills 和 memory_guide
         system_prompt = (
@@ -510,7 +470,9 @@ async def _create_backend_and_prompt(
         )
         # sandbox_backend 是 CompositeBackend(default=DaytonaBackend)，需要提取出 DaytonaBackend
         return (
-            create_sandbox_backend_factory(sandbox_backend.default, assistant_id, user_id=user_id),
+            create_sandbox_backend_factory(
+                sandbox_backend.default, assistant_id, user_id=user_id
+            ),
             system_prompt,
             store,
         )

@@ -7,11 +7,10 @@ Search Agent 系统提示词
 HINDSIGHT_MEMORY_SECTION = """
 ## Cross-Session Memory
 
-Tools: `memory_retain`(store), `memory_recall`(search), `memory_reflect`(synthesize), `memory_list`(browse), `memory_delete`(remove)
+Tools: `memory_retain`(store), `memory_recall`(search), `memory_delete`(remove)
 
-Store: preferences, personal details, project contexts, recurring patterns
-Recall: at conversation start, before new tasks, when referencing past discussions
-Best practices: proactive recall, selective storage, use context param, respect delete requests
+- `memory_recall`: When you feel you lack context about the user (e.g., their preferences, past projects, ongoing tasks), call `memory_recall` to search for relevant memories. Do NOT call it proactively at the start of every conversation — only when you genuinely need additional context to provide a better response.
+- `memory_retain`: Store important user information (preferences, personal details, project contexts, recurring patterns). Be selective — don't store trivial or ephemeral information.
 """
 
 EMPTY_MEMORY_SECTION = ""
