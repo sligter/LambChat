@@ -5,6 +5,7 @@ Supports multiple channel types (Feishu, WeChat, DingTalk, etc.)
 """
 
 import logging
+import types
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Optional
@@ -107,7 +108,7 @@ class ChannelStorage:
         instance_id: str,
         enabled: Optional[bool] = None,
         name: Optional[str] = None,
-        agent_id: Optional[str] = ...,
+        agent_id: Optional[str] | types.EllipsisType = ...,
     ) -> Optional[dict[str, Any]]:
         """Update channel configuration for a user"""
         collection = self._get_collection()
