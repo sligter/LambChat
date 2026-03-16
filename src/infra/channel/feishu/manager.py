@@ -3,7 +3,7 @@ Feishu channel manager for managing multiple user bot connections.
 """
 
 import logging
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Optional, cast
 
 from src.infra.channel.base import UserChannelManager
 from src.infra.channel.channel_storage import ChannelStorage
@@ -179,11 +179,11 @@ class FeishuChannelManager(UserChannelManager):
         if instance_id:
             channel = self._channels.get(f"{user_id}:{instance_id}")
             if channel:
-                return channel
+                return cast(FeishuChannel, channel)
 
         channel = self._channels.get(user_id)
         if channel:
-            return channel
+            return cast(FeishuChannel, channel)
 
         # Fallback: find first channel whose key starts with "user_id:"
         prefix = f"{user_id}:"
@@ -192,7 +192,7 @@ class FeishuChannelManager(UserChannelManager):
                 logger.debug(
                     f"[Feishu] _find_channel fallback: matched key '{key}' for user '{user_id}'"
                 )
-                return ch
+                return cast(FeishuChannel, ch)
 
         return None
 
