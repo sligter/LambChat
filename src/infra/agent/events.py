@@ -524,23 +524,24 @@ class AgentEventProcessor:
             return AgentEventProcessor._normalize_content(out)
 
         # 4. dict
-        update = out.get("update")
-        if isinstance(update, dict):
-            messages = update.get("messages")
-            if messages:
-                return AgentEventProcessor._process_messages(messages)
-            return update
+        if isinstance(out, dict):
+            update = out.get("update")
+            if isinstance(update, dict):
+                messages = update.get("messages")
+                if messages:
+                    return AgentEventProcessor._process_messages(messages)
+                return update
 
-        if "content" in out:
-            return AgentEventProcessor._normalize_content(out["content"])
+            if "content" in out:
+                return AgentEventProcessor._normalize_content(out["content"])
 
-        nested = out.get("output")
-        if nested is not None:
-            if isinstance(nested, dict):
-                return AgentEventProcessor._normalize_content(nested.get("content", nested))
-            return nested
+            nested = out.get("output")
+            if nested is not None:
+                if isinstance(nested, dict):
+                    return AgentEventProcessor._normalize_content(nested.get("content", nested))
+                return nested
 
-        return out
+            return out
 
     @staticmethod
     def _normalize_content(content: Any) -> Any:
@@ -620,13 +621,9 @@ class AgentEventProcessor:
                 content = getattr(msg, "content", "")
                 artifact = getattr(msg, "artifact", None)
 
-            # artifact 优先（结构化数据）— 仅在最终需要时序列化
+            # artifact 优先（结构化数据）
             if artifact is not None:
-                # 延迟 json.dumps：如果有 media blocks 会整体包装，避免无谓序列化
-                text_parts.append(None)  # 占位，下面统一处理
-                # 把 artifact 存到 media_blocks 用特殊标记
-                media_blocks.append(artifact)
-                has_media = True
+                text_parts.append(json.dumps(artifact, ensure_ascii=False))
                 continue
 
             if isinstance(content, str):
@@ -656,25 +653,13 @@ class AgentEventProcessor:
                             media_blocks.append(block)
                         has_media = True
             elif isinstance(content, dict):
-                text_parts.append(None)
-                media_blocks.append(content)
-                has_media = True
+                text_parts.append(json.dumps(content, ensure_ascii=False))
             else:
                 text_parts.append(str(content))
 
-        text_result = "\n".join(
-            json.dumps(p, ensure_ascii=False) if p is None else p for p in text_parts
-        )
+        text_result = "\n".join(text_parts)
 
         if has_media:
-            # 分离真正的 media blocks 和 artifact 占位
-            real_blocks: list[dict] = []
-            for b in media_blocks:
-                if isinstance(b, dict) and b.get("type") in _media:
-                    real_blocks.append(b)
-                else:
-                    # artifact 或其他 dict，序列化到 text
-                    pass
-            return {"text": text_result, "blocks": real_blocks} if real_blocks else text_result
+            return {"text": text_result, "blocks": media_blocks}
 
         return text_result
