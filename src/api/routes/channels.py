@@ -9,6 +9,7 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException
 
 from src.api.deps import get_current_user_required, require_permissions
+from src.infra.agent.config_storage import get_agent_config_storage
 from src.infra.channel.channel_storage import ChannelStorage
 from src.infra.channel.registry import get_registry
 from src.infra.role.storage import RoleStorage
@@ -32,6 +33,33 @@ router = APIRouter()
 async def get_channel_storage() -> ChannelStorage:
     """Dependency to get ChannelStorage"""
     return ChannelStorage()
+
+
+async def _validate_agent_id(agent_id: str | None, user: TokenPayload) -> None:
+    """Validate that the user has permission to use the specified agent."""
+    if not agent_id:
+        return
+
+    agent_storage = get_agent_config_storage()
+
+    # Check agent is globally enabled
+    global_agents = await agent_storage.get_global_config()
+    enabled_ids = {a.id for a in global_agents if a.enabled}
+    if agent_id not in enabled_ids:
+        raise HTTPException(status_code=400, detail=f"Agent '{agent_id}' is not available")
+
+    # Check agent is allowed for user's roles
+    if user.roles:
+        role_storage = RoleStorage()
+        allowed = set()
+        for role_name in user.roles:
+            role = await role_storage.get_by_name(role_name)
+            if role and role.allowed_agents:
+                allowed.update(role.allowed_agents)
+        if allowed and agent_id not in allowed:
+            raise HTTPException(
+                status_code=403, detail=f"Agent '{agent_id}' is not allowed for your role"
+            )
 
 
 @router.get("/types", response_model=ChannelTypeListResponse)
@@ -82,6 +110,7 @@ async def list_user_channels(
                         enabled=config.get("enabled", True),
                         config=masked_config,
                         capabilities=meta.get("capabilities", []),
+                        agent_id=config.get("agent_id"),
                         created_at=config.get("created_at"),
                         updated_at=config.get("updated_at"),
                     )
@@ -136,6 +165,7 @@ async def list_channel_instances(
                 enabled=config.get("enabled", True),
                 config=masked_config,
                 capabilities=metadata.get("capabilities", []),
+                agent_id=config.get("agent_id"),
                 created_at=config.get("created_at"),
                 updated_at=config.get("updated_at"),
             )
@@ -217,12 +247,16 @@ async def create_channel_instance(
 
     metadata = channel_class.get_metadata()
 
+    # Validate agent_id against user permissions
+    await _validate_agent_id(data.agent_id, user)
+
     try:
         config = await storage.create_config(
             user_id=user.sub,
             channel_type=channel_type,
             config=data.config,
             name=data.name.strip(),
+            agent_id=data.agent_id,
         )
 
         # Reload the channel client if manager exists
@@ -273,12 +307,21 @@ async def update_channel_instance(
             # Keep existing value for empty sensitive fields
             merged_config[field["name"]] = existing.get(field["name"])
 
+    # Validate agent_id if explicitly provided in the request
+    agent_id_value: str | None = ...  # type: ignore[assignment]
+    if "agent_id" in data.model_fields_set:
+        await _validate_agent_id(data.agent_id, user)
+        agent_id_value = data.agent_id
+    else:
+        agent_id_value = ...  # type: ignore[assignment]
+
     config = await storage.update_config(
         user_id=user.sub,
         channel_type=channel_type,
         config=merged_config,
         instance_id=instance_id,
         enabled=data.enabled,
+        agent_id=agent_id_value,
     )
 
     if not config:

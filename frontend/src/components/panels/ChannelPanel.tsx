@@ -21,6 +21,7 @@ import toast from "react-hot-toast";
 import { PanelHeader } from "../common/PanelHeader";
 import { LoadingSpinner } from "../common/LoadingSpinner";
 import { ConfirmDialog } from "../common/ConfirmDialog";
+import { ChannelAgentSelect } from "./channel/ChannelAgentSelect";
 import { channelApi } from "../../services/api/channel";
 import type {
   ChannelType,
@@ -58,6 +59,7 @@ export function ChannelPanel({
   const [enabled, setEnabled] = useState(false);
   const [hasExistingConfig, setHasExistingConfig] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [agentId, setAgentId] = useState<string | null>(null);
 
   const loadConfig = async () => {
     setIsLoading(true);
@@ -88,9 +90,11 @@ export function ChannelPanel({
         setEnabled(configResponse.enabled);
         setInstanceName(configResponse.name);
         setFormValues(configResponse.config || {});
+        setAgentId(configResponse.agent_id || null);
       } else {
         setHasExistingConfig(false);
         setEnabled(false);
+        setAgentId(null);
         const defaults: Record<string, unknown> = {};
         metadata.config_fields.forEach((field) => {
           if (field.default !== undefined) {
@@ -162,6 +166,7 @@ export function ChannelPanel({
         const updated = await channelApi.update(channelType, instanceId, {
           config: configData,
           enabled,
+          agent_id: agentId,
         });
         setConfig(updated);
         const cleared = { ...formValues };
@@ -181,6 +186,7 @@ export function ChannelPanel({
           channel_type: channelType,
           name: instanceName.trim(),
           config: configData,
+          agent_id: agentId,
         });
         setConfig(created);
         setHasExistingConfig(true);
@@ -541,6 +547,9 @@ export function ChannelPanel({
 
                 {/* Dynamic Fields */}
                 {metadata.config_fields.map(renderField)}
+
+                {/* Agent Selector */}
+                <ChannelAgentSelect value={agentId} onChange={setAgentId} />
               </div>
             </div>
 

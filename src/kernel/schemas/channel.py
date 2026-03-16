@@ -85,6 +85,7 @@ class ChannelConfigCreate(BaseModel):
     channel_type: ChannelType
     name: str = Field(description="User-defined name for this channel instance")
     config: dict[str, Any]  # Channel-specific config as dict
+    agent_id: Optional[str] = Field(None, description="Agent ID to use for this channel instance")
 
 
 class ChannelConfigUpdate(BaseModel):
@@ -94,6 +95,7 @@ class ChannelConfigUpdate(BaseModel):
 
     config: dict[str, Any]
     enabled: Optional[bool] = None
+    agent_id: Optional[str] = Field(None, description="Agent ID to use for this channel instance")
 
 
 class ChannelConfigResponse(BaseModel):
@@ -106,6 +108,7 @@ class ChannelConfigResponse(BaseModel):
     enabled: bool
     config: dict[str, Any]  # Masked config for display
     capabilities: list[ChannelCapability]
+    agent_id: Optional[str] = Field(None, description="Agent ID used by this channel instance")
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 

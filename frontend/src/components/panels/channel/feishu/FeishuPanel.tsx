@@ -15,6 +15,7 @@ import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 import { PanelHeader } from "../../../common/PanelHeader";
 import { LoadingSpinner } from "../../../common/LoadingSpinner";
+import { ChannelAgentSelect } from "../ChannelAgentSelect";
 import { channelApi } from "../../../../services/api/channel";
 import type {
   ChannelConfigResponse,
@@ -81,6 +82,7 @@ export function FeishuPanel({
   const [customEmoji, setCustomEmoji] = useState("");
   const [useCustomEmoji, setUseCustomEmoji] = useState(false);
   const [groupPolicy, setGroupPolicy] = useState<"open" | "mention">("mention");
+  const [agentId, setAgentId] = useState<string | null>(null);
 
   // Track if config exists
   const [hasExistingConfig, setHasExistingConfig] = useState(false);
@@ -115,6 +117,7 @@ export function FeishuPanel({
       setEncryptKey(feishuConfig?.encrypt_key || "");
       setVerificationToken(feishuConfig?.verification_token || "");
       setGroupPolicy(feishuConfig?.group_policy || "mention");
+      setAgentId(initialConfig.agent_id || null);
 
       const emojiValue = (feishuConfig?.react_emoji as string) || "THUMBSUP";
       const isPredefined = PREDEFINED_EMOJIS.some(
@@ -140,6 +143,7 @@ export function FeishuPanel({
       setCustomEmoji("");
       setUseCustomEmoji(false);
       setGroupPolicy("mention");
+      setAgentId(null);
     }
 
     if (initialStatus) {
@@ -184,6 +188,7 @@ export function FeishuPanel({
         setEncryptKey(feishuConfig.encrypt_key || "");
         setVerificationToken(feishuConfig.verification_token || "");
         setGroupPolicy(feishuConfig.group_policy || "mention");
+        setAgentId(configResponse.agent_id || null);
 
         // Check if the emoji is a predefined one or custom
         const emojiValue = feishuConfig?.react_emoji || "THUMBSUP";
@@ -210,6 +215,7 @@ export function FeishuPanel({
         setCustomEmoji("");
         setUseCustomEmoji(false);
         setGroupPolicy("mention");
+        setAgentId(null);
       }
 
       setStatus(statusResponse);
@@ -276,6 +282,7 @@ export function FeishuPanel({
 
         const updated = await channelApi.update("feishu", instanceId, {
           config: updateData,
+          agent_id: agentId,
         });
         const feishuConfig = updated.config as FeishuConfigResponse;
         setConfig(feishuConfig);
@@ -293,6 +300,7 @@ export function FeishuPanel({
             react_emoji: emojiValue,
             group_policy: groupPolicy,
           },
+          agent_id: agentId,
         });
         const feishuConfig = created.config as FeishuConfigResponse;
         setConfig(feishuConfig);
@@ -730,6 +738,11 @@ export function FeishuPanel({
                 </div>
               </div>
             </div>
+          </div>
+
+          {/* Agent Selector */}
+          <div className="rounded-xl border border-gray-200 bg-white p-4 dark:border-stone-700 dark:bg-stone-800">
+            <ChannelAgentSelect value={agentId} onChange={setAgentId} />
           </div>
 
           {/* Help Card */}

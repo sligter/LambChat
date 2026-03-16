@@ -71,6 +71,7 @@ class ChannelStorage:
         config: dict[str, Any],
         name: str,
         enabled: bool = True,
+        agent_id: str | None = None,
     ) -> dict[str, Any]:
         """Create channel configuration for a user"""
         collection = self._get_collection()
@@ -86,6 +87,7 @@ class ChannelStorage:
             "name": name,
             "config": self._encrypt_config(config),
             "enabled": enabled,
+            "agent_id": agent_id,
             "created_at": now,
             "updated_at": now,
         }
@@ -105,6 +107,7 @@ class ChannelStorage:
         instance_id: str,
         enabled: Optional[bool] = None,
         name: Optional[str] = None,
+        agent_id: Optional[str] = ...,
     ) -> Optional[dict[str, Any]]:
         """Update channel configuration for a user"""
         collection = self._get_collection()
@@ -124,6 +127,8 @@ class ChannelStorage:
             update_data["enabled"] = enabled
         if name is not None:
             update_data["name"] = name
+        if agent_id is not ...:
+            update_data["agent_id"] = agent_id
 
         await collection.update_one(
             {"user_id": user_id, "channel_type": channel_type.value, "instance_id": instance_id},
@@ -185,6 +190,7 @@ class ChannelStorage:
             enabled=config.get("enabled", True),
             config=masked_config,
             capabilities=metadata.get("capabilities", []) if metadata else [],
+            agent_id=config.get("agent_id"),
             created_at=config.get("created_at"),
             updated_at=config.get("updated_at"),
         )
@@ -285,6 +291,7 @@ class ChannelStorage:
             "name": doc.get("name"),
             **decrypted_config,
             "enabled": doc.get("enabled", True),
+            "agent_id": doc.get("agent_id"),
             "created_at": doc.get("created_at"),
             "updated_at": doc.get("updated_at"),
         }

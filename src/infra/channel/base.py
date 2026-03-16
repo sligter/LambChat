@@ -162,12 +162,18 @@ class BaseChannel(ABC):
             return
 
         try:
+            enriched_metadata = metadata or {}
+            # Include instance_id so handlers can look up per-channel config
+            instance_id = getattr(self.config, "instance_id", None)
+            if instance_id and "instance_id" not in enriched_metadata:
+                enriched_metadata["instance_id"] = instance_id
+
             await self.message_handler(
                 user_id=self.user_id,
                 sender_id=sender_id,
                 chat_id=chat_id,
                 content=content,
-                metadata=metadata or {},
+                metadata=enriched_metadata,
             )
         except Exception as e:
             logger.error(f"Error handling message on {self.channel_type}: {e}")

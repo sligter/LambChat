@@ -53,6 +53,7 @@ export interface ChannelConfigResponse {
   enabled: boolean;
   config: Record<string, unknown>;
   capabilities: ChannelCapability[];
+  agent_id?: string | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -69,11 +70,13 @@ export interface ChannelConfigCreate {
   channel_type: ChannelType;
   name: string;
   config: Record<string, unknown>;
+  agent_id?: string | null;
 }
 
 export interface ChannelConfigUpdate {
   config: Record<string, unknown>;
   enabled?: boolean;
+  agent_id?: string | null;
 }
 
 export interface ChannelTypeListResponse {

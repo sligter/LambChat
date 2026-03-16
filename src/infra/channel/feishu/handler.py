@@ -312,6 +312,19 @@ def create_feishu_message_handler(
 
             original_message_id = metadata.get("message_id")
 
+            # Resolve agent: use per-channel agent_id if configured, else global default
+            agent_to_use = default_agent
+            instance_id = metadata.get("instance_id")
+            if instance_id:
+                from src.infra.channel.channel_storage import ChannelStorage
+                from src.kernel.schemas.channel import ChannelType
+
+                ch_storage = ChannelStorage()
+                ch_config = await ch_storage.get_config(user_id, ChannelType.FEISHU, instance_id)
+                if ch_config and ch_config.get("agent_id"):
+                    agent_to_use = ch_config["agent_id"]
+                    logger.info(f"[Feishu] Using channel agent: {agent_to_use} for instance {instance_id}")
+
             collector = FeishuResponseCollector(
                 manager=manager,
                 user_id=user_id,
@@ -343,7 +356,7 @@ def create_feishu_message_handler(
 
             run_id, _ = await task_manager.submit(
                 session_id=session_id,
-                agent_id=default_agent,
+                agent_id=agent_to_use,
                 message=content,
                 user_id=user_id,
                 executor=executor,
