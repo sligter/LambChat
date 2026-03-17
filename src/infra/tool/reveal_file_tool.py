@@ -123,48 +123,6 @@ async def _download_file_from_backend(backend: Any, file_path: str) -> Optional[
     return None
 
 
-def _normalize_file_path(file_path: str, work_dir: Optional[str] = None) -> tuple[str, list[str]]:
-    """
-    规范化文件路径，返回 (主要路径, 备选路径列表)
-    
-    处理以下情况：
-    1. ~ 开头 -> 替换为 work_dir 或 /home/user
-    2. 相对路径 -> 基于 work_dir 解析
-    3. 绝对路径 -> 保持不变
-    """
-    tried_paths = []
-    
-    # 处理 ~ 开头的路径
-    if file_path.startswith("~/"):
-        if work_dir:
-            normalized = work_dir + file_path[1:]  # 替换 ~ 为 work_dir
-            tried_paths.append(normalized)
-        tried_paths.append(file_path)  # 也尝试原始路径
-        return tried_paths[0], tried_paths[1:]
-    
-    # 处理相对路径
-    if not file_path.startswith("/"):
-        if work_dir:
-            # 确保路径以 / 开头
-            normalized = work_dir.rstrip("/") + "/" + file_path
-            tried_paths.append(normalized)
-        tried_paths.append(file_path)
-        return tried_paths[0], tried_paths[1:]
-    
-    # 绝对路径
-    return file_path, []
-
-
-def _get_work_dir_from_backend(backend: Any) -> Optional[str]:
-    """从 backend 获取工作目录"""
-    if hasattr(backend, "work_dir"):
-        return backend.work_dir
-    # CompositeBackend 可能需要访问 default backend
-    if hasattr(backend, "_default") and hasattr(backend._default, "work_dir"):
-        return backend._default.work_dir
-    return None
-
-
 @tool
 async def reveal_file(
     file_path: Annotated[str, "要展示的文件路径（绝对路径或相对于工作目录的路径）"],
@@ -205,55 +163,21 @@ async def reveal_file(
         return json.dumps(result, ensure_ascii=False)
 
     try:
-        # 获取沙箱工作目录
-        work_dir = _get_work_dir_from_backend(backend)
-        logger.info(f"[reveal_file] work_dir={work_dir}, original_path={file_path}")
-        
-        # 规范化路径
-        primary_path, fallback_paths = _normalize_file_path(file_path, work_dir)
-        all_paths = [primary_path] + fallback_paths
-        
-        # 尝试所有可能的路径
-        file_content = None
-        used_path = None
-        tried_paths = []
-        
-        for path in all_paths:
-            tried_paths.append(path)
-            file_content = await _download_file_from_backend(backend, path)
-            if file_content:
-                used_path = path
-                logger.info(f"[reveal_file] Successfully read file from: {path}")
-                break
-            else:
-                logger.info(f"[reveal_file] File not found at: {path}")
+        file_content = await _download_file_from_backend(backend, file_path)
 
         if file_content is None:
             logger.error(f"Failed to read file {file_path} from backend")
-            
-            # 构建更详细的错误信息
-            error_detail = "file_not_found_or_empty"
-            if work_dir:
-                error_detail = (
-                    f"file_not_found_or_empty. "
-                    f"Tried paths: {tried_paths}. "
-                    f"Sandbox work_dir: {work_dir}. "
-                    f"Note: Sandbox can only access files under work_dir or /tmp"
-                )
-            
             result = {
                 "type": "file_reveal",
                 "file": {
                     "path": file_path,
                     "description": description or "",
-                    "error": error_detail,
-                    "tried_paths": tried_paths,
-                    "work_dir": work_dir,
+                    "error": "file_not_found_or_empty",
                 },
             }
             return json.dumps(result, ensure_ascii=False)
 
-        filename = used_path.split("/")[-1]
+        filename = file_path.split("/")[-1]
         mime_type = get_mime_type(filename)
 
         upload_result = await storage.upload_bytes(
@@ -286,12 +210,11 @@ async def reveal_file(
             "mimeType": upload_result.content_type or mime_type,
             "size": upload_result.size,
             "_meta": {
-                "path": used_path,
-                "original_path": file_path,
+                "path": file_path,
                 "description": description or "",
             },
         }
-        logger.info(f"Successfully uploaded {used_path} to S3: {upload_result.url}")
+        logger.info(f"Successfully uploaded {file_path} to S3: {upload_result.url}")
         return json.dumps(result, ensure_ascii=False)
 
     except Exception as e:
