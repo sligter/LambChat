@@ -106,7 +106,7 @@ class FeishuResponseCollector:
         """构建飞书卡片消息内容
 
         卡片结构:
-        1. 主要内容（经过 markdown 适配）
+        1. 主要内容（使用 markdown 标签，原生支持代码块、表格等）
         2. 分隔线
         3. 工具使用 + 文件信息（元数据区域）
         """
@@ -117,7 +117,8 @@ class FeishuResponseCollector:
             raw_content = "".join(self.text_parts)
             # 使用 markdown 适配器处理内容
             adapted_content = FeishuMarkdownAdapter.adapt(raw_content)
-            elements.append({"tag": "div", "text": {"tag": "lark_md", "content": adapted_content}})
+            # 使用 markdown 标签（支持代码块、表格等标准 markdown 语法）
+            elements.append({"tag": "markdown", "content": adapted_content})
 
         # ===== 元数据区域（工具 + 文件）=====
         metadata_parts = []
@@ -137,7 +138,7 @@ class FeishuResponseCollector:
         if metadata_parts:
             elements.append({"tag": "hr"})
             elements.append(
-                {"tag": "div", "text": {"tag": "lark_md", "content": " · ".join(metadata_parts)}}
+                {"tag": "markdown", "content": " · ".join(metadata_parts)}
             )
 
         # 如果没有任何内容

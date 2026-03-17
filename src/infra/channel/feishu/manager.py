@@ -28,6 +28,8 @@ class FeishuChannelManager(UserChannelManager):
         super().__init__(message_handler)
         self._storage = ChannelStorage()
         self._message_handler: Optional[Callable] = message_handler
+        # Track active app_ids to prevent duplicate bot connections
+        self._active_app_ids: dict[str, str] = {}  # app_id -> channel_key
 
     @classmethod
     def get_instance(cls) -> "FeishuChannelManager":
@@ -104,6 +106,7 @@ class FeishuChannelManager(UserChannelManager):
                 logger.error(f"Error stopping Feishu client for user {user_id}: {e}")
 
         self._channels.clear()
+        self._active_app_ids.clear()
         await self._storage.close()
 
     async def _start_user_client(self, config: FeishuConfig) -> bool:
@@ -113,14 +116,30 @@ class FeishuChannelManager(UserChannelManager):
             f"{config.user_id}:{config.instance_id}" if config.instance_id else config.user_id
         )
 
+        # Prevent duplicate bot connections: same app_id should only have one active channel
+        app_id = config.app_id
+        if app_id in self._active_app_ids:
+            existing_key = self._active_app_ids[app_id]
+            if existing_key != channel_key and existing_key in self._channels:
+                logger.warning(
+                    f"[Feishu] Duplicate bot detected: app_id={app_id} already active "
+                    f"as '{existing_key}', skipping '{channel_key}'"
+                )
+                return False
+
         if channel_key in self._channels:
             await self._channels[channel_key].stop()
+            # Clean up old app_id tracking
+            old_app_id = getattr(self._channels[channel_key].config, "app_id", None)
+            if old_app_id and old_app_id in self._active_app_ids:
+                del self._active_app_ids[old_app_id]
 
         client = FeishuChannel(config, self._message_handler)
         success = await client.start()
 
         if success:
             self._channels[channel_key] = client
+            self._active_app_ids[app_id] = channel_key
             return True
         return False
 
@@ -136,6 +155,10 @@ class FeishuChannelManager(UserChannelManager):
             # Check if this specific instance has an active connection
             channel_key = f"{user_id}:{instance_id}"
             if channel_key in self._channels:
+                # Clean up app_id tracking
+                old_app_id = getattr(self._channels[channel_key].config, "app_id", None)
+                if old_app_id and self._active_app_ids.get(old_app_id) == channel_key:
+                    del self._active_app_ids[old_app_id]
                 await self._channels[channel_key].stop()
                 del self._channels[channel_key]
                 logger.info(f"Stopped Feishu client for {channel_key}")
@@ -154,6 +177,10 @@ class FeishuChannelManager(UserChannelManager):
         # Stop all existing clients
         for key in list(self._channels.keys()):
             if key.startswith(user_id):
+                # Clean up app_id tracking
+                old_app_id = getattr(self._channels[key].config, "app_id", None)
+                if old_app_id and self._active_app_ids.get(old_app_id) == key:
+                    del self._active_app_ids[old_app_id]
                 await self._channels[key].stop()
                 del self._channels[key]
 
