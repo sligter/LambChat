@@ -4,13 +4,75 @@
 提供角色的数据库操作。
 """
 
+import json
 from datetime import datetime
 from typing import Any, Optional
 
+from src.infra.logging import get_logger
 from src.kernel.config import settings
 from src.kernel.exceptions import NotFoundError, ValidationError
-from src.kernel.schemas.role import Role, RoleCreate, RoleUpdate
+from src.kernel.schemas.role import Role, RoleCreate, RoleLimits, RoleUpdate
 from src.kernel.types import Permission
+
+logger = get_logger(__name__)
+
+# 角色对象缓存 key 前缀和 TTL（按角色名缓存，所有调用方共享）
+_ROLE_OBJ_CACHE_PREFIX = "role:obj:"
+_ROLE_OBJ_VERSION_PREFIX = "role:obj_ver:"
+_ROLE_OBJ_CACHE_TTL = 300  # 5 分钟
+
+
+async def _get_redis():
+    """延迟获取 Redis 客户端，避免模块级循环导入。"""
+    from src.infra.storage.redis import get_redis_client
+
+    return get_redis_client()
+
+
+def _role_to_cache_dict(role: Role) -> dict:
+    """将 Role 对象序列化为 JSON 可存储的 dict。"""
+    return {
+        "id": role.id,
+        "name": role.name,
+        "description": role.description,
+        "permissions": [p if isinstance(p, str) else p.value for p in role.permissions],
+        "allowed_agents": role.allowed_agents,
+        "limits": role.limits.model_dump() if role.limits else None,
+        "is_system": role.is_system,
+        "created_at": role.created_at.isoformat()
+        if isinstance(role.created_at, datetime)
+        else str(role.created_at),
+        "updated_at": role.updated_at.isoformat()
+        if isinstance(role.updated_at, datetime)
+        else str(role.updated_at),
+    }
+
+
+def _cache_dict_to_role(data: dict | None) -> Role | None:
+    """将缓存 dict 反序列化为 Role 对象。"""
+    if data is None:
+        return None
+    if data.get("limits"):
+        data["limits"] = RoleLimits(**data["limits"])
+    if isinstance(data.get("created_at"), str):
+        data["created_at"] = datetime.fromisoformat(data["created_at"])
+    if isinstance(data.get("updated_at"), str):
+        data["updated_at"] = datetime.fromisoformat(data["updated_at"])
+    # 还原权限字符串为 Permission 枚举，与 DB 路径保持一致
+    if isinstance(data.get("permissions"), list):
+        data["permissions"] = _parse_permissions_static(data["permissions"])
+    return Role(**data)
+
+
+def _parse_permissions_static(permissions: list[str]) -> list[Permission]:
+    """模块级版本的权限解析（供 _cache_dict_to_role 使用）。"""
+    valid = []
+    for p in permissions:
+        try:
+            valid.append(Permission(p))
+        except ValueError:
+            pass
+    return valid
 
 
 class RoleStorage:
@@ -114,7 +176,7 @@ class RoleStorage:
 
     async def get_by_name(self, name: str) -> Optional[Role]:
         """
-        通过名称获取角色
+        通过名称获取角色（带 Redis 缓存）
 
         Args:
             name: 角色名称
@@ -122,14 +184,47 @@ class RoleStorage:
         Returns:
             角色对象或 None
         """
+        version: str = "0"
+
+        try:
+            redis = await _get_redis()
+            raw = await redis.get(f"{_ROLE_OBJ_VERSION_PREFIX}{name}")
+            version = raw or "0"
+            cache_key = f"{_ROLE_OBJ_CACHE_PREFIX}{name}:v{version}"
+
+            cached = await redis.get(cache_key)
+            if cached is not None:
+                logger.debug(f"[Role Cache] Hit for role {name}")
+                return _cache_dict_to_role(json.loads(cached))
+        except Exception as e:
+            logger.warning(f"[Role Cache] Redis get failed for role {name}: {e}")
+
+        # 缓存未命中，查询数据库
+        logger.debug(f"[Role Cache] Miss for role {name}")
         role_dict = await self.collection.find_one({"name": name})
 
         if not role_dict:
-            return None
+            result = None
+        else:
+            role_dict["id"] = str(role_dict.pop("_id"))
+            role_dict["permissions"] = self._parse_permissions(role_dict.get("permissions", []))
+            result = Role(**role_dict)
 
-        role_dict["id"] = str(role_dict.pop("_id"))
-        role_dict["permissions"] = self._parse_permissions(role_dict.get("permissions", []))
-        return Role(**role_dict)
+        # 写入缓存（CAS: 写入前重新检查版本号，避免 TOCTOU）
+        try:
+            redis = await _get_redis()
+            current_version = await redis.get(f"{_ROLE_OBJ_VERSION_PREFIX}{name}")
+            current_version = current_version or "0"
+            if current_version == version:
+                cache_key = f"{_ROLE_OBJ_CACHE_PREFIX}{name}:v{current_version}"
+                cache_data = json.dumps(_role_to_cache_dict(result) if result else None)
+                await redis.set(cache_key, cache_data, ex=_ROLE_OBJ_CACHE_TTL)
+            else:
+                logger.debug(f"[Role Cache] Version changed for role {name}, skip stale write")
+        except Exception as e:
+            logger.warning(f"[Role Cache] Redis set failed for role {name}: {e}")
+
+        return result
 
     async def update(self, role_id: str, role_data: RoleUpdate) -> Optional[Role]:
         """
@@ -185,7 +280,14 @@ class RoleStorage:
 
         result["id"] = str(result.pop("_id"))
         result["permissions"] = self._parse_permissions(result.get("permissions", []))
-        return Role(**result)
+        role = Role(**result)
+
+        # 写操作后自动失效缓存
+        await self.invalidate_cache(existing.name)
+        if role_data.name and role_data.name != existing.name:
+            await self.invalidate_cache(role_data.name)
+
+        return role
 
     async def delete(self, role_id: str) -> bool:
         """
@@ -208,6 +310,11 @@ class RoleStorage:
         from bson import ObjectId
 
         result = await self.collection.delete_one({"_id": ObjectId(role_id)})
+
+        # 删除后自动失效缓存
+        if existing:
+            await self.invalidate_cache(existing.name)
+
         return result.deleted_count > 0
 
     async def list_roles(
@@ -260,7 +367,7 @@ class RoleStorage:
 
     async def get_by_names(self, names: list[str]) -> list[Role]:
         """
-        通过名称列表批量获取角色
+        通过名称列表批量获取角色（每个角色独立走缓存）
 
         Args:
             names: 角色名称列表
@@ -270,15 +377,21 @@ class RoleStorage:
         """
         if not names:
             return []
-        cursor = self.collection.find({"name": {"$in": names}})
         roles = []
-
-        async for role_dict in cursor:
-            role_dict["id"] = str(role_dict.pop("_id"))
-            role_dict["permissions"] = self._parse_permissions(role_dict.get("permissions", []))
-            roles.append(Role(**role_dict))
-
+        for name in names:
+            role = await self.get_by_name(name)
+            if role:
+                roles.append(role)
         return roles
+
+    async def invalidate_cache(self, role_name: str) -> None:
+        """使指定角色的缓存失效（递增版本号）"""
+        try:
+            redis = await _get_redis()
+            await redis.incr(f"{_ROLE_OBJ_VERSION_PREFIX}{role_name}")
+            logger.info(f"[Role Cache] Invalidated cache for role {role_name}")
+        except Exception as e:
+            logger.warning(f"[Role Cache] Redis incr failed for role {role_name}: {e}")
 
     async def init_default_roles(self) -> None:
         """
@@ -317,6 +430,4 @@ class RoleStorage:
                     },
                 )
                 # 系统角色权限可能变更，失效缓存
-                from src.api.deps import invalidate_role_permissions_cache
-
-                await invalidate_role_permissions_cache(role_data["name"])
+                await self.invalidate_cache(role_data["name"])

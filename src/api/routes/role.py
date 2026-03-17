@@ -8,7 +8,6 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from src.api.deps import (
     get_current_user_required,
-    invalidate_role_permissions_cache,
     require_permissions,
 )
 from src.infra.role.manager import RoleManager
@@ -86,8 +85,6 @@ async def update_role(
         raise HTTPException(status_code=400, detail=str(e))
     if not role:
         raise HTTPException(status_code=404, detail="角色不存在")
-    # 角色权限变更，失效该角色的缓存
-    await invalidate_role_permissions_cache(target_role.name)
     return role
 
 
@@ -106,6 +103,4 @@ async def delete_role(
         await manager.delete_role(role_id)
     except ValidationError as e:
         raise HTTPException(status_code=400, detail=str(e))
-    # 删除角色，失效该角色的缓存
-    await invalidate_role_permissions_cache(target_role.name)
     return {"status": "deleted"}
