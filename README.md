@@ -81,29 +81,9 @@ English | [简体中文](README_CN.md)
 
 ## 🏗️ Architecture Overview
 
-LambChat follows a clean layered architecture:
-
-```
-┌─────────────────────────────────────────────────┐
-│                   Frontend                       │
-│            React 19 + Vite + TailwindCSS         │
-├─────────────────────────────────────────────────┤
-│                  API Layer (FastAPI)              │
-│   Auth │ Chat │ Settings │ Skills │ MCP │ ...    │
-├─────────────────────────────────────────────────┤
-│               Agent Layer (LangGraph)            │
-│   Core Agent │ Fast Agent │ Search Agent         │
-│   Plugin System │ Sub-agent Nesting             │
-├─────────────────────────────────────────────────┤
-│             Infrastructure Layer                 │
-│  Auth │ Session │ Tool │ Skill │ Memory │ MCP   │
-│  Task │ Feedback │ Share │ Channel │ Tracing    │
-├─────────────────────────────────────────────────┤
-│                Storage Layer                     │
-│     MongoDB (persistence) │ Redis (real-time)    │
-│              S3/OSS (file storage)              │
-└─────────────────────────────────────────────────┘
-```
+<p align="center">
+  <img src="docs/images/best-practice/architecture.png" alt="LambChat Architecture" width="600"/>
+</p>
 
 ## ✨ Features
 
