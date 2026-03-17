@@ -82,7 +82,7 @@
 ## 🏗️ 系统架构
 
 <p align="center">
-  <img src="docs/images/best-practice/architecture.excalidraw" alt="LambChat 系统架构" width="600"/>
+  <img src="docs/images/best-practice/architecture.png" alt="LambChat 系统架构" width="600"/>
 </p>
 
 ## ✨ 核心特性

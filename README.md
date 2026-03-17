@@ -82,7 +82,7 @@ English | [简体中文](README_CN.md)
 ## 🏗️ Architecture Overview
 
 <p align="center">
-  <img src="docs/images/best-practice/architecture.excalidraw" alt="LambChat Architecture" width="600"/>
+  <img src="docs/images/best-practice/architecture.png" alt="LambChat Architecture" width="600"/>
 </p>
 
 ## ✨ Features
