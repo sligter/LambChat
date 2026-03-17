@@ -10,6 +10,7 @@
 import asyncio
 import os
 import uuid
+from typing import Literal
 
 import daytona
 from daytona import FileDownloadRequest, FileUpload
@@ -168,7 +169,7 @@ class DaytonaBackend(BaseSandbox):
                 for path in valid_paths:
                     sdk_path = sdk_path_map[path]
                     sdk_results[sdk_path] = FileDownloadResponse(
-                        path=sdk_path, content=None, error=str(e)
+                        path=sdk_path, content=None, error="file_not_found"
                     )
 
         # 清理临时文件
@@ -185,14 +186,14 @@ class DaytonaBackend(BaseSandbox):
                 responses.append(FileDownloadResponse(path=path, content=None, error="file_not_found"))
                 continue
             sdk_path = sdk_path_map[path]
-            resp = sdk_results.get(
-                sdk_path,
-                FileDownloadResponse(path=path, content=None, error="file_not_found"),
-            )
+            cached_resp: FileDownloadResponse | None = sdk_results.get(sdk_path)
+            if cached_resp is None:
+                cached_resp = FileDownloadResponse(path=path, content=None, error="file_not_found")
+            # cached_resp.error 已经是正确的类型，直接使用
             responses.append(FileDownloadResponse(
                 path=path,
-                content=resp.content,
-                error=resp.error,
+                content=cached_resp.content,
+                error=cached_resp.error,
             ))
 
         return responses
@@ -257,8 +258,17 @@ class DaytonaBackend(BaseSandbox):
             if not path.startswith("/"):
                 responses.append(FileUploadResponse(path=path, error="invalid_path"))
                 continue
-            error = upload_errors.get(path) or rename_errors.get(path)
-            responses.append(FileUploadResponse(path=path, error=error))
+            error_str = upload_errors.get(path) or rename_errors.get(path)
+            # 类型转换：确保 error 是允许的类型
+            final_error: Literal["file_not_found", "permission_denied", "is_directory", "invalid_path"] | None = None
+            if error_str:
+                if "permission" in error_str.lower():
+                    final_error = "permission_denied"
+                elif "directory" in error_str.lower():
+                    final_error = "is_directory"
+                else:
+                    final_error = "file_not_found"
+            responses.append(FileUploadResponse(path=path, error=final_error))
 
         return responses
 
