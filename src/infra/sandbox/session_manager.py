@@ -11,8 +11,9 @@ User-Sandbox 绑定管理器
 
 import asyncio
 import threading
+from collections import OrderedDict
 from datetime import datetime
-from typing import Optional
+from typing import Any, Optional
 
 from daytona import CreateSandboxFromSnapshotParams, Daytona, DaytonaConfig
 from deepagents.backends import CompositeBackend
@@ -58,17 +59,20 @@ UNAVAILABLE_STATES = {"destroyed", "destroying", "error", "build_failed", "unkno
 # MongoDB 集合名
 BINDING_COLLECTION = "user_sandbox_bindings"
 
+# 每用户锁的最大数量（LRU 淘汰）
+_MAX_LOCKS = 10_000
+
 
 class SessionSandboxManager:
     """管理 User 与 Sandbox 的绑定关系（每个用户一个沙箱，跨 session 共享）"""
 
     def __init__(self):
         self._daytona_client: Optional[Daytona] = None
-        self._collection = None
+        self._collection: Any = None
         # 内存缓存: user_id -> (sandbox_id, backend)
         self._cache: dict[str, tuple[str, CompositeBackend]] = {}
-        # 每用户锁，防止并发创建重复沙箱
-        self._locks: dict[str, asyncio.Lock] = {}
+        # 每用户锁，防止并发创建重复沙箱（LRU OrderedDict，超出上限淘汰最久未使用）
+        self._locks: OrderedDict[str, asyncio.Lock] = OrderedDict()
         # 用于 _locks 字典的线程安全（asyncio.Lock 创建可能在非 event loop 线程触发）
         self._locks_mutex = threading.Lock()
 
@@ -81,7 +85,26 @@ class SessionSandboxManager:
             client = get_mongo_client()
             db = client[settings.MONGODB_DB]
             self._collection = db[BINDING_COLLECTION]
+            # 在后台异步创建索引（幂等，已存在则跳过）
+            try:
+                asyncio.create_task(self._ensure_index())
+            except RuntimeError:
+                # 没有 event loop 时（如测试），同步创建
+                pass
+        assert self._collection is not None
         return self._collection
+
+    async def _ensure_index(self):
+        """异步创建索引"""
+        try:
+            await self._collection.create_index(
+                "user_id",
+                unique=True,
+                name="user_id_unique_idx",
+                background=True,
+            )
+        except Exception as e:
+            logger.warning(f"Failed to create index on {BINDING_COLLECTION}: {e}")
 
     def _get_daytona_client(self) -> Daytona:
         """获取或创建 Daytona 客户端"""
@@ -94,9 +117,15 @@ class SessionSandboxManager:
         return self._daytona_client
 
     def _get_user_lock(self, user_id: str) -> asyncio.Lock:
-        """获取用户级锁（线程安全）"""
+        """获取用户级锁（线程安全，LRU 淘汰）"""
         with self._locks_mutex:
-            if user_id not in self._locks:
+            if user_id in self._locks:
+                # 移到末尾表示最近使用
+                self._locks.move_to_end(user_id)
+            else:
+                # 超出上限时淘汰最久未使用的锁
+                while len(self._locks) >= _MAX_LOCKS:
+                    self._locks.popitem(last=False)
                 self._locks[user_id] = asyncio.Lock()
             return self._locks[user_id]
 
@@ -161,7 +190,10 @@ class SessionSandboxManager:
             tuple[CompositeBackend, str]: (composite_backend, work_dir)
         """
         if not user_id:
-            raise ValueError("user_id must not be empty")
+            raise ValueError(
+                "user_id is required for sandbox binding. "
+                "Anonymous users cannot use sandbox features."
+            )
 
         lock = self._get_user_lock(user_id)
 
@@ -256,7 +288,10 @@ class SessionSandboxManager:
             是否成功停止
         """
         if not user_id:
-            raise ValueError("user_id must not be empty")
+            raise ValueError(
+                "user_id is required for sandbox binding. "
+                "Anonymous users cannot use sandbox features."
+            )
 
         lock = self._get_user_lock(user_id)
 
@@ -470,3 +505,32 @@ class SessionSandboxManager:
     def clear_cache(self, user_id: str) -> None:
         """清除内存缓存（用于测试或强制刷新）"""
         self._cache.pop(user_id, None)
+
+    async def close_all(self) -> None:
+        """停止所有缓存中的沙箱并清理资源（应用关闭时调用）"""
+        # 复制一份，避免迭代过程中修改
+        entries = list(self._cache.items())
+        for user_id, (sandbox_id, _backend) in entries:
+            try:
+                await self.stop(user_id)
+            except Exception as e:
+                logger.warning(
+                    f"[SessionSandboxManager] Failed to stop sandbox {sandbox_id} "
+                    f"for user {user_id} during shutdown: {e}"
+                )
+        self._cache.clear()
+        with self._locks_mutex:
+            self._locks.clear()
+        logger.info("[SessionSandboxManager] All sandboxes stopped and resources cleaned up")
+
+
+# Singleton
+_session_sandbox_manager: Optional[SessionSandboxManager] = None
+
+
+def get_session_sandbox_manager() -> SessionSandboxManager:
+    """获取 SessionSandboxManager 单例"""
+    global _session_sandbox_manager
+    if _session_sandbox_manager is None:
+        _session_sandbox_manager = SessionSandboxManager()
+    return _session_sandbox_manager

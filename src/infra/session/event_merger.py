@@ -4,21 +4,22 @@ Event Merger - 事件合并器
 定期合并 trace 中的流式事件，减少事件数量，提升前后端性能。
 
 合并策略:
-- 相同类型的连续流式事件（如 message:chunk, thinking）合并为一个完整事件
-- 保留原始时间戳范围（started_at, ended_at）
-- 合并后的事件标记为 merged=True
-- 只合并已完成的 trace（status != "running"）
+- 按 (event_type, agent_id, depth, thinking_id) 分组合并可合并事件（message:chunk, thinking）
+- 相同 key 的事件无论是否连续都会合并，支持并发子 agent 交叉事件场景
+- 合并后的事件出现在该 key 首次出现的位置，不可合并的事件（如 tool:start）保持原位
+- 合并后的事件标记为 merged=True，并记录 merged_count、started_at、ended_at
+- 只合并 metadata.merged != True 的已完成 trace（status != "running"）
 
 分布式支持:
-- 使用 Redis 分布式锁确保只有一个实例执行合并任务
+- 使用 Redis SET NX EX 原子操作获取分布式锁，UUID 标识锁持有者
+- 使用 Lua 脚本释放锁，确保只有持有锁的实例才能释放，避免误删
 - 锁超时时间为合并间隔的 2 倍，防止死锁
-- 使用 asyncio.timeout 防止单次合并操作超时
-- 批量处理，每批最多处理 50 个 trace，避免长时间阻塞
+- 使用 asyncio.timeout 防止单次合并操作超时（4 分钟）
 
-性能优化:
-- 非阻塞设计，合并任务在后台独立运行
-- 超时保护，单次合并最多 4 分钟
-- 批量处理，避免一次性处理过多数据
+批量处理:
+- 每批最多处理 500 个 trace，使用投影查询减少数据传输
+- 单批内并发合并（Semaphore 限制并发数为 10）
+- 使用 pymongo bulk_write 批量写入，减少 DB 往返
 """
 
 import asyncio
@@ -41,7 +42,7 @@ MERGE_LOCK_KEY = "event_merger:lock"
 MERGE_TIMEOUT = 240.0
 
 # 每批处理的 trace 数量
-BATCH_SIZE = 50
+BATCH_SIZE = 500
 
 # 单批内并发合并的最大 trace 数量
 _MERGE_CONCURRENCY = 10
@@ -104,12 +105,9 @@ class EventMerger:
         logger.info("EventMerger stopped")
 
     async def _merge_loop(self):
-        """后台合并循环 - 非阻塞设计"""
+        """后台合并循环 - 非阻塞设计，首次立即执行"""
         while self._running:
             try:
-                # 等待到下一个合并时间点
-                await asyncio.sleep(_get_merge_interval())
-
                 # 尝试获取分布式锁
                 if await self._acquire_lock():
                     try:
@@ -129,6 +127,9 @@ class EventMerger:
                     logger.debug(
                         "Failed to acquire merge lock (another instance is merging), skipping this round"
                     )
+
+                # 等待到下一个合并时间点（放到循环末尾，首次立即执行）
+                await asyncio.sleep(_get_merge_interval())
             except asyncio.CancelledError:
                 logger.info("EventMerger loop cancelled, shutting down gracefully")
                 break
@@ -214,6 +215,7 @@ class EventMerger:
         1. 每批最多处理 BATCH_SIZE 个 trace
         2. 每批之间 yield 控制权，避免阻塞事件循环
         3. 使用 asyncio.gather 并发处理单个 trace
+        4. 使用 bulk_write 批量写入数据库，减少 DB 往返
         """
         try:
             collection = self.trace_storage.collection
@@ -236,160 +238,108 @@ class EventMerger:
 
             logger.info(f"Found {len(traces)} traces to merge")
 
-            # 批量处理 traces
-            merge_tasks = []
-            for trace in traces:
-                trace_id = trace.get("trace_id")
-                events = trace.get("events", [])
+            # 并发合并事件（纯 CPU，不涉及 IO）
+            sem = asyncio.Semaphore(_MERGE_CONCURRENCY)
 
-                if not events:
+            async def _process(trace):
+                async with sem:
+                    trace_id = trace.get("trace_id")
+                    events = trace.get("events", [])
+                    if not events:
+                        return (trace_id, [], [])
+                    return (trace_id, events, self._merge_events(events))
+
+            results = await asyncio.gather(*[_process(t) for t in traces], return_exceptions=True)
+
+            # 收集 bulk_write 操作
+            from pymongo import UpdateOne
+
+            now = _utc_now()
+            operations = []
+            merged_count = 0
+            skipped_count = 0
+            error_count = 0
+
+            for r in results:
+                if isinstance(r, BaseException):
+                    error_count += 1
+                    logger.warning(f"Failed to merge trace: {r}")
+                    continue
+                if r is None:
+                    # events 为空的 trace 也需要标记为 merged，避免重复扫描
+                    skipped_count += 1
                     continue
 
-                # 创建合并任务（不立即执行）
-                task = self._merge_single_trace(trace_id, events)
-                merge_tasks.append(task)
+                trace_id, original_events, merged_events = r
+                update_fields: Dict[str, Any] = {
+                    "metadata.merged": True,
+                    "metadata.merged_at": now,
+                    "updated_at": now,
+                }
+                if len(merged_events) < len(original_events):
+                    update_fields["events"] = merged_events
+                    update_fields["event_count"] = len(merged_events)
+                    merged_count += 1
+                else:
+                    skipped_count += 1
 
-            # 并发执行所有合并任务，但限制并发数
-            if merge_tasks:
-                # 使用 Semaphore 限制并发，避免 MongoDB 突发压力
-                sem = asyncio.Semaphore(_MERGE_CONCURRENCY)
+                operations.append(UpdateOne({"trace_id": trace_id}, {"$set": update_fields}))
 
-                async def _limited(coro):
-                    async with sem:
-                        return await coro
-
-                limited_tasks = [_limited(t) for t in merge_tasks]
-                results = await asyncio.gather(*limited_tasks, return_exceptions=True)
-
-                # 统计结果
-                success_count = sum(1 for r in results if r is True)
-                error_count = sum(1 for r in results if isinstance(r, Exception))
-
+            if operations:
+                bulk_result = await collection.bulk_write(operations, ordered=False)
                 logger.info(
-                    f"Merge batch completed: {success_count} succeeded, {error_count} failed, "
-                    f"{len(results) - success_count - error_count} skipped"
+                    f"Merge batch completed: {bulk_result.modified_count} modified, "
+                    f"{merged_count} merged, {skipped_count} skipped, {error_count} failed"
                 )
 
         except Exception as e:
             logger.error(f"Failed to merge completed traces: {e}", exc_info=True)
-
-    async def _merge_single_trace(self, trace_id: str, events: List[Dict[str, Any]]) -> bool:
-        """
-        合并单个 trace 的事件
-
-        Args:
-            trace_id: Trace ID
-            events: 事件列表
-
-        Returns:
-            是否合并成功
-        """
-        try:
-            # 合并事件
-            merged_events = self._merge_events(events)
-
-            # 如果事件数量减少了，更新数据库
-            if len(merged_events) < len(events):
-                collection = self.trace_storage.collection
-                now = _utc_now()
-                result = await collection.update_one(
-                    {"trace_id": trace_id},
-                    {
-                        "$set": {
-                            "events": merged_events,
-                            "event_count": len(merged_events),
-                            "metadata.merged": True,
-                            "metadata.merged_at": now,
-                            "updated_at": now,
-                        }
-                    },
-                )
-
-                if result.modified_count > 0:
-                    logger.debug(
-                        f"Merged trace {trace_id}: {len(events)} -> {len(merged_events)} events "
-                        f"(reduced {len(events) - len(merged_events)} events)"
-                    )
-                    return True
-                else:
-                    logger.warning(f"Failed to update trace {trace_id} in database")
-                    return False
-            else:
-                # 没有可合并的事件，标记为已检查
-                collection = self.trace_storage.collection
-                now = _utc_now()
-                await collection.update_one(
-                    {"trace_id": trace_id},
-                    {
-                        "$set": {
-                            "metadata.merged": True,
-                            "metadata.merged_at": now,
-                        }
-                    },
-                )
-                logger.debug(f"Trace {trace_id} has no events to merge")
-                return False
-
-        except Exception as e:
-            logger.error(f"Failed to merge trace {trace_id}: {e}")
-            return False
 
     def _merge_events(self, events: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
         合并事件列表
 
         策略:
-        - 相同类型的连续事件合并为一个
-        - 保留第一个事件的时间戳作为 started_at
-        - 保留最后一个事件的时间戳作为 ended_at
-        - 合并 content 字段
+        - 按 (event_type, agent_id, depth, thinking_id) 分组合并可合并事件
+        - 相同 key 的事件无论是否连续都会合并（支持并发子 agent 交叉事件）
+        - 保留原始顺序：合并后的事件出现在该 key 首次出现的位置
+        - 不可合并的事件（如 tool:start）保持原位
         """
         if not events:
             return []
 
-        merged = []
-        current_group: List[Dict[str, Any]] = []
-        current_type: Optional[str] = None
+        # 第一轮：按 key 分组所有可合并事件，同时缓存 key 映射避免重复计算
+        groups: dict[tuple[Any, Any, Any, Any], List[Dict[str, Any]]] = {}
+        key_cache: dict[
+            int, Optional[tuple[Any, Any, Any, Any]]
+        ] = {}  # id(event) -> merge key or None
+        mergeable = MERGEABLE_EVENT_TYPES
 
         for event in events:
             event_type = event.get("event_type")
-            data = event.get("data", {})
-
-            # 检查是否可以合并
-            if event_type in MERGEABLE_EVENT_TYPES:
-                # 检查是否与当前组相同类型且相同 agent_id/depth
-                if current_type == event_type and current_group:
-                    # 检查 agent_id 和 depth 是否一致
-                    last_data = current_group[-1].get("data", {})
-                    if (
-                        data.get("agent_id") == last_data.get("agent_id")
-                        and data.get("depth") == last_data.get("depth")
-                        and data.get("thinking_id") == last_data.get("thinking_id")
-                    ):
-                        # 可以合并
-                        current_group.append(event)
-                        continue
-
-                # 不能合并，先处理当前组
-                if current_group:
-                    merged.append(self._merge_group(current_group))
-
-                # 开始新组
-                current_group = [event]
-                current_type = event_type
+            if event_type in mergeable:
+                data = event.get("data", {})
+                key = (event_type, data.get("agent_id"), data.get("depth"), data.get("thinking_id"))
+                key_cache[id(event)] = key
+                group = groups.get(key)
+                if group is None:
+                    groups[key] = [event]
+                else:
+                    group.append(event)
             else:
-                # 不可合并的事件类型，先处理当前组
-                if current_group:
-                    merged.append(self._merge_group(current_group))
-                    current_group = []
-                    current_type = None
+                key_cache[id(event)] = None
 
-                # 直接添加
+        # 第二轮：按原始顺序输出，同 key 只在首次出现时输出合并结果
+        merged = []
+        seen_keys: set[tuple] = set()
+
+        for event in events:
+            cached_key = key_cache[id(event)]
+            if cached_key is not None and cached_key not in seen_keys:
+                seen_keys.add(cached_key)
+                merged.append(self._merge_group(groups[cached_key]))
+            elif cached_key is None:
                 merged.append(event)
-
-        # 处理最后一组
-        if current_group:
-            merged.append(self._merge_group(current_group))
 
         return merged
 
@@ -410,20 +360,19 @@ class EventMerger:
         first = group[0]
         last = group[-1]
         event_type = first.get("event_type")
+        first_data = first.get("data", {})
 
-        # 合并 content
-        contents = []
+        # 合并 content（避免创建中间列表）
+        parts: list[str] = []
         for event in group:
             data = event.get("data", {})
-            content = data.get("content", "")
+            content = data.get("content")
             if content:
-                contents.append(content)
-
-        merged_content = "".join(contents)
+                parts.append(content)
 
         # 构建合并后的事件
-        merged_data = first.get("data", {}).copy()
-        merged_data["content"] = merged_content
+        merged_data = first_data.copy()
+        merged_data["content"] = "".join(parts)
         merged_data["merged"] = True
         merged_data["merged_count"] = len(group)
         merged_data["started_at"] = first.get("timestamp")

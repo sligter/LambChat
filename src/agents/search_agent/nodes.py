@@ -30,7 +30,7 @@ from src.infra.backend import (
 from src.infra.backend.deepagent import create_memory_backend_factory
 from src.infra.llm.client import LLMClient
 from src.infra.logging import get_logger
-from src.infra.sandbox import SessionSandboxManager
+from src.infra.sandbox.session_manager import get_session_sandbox_manager
 from src.infra.skill.loader import build_skills_prompt
 from src.infra.storage.checkpoint import get_async_checkpointer
 from src.infra.storage.postgres import create_postgres_store
@@ -420,7 +420,10 @@ async def _create_backend_and_prompt(
         )
 
     # 沙箱模式
-    sandbox_manager = SessionSandboxManager()
+    if not context.user_id:
+        raise ValueError("Sandbox requires authenticated user (user_id is required)")
+
+    sandbox_manager = get_session_sandbox_manager()
 
     # 发送沙箱开始初始化事件
     try:
@@ -431,7 +434,7 @@ async def _create_backend_and_prompt(
     try:
         sandbox_backend, work_dir = await sandbox_manager.get_or_create(
             session_id=state.get("session_id", str(uuid.uuid4())),
-            user_id=context.user_id or "default",
+            user_id=context.user_id,
         )
 
         # 发送沙箱就绪事件

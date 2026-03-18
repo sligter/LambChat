@@ -109,6 +109,13 @@ async def lifespan(app: FastAPI):
 
     await init_builtin_skills()
 
+    # 初始化 TraceStorage（创建索引 + 启动事件合并器）
+    from src.infra.session.trace_storage import get_trace_storage
+
+    trace_storage = get_trace_storage()
+    await trace_storage.ensure_indexes_if_needed()
+    logger.info("TraceStorage initialized")
+
     # Start Feishu channels in background (don't block app startup)
     async def _start_feishu():
         try:
@@ -130,7 +137,14 @@ async def lifespan(app: FastAPI):
     # 关闭时清理
     from src.agents import AgentFactory
     from src.infra.sandbox import SandboxFactory
+
+    # 停止事件合并器
+    from src.infra.session.event_merger import get_event_merger
     from src.infra.task.manager import get_task_manager
+
+    merger = get_event_merger(None)
+    await merger.stop()
+    logger.info("EventMerger stopped")
 
     # 标记所有运行中的任务为失败
     task_manager = get_task_manager()
@@ -139,6 +153,13 @@ async def lifespan(app: FastAPI):
 
     # 关闭所有 sandbox
     await SandboxFactory.close_all()
+
+    # 关闭用户级沙箱（SessionSandboxManager 管理的）
+    from src.infra.sandbox.session_manager import get_session_sandbox_manager
+
+    sandbox_manager = get_session_sandbox_manager()
+    await sandbox_manager.close_all()
+    logger.info("User sandboxes stopped")
 
     await AgentFactory.close_all()
 

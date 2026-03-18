@@ -106,6 +106,12 @@ class TraceStorage:
                 name="started_at_idx",
                 background=True,
             )
+            # 索引：用于 EventMerger 查询未合并的已完成 traces
+            await self._collection.create_index(
+                [("status", 1), ("metadata.merged", 1)],
+                name="status_merged_idx",
+                background=True,
+            )
             logger.info("MongoDB indexes ensured for trace_storage")
         except Exception as e:
             logger.warning(f"Failed to create indexes (non-critical): {e}")
@@ -243,7 +249,8 @@ class TraceStorage:
             }
         }
         if metadata:
-            update["$set"]["metadata"] = metadata
+            for key, value in metadata.items():
+                update["$set"][f"metadata.{key}"] = value
 
         try:
             result = await self.collection.update_one(

@@ -13,7 +13,7 @@ from .base import (
     get_sandbox_config_from_settings,
     get_sandbox_from_settings,
 )
-from .session_manager import SessionSandboxManager
+from .session_manager import SessionSandboxManager, get_session_sandbox_manager
 
 __all__ = [
     # 配置类
@@ -27,4 +27,5 @@ __all__ = [
     "get_sandbox_from_settings",
     # Session 绑定管理
     "SessionSandboxManager",
+    "get_session_sandbox_manager",
 ]
