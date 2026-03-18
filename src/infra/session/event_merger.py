@@ -26,7 +26,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from src.infra.logging import get_logger
-from src.infra.storage.redis import RedisStorage
+from src.infra.storage.redis import get_redis_client
 from src.kernel.config import settings
 
 logger = get_logger(__name__)
@@ -79,7 +79,7 @@ class EventMerger:
         self.trace_storage = trace_storage
         self._running = False
         self._task: Optional[asyncio.Task] = None
-        self._redis: Optional[RedisStorage] = None
+        self._redis = get_redis_client()
         self._lock_value: Optional[str] = None  # 锁的唯一标识
 
     def start(self):
@@ -87,7 +87,7 @@ class EventMerger:
         if self._running:
             return
         self._running = True
-        self._redis = RedisStorage()
+        self._redis = get_redis_client()
         self._task = asyncio.create_task(self._merge_loop())
         self._task.add_done_callback(lambda t: t.exception() if not t.cancelled() else None)
         logger.info("EventMerger started with distributed lock support")
@@ -193,7 +193,7 @@ class EventMerger:
             """
 
             # 执行 Lua 脚本
-            result = await self._redis.eval(lua_script, 1, MERGE_LOCK_KEY, self._lock_value)
+            result = await self._redis.eval(lua_script, 1, MERGE_LOCK_KEY, self._lock_value)  # type: ignore[misc]
 
             if result == 1:
                 logger.debug(f"Released merge lock with value: {self._lock_value[:8]}...")

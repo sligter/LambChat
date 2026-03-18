@@ -468,6 +468,7 @@ class TraceStorage:
             logger.error(f"Failed to delete session traces: {e}")
             return 0
 
+
 # Singleton
 _trace_storage: Optional[TraceStorage] = None
 

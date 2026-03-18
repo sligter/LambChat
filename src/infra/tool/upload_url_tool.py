@@ -8,7 +8,7 @@ URL 文件上传到沙箱工具
 """
 
 import json
-from typing import Annotated, Any
+from typing import Annotated
 
 import httpx
 from langchain.tools import ToolRuntime, tool
@@ -52,24 +52,30 @@ async def upload_url_to_sandbox(
             resp.raise_for_status()
     except httpx.HTTPStatusError as e:
         logger.warning(f"[upload_url_to_sandbox] HTTP error downloading {url}: {e}")
-        return json.dumps({"success": False, "error": f"Download failed: HTTP {e.response.status_code}"})
+        return json.dumps(
+            {"success": False, "error": f"Download failed: HTTP {e.response.status_code}"}
+        )
     except Exception as e:
         logger.warning(f"[upload_url_to_sandbox] Failed to download {url}: {e}")
         return json.dumps({"success": False, "error": f"Download failed: {e}"})
 
     content = resp.content
     if len(content) > _MAX_FILE_SIZE:
-        return json.dumps({
-            "success": False,
-            "error": f"File too large: {len(content)} bytes (max {_MAX_FILE_SIZE})",
-        })
+        return json.dumps(
+            {
+                "success": False,
+                "error": f"File too large: {len(content)} bytes (max {_MAX_FILE_SIZE})",
+            }
+        )
 
     # 上传到沙箱
     try:
         results = await backend.aupload_files([(file_path, content)])
         result = results[0]
         if result.error:
-            return json.dumps({"success": False, "error": f"Upload failed: {result.error}", "path": file_path})
+            return json.dumps(
+                {"success": False, "error": f"Upload failed: {result.error}", "path": file_path}
+            )
         logger.info(f"[upload_url_to_sandbox] Uploaded {url} -> {file_path} ({len(content)} bytes)")
         return json.dumps({"success": True, "path": file_path, "size": len(content)})
     except Exception as e:
