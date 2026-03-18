@@ -8,7 +8,7 @@ import {
   oneLight,
   oneDark,
 } from "react-syntax-highlighter/dist/esm/styles/prism";
-import { useEffect, useState, memo } from "react";
+import React, { useEffect, useState, memo } from "react";
 import { Copy, Check } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { clsx } from "clsx";
@@ -66,6 +66,9 @@ function CodeBlock({
     );
   }
 
+  // Split code into lines for line numbers
+  const codeLines = codeString.split("\n");
+
   return (
     <div className="group relative my-2 sm:my-3 max-w-full overflow-hidden rounded-xl border border-stone-200 dark:border-stone-700">
       {/* Header bar - ChatGPT style */}
@@ -73,7 +76,7 @@ function CodeBlock({
         <div className="flex items-center gap-2 min-w-0">
           {/* Language label */}
           <span className="text-xs font-medium text-stone-500 dark:text-stone-400 truncate">
-            {language || "code"}
+            {language || "text"}
           </span>
         </div>
         {/* Copy button */}
@@ -104,36 +107,72 @@ function CodeBlock({
         </button>
       </div>
 
-      {/* Code content with syntax highlighting and line numbers */}
-      <SyntaxHighlighter
-        language={language || "text"}
-        style={isDark ? oneDark : oneLight}
-        showLineNumbers={true}
-        wrapLines={true}
-        customStyle={{
-          margin: 0,
-          padding: "0.75rem",
-          fontSize: "0.75rem",
-          lineHeight: "1.7",
-          background: "transparent",
-        }}
-        lineNumberStyle={{
-          minWidth: "2.5em",
-          paddingRight: "1em",
-          marginRight: "1em",
-          textAlign: "right",
-          color: isDark ? "#71717a" : "#a1a1aa",
-          borderRight: isDark ? "1px solid #44403c" : "1px solid #e7e5e4",
-        }}
-        codeTagProps={{
-          style: {
-            fontFamily:
-              "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
-          },
-        }}
-      >
-        {codeString}
-      </SyntaxHighlighter>
+      {/* Code content */}
+      {language ? (
+        <SyntaxHighlighter
+          language={language}
+          style={isDark ? oneDark : oneLight}
+          showLineNumbers={true}
+          wrapLines={true}
+          customStyle={{
+            margin: 0,
+            padding: "0.75rem",
+            fontSize: "0.75rem",
+            lineHeight: "1.7",
+            background: "transparent",
+          }}
+          lineNumberStyle={{
+            minWidth: "2.5em",
+            paddingRight: "1em",
+            marginRight: "1em",
+            textAlign: "right",
+            color: isDark ? "#71717a" : "#a1a1aa",
+            borderRight: isDark ? "1px solid #44403c" : "1px solid #e7e5e4",
+          }}
+          codeTagProps={{
+            style: {
+              fontFamily:
+                "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
+            },
+          }}
+        >
+          {codeString}
+        </SyntaxHighlighter>
+      ) : (
+        /* Plain code block without syntax highlighting (no language specified) */
+        <div className="overflow-x-auto">
+          <pre
+            className="p-3 text-xs leading-relaxed font-mono"
+            style={{
+              fontFamily:
+                "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
+              margin: 0,
+              fontSize: "0.75rem",
+              lineHeight: "1.7",
+            }}
+          >
+            <code>
+              {codeLines.map((line, i) => (
+                <div key={i} className="flex">
+                  <span
+                    className="select-none shrink-0 text-right pr-4 mr-4"
+                    style={{
+                      minWidth: "2.5em",
+                      color: isDark ? "#71717a" : "#a1a1aa",
+                      borderRight: isDark
+                        ? "1px solid #44403c"
+                        : "1px solid #e7e5e4",
+                    }}
+                  >
+                    {i + 1}
+                  </span>
+                  <span className="whitespace-pre">{line}</span>
+                </div>
+              ))}
+            </code>
+          </pre>
+        </div>
+      )}
     </div>
   );
 }
@@ -230,11 +269,11 @@ export const MarkdownContent = memo(function MarkdownContent({
             </em>
           ),
           // Code blocks
-          code: ({ className, children }) => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          code: (props: any) => {
+            const { className, children, isInPre } = props;
             const hasLanguage = className && /language-/.test(className);
-            const codeContent = String(children).replace(/\n$/, "");
-            const isMultiline = codeContent.includes("\n");
-            const isInline = !hasLanguage && !isMultiline;
+            const isInline = !isInPre && !hasLanguage;
 
             return (
               <CodeBlock
@@ -246,7 +285,15 @@ export const MarkdownContent = memo(function MarkdownContent({
               </CodeBlock>
             );
           },
-          pre: ({ children }) => <>{children}</>,
+          pre: ({ children }) => {
+            if (React.isValidElement(children)) {
+              return React.cloneElement(
+                children as React.ReactElement<{ isInPre?: boolean }>,
+                { isInPre: true },
+              );
+            }
+            return <>{children}</>;
+          },
           // Tables with beautiful styling
           table: ({ children }) => (
             <div className="my-3 overflow-x-auto rounded-lg shadow ring-1 ring-stone-200 dark:ring-stone-700">
