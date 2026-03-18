@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Maximize2, Minimize2 } from "lucide-react";
 import Editor from "react-simple-code-editor";
 import Prism from "prismjs";
+import "prismjs/themes/prism.css";
 import "prismjs/components/prism-clike";
 import "prismjs/components/prism-javascript";
 import "prismjs/components/prism-python";
