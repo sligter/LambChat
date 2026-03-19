@@ -1,11 +1,6 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Maximize2, Minimize2 } from "lucide-react";
-import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
-import {
-  oneDark,
-  oneLight,
-} from "react-syntax-highlighter/dist/esm/styles/prism";
 import type { SkillResponse, SkillCreate } from "../../types";
 
 interface FileEntry {
@@ -44,23 +39,101 @@ Describe what this skill does.
 Example usage here.
 `;
 
-function getLanguageForFile(path: string): string {
-  const ext = path.split(".").pop()?.toLowerCase() ?? "";
-  const map: Record<string, string> = {
-    py: "python",
-    js: "javascript",
-    ts: "typescript",
-    tsx: "typescript",
-    jsx: "javascript",
-    md: "markdown",
-    json: "json",
-    yaml: "yaml",
-    yml: "yaml",
-    sh: "bash",
-    bash: "bash",
-    sql: "sql",
+const FONT_FAMILY =
+  'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace';
+
+// Simple reliable code editor: textarea + synchronized line number gutter
+function SkillEditor({
+  value,
+  onChange,
+  isDark,
+  className,
+}: {
+  value: string;
+  onChange: (val: string) => void;
+  isDark: boolean;
+  className?: string;
+}) {
+  const lineCount = useMemo(() => value.split("\n").length, [value]);
+  const lineNumberWidth =
+    lineCount >= 1000
+      ? "3.5rem"
+      : lineCount >= 100
+        ? "2.5rem"
+        : "2rem";
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const gutterRef = useRef<HTMLPreElement>(null);
+
+  const handleScroll = useCallback(() => {
+    if (textareaRef.current && gutterRef.current) {
+      gutterRef.current.scrollTop = textareaRef.current.scrollTop;
+    }
+  }, []);
+
+  // Sync scroll on mount and when value changes
+  useEffect(() => {
+    handleScroll();
+  }, [value, handleScroll]);
+
+  const sharedStyle: React.CSSProperties = {
+    fontFamily: FONT_FAMILY,
+    fontSize: "0.875rem",
+    lineHeight: "1.5",
+    padding: "0.75rem",
+    margin: 0,
+    border: "none",
+    whiteSpace: "pre",
+    wordWrap: "normal",
+    tabSize: 2,
   };
-  return map[ext] || "markup";
+
+  const lineNumbers = useMemo(
+    () => Array.from({ length: lineCount }, (_, i) => i + 1).join("\n"),
+    [lineCount],
+  );
+
+  return (
+    <div
+      className={`flex overflow-hidden ${className || ""}`}
+      style={{
+        background: isDark ? "#282c34" : "#f5f5f4",
+      }}
+    >
+      {/* Line number gutter */}
+      <pre
+        ref={gutterRef}
+        className="select-none shrink-0 text-right overflow-hidden"
+        style={{
+          ...sharedStyle,
+          width: lineNumberWidth,
+          minWidth: lineNumberWidth,
+          color: isDark ? "#6b7280" : "#9ca3af",
+          borderRight: isDark ? "1px solid #44403c" : "1px solid #e7e5e4",
+          background: isDark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)",
+          userSelect: "none",
+        }}
+        aria-hidden="true"
+      >
+        {lineNumbers}
+      </pre>
+      {/* Editable textarea */}
+      <textarea
+        ref={textareaRef}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onScroll={handleScroll}
+        spellCheck={false}
+        autoCapitalize="off"
+        autoCorrect="off"
+        className="flex-1 min-w-0 resize-none outline-none bg-transparent overflow-auto"
+        style={{
+          ...sharedStyle,
+          paddingLeft: "0.75rem",
+          color: isDark ? "#e5e7eb" : "#1c1917",
+        }}
+      />
+    </div>
+  );
 }
 
 export function SkillForm({
@@ -129,7 +202,6 @@ export function SkillForm({
     if (skill) {
       setName(skill.name);
       setDescription(skill.description);
-      // Don't set content here, it's handled by files initialization
       setEnabled(skill.enabled);
       setIsSystem(skill.is_system);
     } else {
@@ -163,7 +235,6 @@ export function SkillForm({
     if (!name.trim()) {
       newErrors.name = t("skills.form.validation.nameRequired");
     } else if (!/^[\w\u4e00-\u9fff\u3040-\u309f\u30a0-\u30ff\uac00-\ud7af\-.]+$/.test(name.trim())) {
-      // Allow: letters, numbers, underscores, Chinese, Japanese (Hiragana/Katakana), Korean, hyphens, dots
       newErrors.name = t("skills.form.validation.nameInvalid");
     } else if (name.trim().length > 100) {
       newErrors.name = t("skills.form.validation.nameTooLong");
@@ -173,13 +244,11 @@ export function SkillForm({
       newErrors.description = t("skills.form.validation.descriptionRequired");
     }
 
-    // Validate that SKILL.md exists and has content
     const skillMdFile = files.find((f) => f.path === "SKILL.md");
     if (!skillMdFile || !skillMdFile.content.trim()) {
       newErrors.content = t("skills.form.validation.contentRequired");
     }
 
-    // Validate all file paths are unique
     const paths = files.map((f) => f.path);
     if (new Set(paths).size !== paths.length) {
       newErrors.files = "Duplicate file paths are not allowed";
@@ -191,10 +260,8 @@ export function SkillForm({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
     if (!validate()) return;
 
-    // Build files dict from file entries
     const filesDict: Record<string, string> = {};
     for (const file of files) {
       if (file.path.trim()) {
@@ -202,7 +269,6 @@ export function SkillForm({
       }
     }
 
-    // Get SKILL.md content for backward compatibility
     const skillMdContent = filesDict["SKILL.md"] || "";
 
     const data: SkillCreate = {
@@ -216,7 +282,6 @@ export function SkillForm({
 
     const success = await onSave(data, isSystem);
     if (success && !isEditing) {
-      // Reset form on successful creation
       setName("");
       setDescription("");
       setEnabled(true);
@@ -224,14 +289,14 @@ export function SkillForm({
     }
   };
 
-  // File management functions
+  // File management
   const addFile = () => {
     setFiles([...files, { path: "", content: "" }]);
     setActiveFileIndex(files.length);
   };
 
   const removeFile = (index: number) => {
-    if (files.length <= 1) return; // Keep at least one file
+    if (files.length <= 1) return;
     const newFiles = files.filter((_, i) => i !== index);
     setFiles(newFiles);
     if (activeFileIndex >= newFiles.length) {
@@ -261,14 +326,14 @@ export function SkillForm({
       }
     >
       {isFullscreen ? (
-        /* Fullscreen layout: compact header, editor fills space */
+        /* Fullscreen layout */
         <>
           {/* Compact top bar */}
-          <div className="flex items-center gap-2 px-4 py-2 border-b border-gray-200 dark:border-stone-700 shrink-0 bg-stone-50 dark:bg-stone-800/50">
-            <span className="font-mono text-sm font-semibold text-stone-700 dark:text-stone-200 truncate max-w-[200px]">
+          <div className="flex items-center gap-2 px-3 sm:px-4 py-2 border-b border-gray-200 dark:border-stone-700 shrink-0 bg-stone-50 dark:bg-stone-800/50">
+            <span className="font-mono text-sm font-semibold text-stone-700 dark:text-stone-200 truncate max-w-[120px] sm:max-w-[200px]">
               {name || "Untitled"}
             </span>
-            <span className="text-xs text-stone-400 dark:text-stone-500 truncate max-w-[300px]">
+            <span className="hidden sm:inline text-xs text-stone-400 dark:text-stone-500 truncate max-w-[300px]">
               {description}
             </span>
             <div className="ml-auto flex items-center gap-2">
@@ -279,7 +344,7 @@ export function SkillForm({
                   onChange={(e) => setEnabled(e.target.checked)}
                   className="h-3 w-3 rounded border-gray-300 text-stone-600 dark:border-stone-600 dark:bg-stone-800"
                 />
-                {t("skills.form.enabled")}
+                <span className="hidden sm:inline">{t("skills.form.enabled")}</span>
               </label>
               {isAdmin && (
                 <label className="flex items-center gap-1 text-xs text-stone-500 dark:text-stone-400">
@@ -289,13 +354,13 @@ export function SkillForm({
                     onChange={(e) => setIsSystem(e.target.checked)}
                     className="h-3 w-3 rounded border-gray-300 text-stone-600 dark:border-stone-600 dark:bg-stone-800"
                   />
-                  {t("skills.form.systemSkill")}
+                  <span className="hidden sm:inline">{t("skills.form.systemSkill")}</span>
                 </label>
               )}
               <button
                 type="button"
                 onClick={() => setIsFullscreen(false)}
-                className="text-stone-500 hover:text-stone-700 dark:text-stone-400 dark:hover:text-stone-200"
+                className="text-stone-500 hover:text-stone-700 dark:text-stone-400 dark:hover:text-stone-200 p-1"
                 title="Exit fullscreen"
               >
                 <Minimize2 size={16} />
@@ -306,12 +371,12 @@ export function SkillForm({
           {/* File tabs + path input + editor */}
           <div className="flex flex-1 flex-col min-h-0">
             {/* File tabs */}
-            <div className="flex items-center gap-1 px-4 pt-2 shrink-0">
-              <div className="flex flex-wrap gap-1 border-b border-gray-200 dark:border-stone-700 flex-1">
+            <div className="flex items-center gap-1 px-2 sm:px-4 pt-2 shrink-0">
+              <div className="flex flex-wrap gap-1 border-b border-gray-200 dark:border-stone-700 flex-1 min-w-0">
                 {files.map((file, index) => (
                   <div
                     key={index}
-                    className={`flex items-center gap-1 rounded-t-lg border-b-2 px-3 py-1.5 text-sm ${
+                    className={`flex items-center gap-1 rounded-t-lg border-b-2 px-2 sm:px-3 py-1.5 text-xs sm:text-sm ${
                       activeFileIndex === index
                         ? "border-stone-500 bg-stone-50 text-stone-700 dark:border-amber-500 dark:bg-stone-800 dark:text-amber-400"
                         : "border-transparent text-gray-500 hover:bg-gray-50 dark:text-stone-400 dark:hover:bg-stone-800"
@@ -320,7 +385,7 @@ export function SkillForm({
                     <button
                       type="button"
                       onClick={() => setActiveFileIndex(index)}
-                      className="max-w-[120px] truncate"
+                      className="max-w-[80px] sm:max-w-[120px] truncate"
                       title={file.path || "Untitled"}
                     >
                       {file.path || "Untitled"}
@@ -332,7 +397,7 @@ export function SkillForm({
                         className="ml-1 text-red-500 hover:text-red-700"
                         title="Remove file"
                       >
-                        ×
+                        x
                       </button>
                     )}
                   </div>
@@ -341,105 +406,42 @@ export function SkillForm({
               <button
                 type="button"
                 onClick={addFile}
-                className="whitespace-nowrap text-xs text-stone-600 hover:text-stone-800 dark:text-amber-500 dark:hover:text-amber-400 mb-1"
+                className="shrink-0 whitespace-nowrap text-xs text-stone-600 hover:text-stone-800 dark:text-amber-500 dark:hover:text-amber-400 mb-1 px-1"
               >
-                + Add File
+                + Add
               </button>
             </div>
 
             {/* File path input */}
-            <div className="px-4 py-1.5 shrink-0">
+            <div className="px-2 sm:px-4 py-1.5 shrink-0">
               <input
                 type="text"
                 value={files[activeFileIndex]?.path || ""}
                 onChange={(e) => updateFilePath(activeFileIndex, e.target.value)}
-                placeholder="File path (e.g., SKILL.md, templates/main.py)"
-                className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 font-mono text-sm focus:border-stone-500 focus:outline-none focus:ring-1 focus:ring-stone-500 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-100 dark:focus:border-amber-500 dark:focus:ring-amber-500"
+                placeholder="File path (e.g., SKILL.md)"
+                className="w-full rounded-lg border border-gray-200 bg-white px-2 sm:px-3 py-1.5 font-mono text-xs sm:text-sm focus:border-stone-500 focus:outline-none focus:ring-1 focus:ring-stone-500 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-100 dark:focus:border-amber-500 dark:focus:ring-amber-500"
               />
             </div>
 
             {/* Editor area - fills remaining space */}
-            {(() => {
-              const filePath = files[activeFileIndex]?.path || "";
-              const fileContent = files[activeFileIndex]?.content || "";
-              const lang = getLanguageForFile(filePath);
-              return (
-                <div
-                  className={`mx-4 mb-2 rounded-lg border overflow-hidden ${
-                    errors.content
-                      ? "border-red-300 dark:border-red-700"
-                      : "border-gray-200 dark:border-stone-700"
-                  } flex-1 min-h-0 flex flex-col`}
-                >
-                  <textarea
-                    value={fileContent}
-                    onChange={(e) =>
-                      updateFileContent(activeFileIndex, e.target.value)
-                    }
-                    className="hidden"
-                    aria-hidden="true"
-                  />
-                  <div className="relative flex-1 min-h-0 overflow-auto bg-stone-100 dark:bg-[#282c34]">
-                    <SyntaxHighlighter
-                      language={lang}
-                      style={isDark ? oneDark : oneLight}
-                      customStyle={{
-                        margin: 0,
-                        padding: "1rem",
-                        background: "transparent",
-                        fontSize: "0.875rem",
-                        lineHeight: "1.5",
-                        minHeight: "100%",
-                      }}
-                      showLineNumbers
-                      lineNumberStyle={{
-                        minWidth: "5em",
-                        width: "5em",
-                        paddingRight: "1em",
-                        textAlign: "right",
-                        color: isDark ? "#6b7280" : "#9ca3af",
-                        userSelect: "none",
-                        borderRight:
-                          isDark
-                            ? "1px solid #44403c"
-                            : "1px solid #e7e5e4",
-                      }}
-                      codeTagProps={{
-                        style: {
-                          fontFamily:
-                            'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace',
-                        },
-                      }}
-                      wrapLines={false}
-                      wrapLongLines={false}
-                    >
-                      {fileContent || " "}
-                    </SyntaxHighlighter>
-                    {/* Invisible textarea overlay for editing */}
-                    <textarea
-                      value={fileContent}
-                      onChange={(e) =>
-                        updateFileContent(activeFileIndex, e.target.value)
-                      }
-                      spellCheck={false}
-                      className="absolute inset-0 w-full h-full resize-none opacity-0 cursor-text"
-                      style={{
-                        fontFamily:
-                          'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace',
-                        fontSize: "0.875rem",
-                        lineHeight: "1.5",
-                        padding: "1rem",
-                        paddingLeft: "calc(5em + 1rem + 1px)",
-                      }}
-                    />
-                  </div>
-                </div>
-              );
-            })()}
+            <div
+              className={`mx-2 sm:mx-4 mb-2 rounded-lg border overflow-hidden flex-1 min-h-0 flex flex-col ${
+                errors.content
+                  ? "border-red-300 dark:border-red-700"
+                  : "border-gray-200 dark:border-stone-700"
+              }`}
+            >
+              <SkillEditor
+                value={files[activeFileIndex]?.content || ""}
+                onChange={(val) => updateFileContent(activeFileIndex, val)}
+                isDark={isDark}
+                className="flex-1 min-h-0"
+              />
+            </div>
           </div>
 
-          {/* Fullscreen footer with actions */}
-          <div className="flex items-center justify-end gap-2 px-4 py-2 border-t border-gray-200 dark:border-stone-700 shrink-0">
+          {/* Fullscreen footer */}
+          <div className="flex items-center justify-end gap-2 px-3 sm:px-4 py-2 border-t border-gray-200 dark:border-stone-700 shrink-0">
             {errors.content && (
               <span className="text-xs text-red-600 dark:text-red-400 mr-auto">
                 {errors.content}
@@ -454,14 +456,14 @@ export function SkillForm({
               type="button"
               onClick={onCancel}
               disabled={isLoading}
-              className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-stone-700 dark:text-gray-200 dark:hover:bg-stone-800"
+              className="rounded-lg border border-gray-200 px-3 sm:px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-stone-700 dark:text-gray-200 dark:hover:bg-stone-800"
             >
               {t("common.cancel")}
             </button>
             <button
               type="submit"
               disabled={isLoading}
-              className="flex items-center gap-1 rounded-lg bg-stone-800 px-4 py-2 text-sm font-medium text-white hover:bg-stone-900 disabled:opacity-50 dark:bg-amber-600 dark:hover:bg-amber-700"
+              className="flex items-center gap-1 rounded-lg bg-stone-800 px-3 sm:px-4 py-2 text-sm font-medium text-white hover:bg-stone-900 disabled:opacity-50 dark:bg-amber-600 dark:hover:bg-amber-700"
             >
               {isEditing
                 ? t("skills.form.saveChanges")
@@ -534,7 +536,7 @@ export function SkillForm({
                 <button
                   type="button"
                   onClick={() => setIsFullscreen(true)}
-                  className="whitespace-nowrap text-xs text-stone-600 hover:text-stone-800 dark:text-amber-500 dark:hover:text-amber-400"
+                  className="text-stone-600 hover:text-stone-800 dark:text-amber-500 dark:hover:text-amber-400 p-1"
                   title="Fullscreen editor"
                 >
                   <Maximize2 size={14} />
@@ -554,7 +556,7 @@ export function SkillForm({
               {files.map((file, index) => (
                 <div
                   key={index}
-                  className={`flex items-center gap-1 rounded-t-lg border-b-2 px-3 py-1.5 text-sm ${
+                  className={`flex items-center gap-1 rounded-t-lg border-b-2 px-2 sm:px-3 py-1.5 text-xs sm:text-sm ${
                     activeFileIndex === index
                       ? "border-stone-500 bg-stone-50 text-stone-700 dark:border-amber-500 dark:bg-stone-800 dark:text-amber-400"
                       : "border-transparent text-gray-500 hover:bg-gray-50 dark:text-stone-400 dark:hover:bg-stone-800"
@@ -563,7 +565,7 @@ export function SkillForm({
                   <button
                     type="button"
                     onClick={() => setActiveFileIndex(index)}
-                    className="max-w-[120px] truncate"
+                    className="max-w-[80px] sm:max-w-[120px] truncate"
                     title={file.path || "Untitled"}
                   >
                     {file.path || "Untitled"}
@@ -575,7 +577,7 @@ export function SkillForm({
                       className="ml-1 text-red-500 hover:text-red-700"
                       title="Remove file"
                     >
-                      ×
+                      x
                     </button>
                   )}
                 </div>
@@ -588,81 +590,26 @@ export function SkillForm({
                 type="text"
                 value={files[activeFileIndex]?.path || ""}
                 onChange={(e) => updateFilePath(activeFileIndex, e.target.value)}
-                placeholder="File path (e.g., SKILL.md, templates/main.py)"
-                className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 font-mono text-sm focus:border-stone-500 focus:outline-none focus:ring-1 focus:ring-stone-500 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-100 dark:focus:border-amber-500 dark:focus:ring-amber-500"
+                placeholder="File path (e.g., SKILL.md)"
+                className="w-full rounded-lg border border-gray-200 bg-white px-2 sm:px-3 py-1.5 font-mono text-xs sm:text-sm focus:border-stone-500 focus:outline-none focus:ring-1 focus:ring-stone-500 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-100 dark:focus:border-amber-500 dark:focus:ring-amber-500"
               />
             </div>
 
-            {/* File content editor with syntax highlighting */}
-            {(() => {
-              const filePath = files[activeFileIndex]?.path || "";
-              const fileContent = files[activeFileIndex]?.content || "";
-              const lang = getLanguageForFile(filePath);
-              return (
-                <div
-                  className={`w-full rounded-lg border overflow-hidden ${
-                    errors.content
-                      ? "border-red-300 dark:border-red-700"
-                      : "border-gray-200 dark:border-stone-700"
-                  }`}
-                >
-                  <div className="relative overflow-auto bg-stone-100 dark:bg-[#282c34]" style={{ minHeight: "12rem" }}>
-                    <SyntaxHighlighter
-                      language={lang}
-                      style={isDark ? oneDark : oneLight}
-                      customStyle={{
-                        margin: 0,
-                        padding: "1rem",
-                        background: "transparent",
-                        fontSize: "0.875rem",
-                        lineHeight: "1.5",
-                        minHeight: "12rem",
-                      }}
-                      showLineNumbers
-                      lineNumberStyle={{
-                        minWidth: "5em",
-                        width: "5em",
-                        paddingRight: "1em",
-                        textAlign: "right",
-                        color: isDark ? "#6b7280" : "#9ca3af",
-                        userSelect: "none",
-                        borderRight:
-                          isDark
-                            ? "1px solid #44403c"
-                            : "1px solid #e7e5e4",
-                      }}
-                      codeTagProps={{
-                        style: {
-                          fontFamily:
-                            'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace',
-                        },
-                      }}
-                      wrapLines={false}
-                      wrapLongLines={false}
-                    >
-                      {fileContent || " "}
-                    </SyntaxHighlighter>
-                    {/* Invisible textarea overlay for editing */}
-                    <textarea
-                      value={fileContent}
-                      onChange={(e) =>
-                        updateFileContent(activeFileIndex, e.target.value)
-                      }
-                      spellCheck={false}
-                      className="absolute inset-0 w-full h-full resize-none opacity-0 cursor-text"
-                      style={{
-                        fontFamily:
-                          'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace',
-                        fontSize: "0.875rem",
-                        lineHeight: "1.5",
-                        padding: "1rem",
-                        paddingLeft: "calc(5em + 1rem + 1px)",
-                      }}
-                    />
-                  </div>
-                </div>
-              );
-            })()}
+            {/* Editor */}
+            <div
+              className={`w-full rounded-lg border overflow-hidden ${
+                errors.content
+                  ? "border-red-300 dark:border-red-700"
+                  : "border-gray-200 dark:border-stone-700"
+              }`}
+            >
+              <SkillEditor
+                value={files[activeFileIndex]?.content || ""}
+                onChange={(val) => updateFileContent(activeFileIndex, val)}
+                isDark={isDark}
+                className="h-[12rem] sm:h-[20rem]"
+              />
+            </div>
             {errors.content && (
               <p className="mt-1 text-xs text-red-600 dark:text-red-400">
                 {errors.content}
