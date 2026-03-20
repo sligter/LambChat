@@ -37,9 +37,7 @@ _TOOL_ERROR_INDICATORS = frozenset(
 
 def _get_value(obj: Any, key: str, default: Any = 0) -> Any:
     """从 dict 或对象中获取值（模块级函数避免重复创建）"""
-    return (
-        obj.get(key, default) if isinstance(obj, dict) else getattr(obj, key, default)
-    )
+    return obj.get(key, default) if isinstance(obj, dict) else getattr(obj, key, default)
 
 
 class AgentEventProcessor:
@@ -85,9 +83,7 @@ class AgentEventProcessor:
 
     def _get_checkpoint_ns(self, metadata: dict[str, Any]) -> str:
         """从 metadata 中获取 checkpoint_ns"""
-        return metadata.get("langgraph_checkpoint_ns") or metadata.get(
-            "checkpoint_ns", ""
-        )
+        return metadata.get("langgraph_checkpoint_ns") or metadata.get("checkpoint_ns", "")
 
     def _get_agent_context(self, checkpoint_ns: str) -> tuple[str | None, int]:
         """
@@ -162,13 +158,9 @@ class AgentEventProcessor:
             case "on_chat_model_stream":
                 await self._handle_chat_stream(event, current_agent_id, current_depth)
             case "on_tool_start":
-                await self._handle_tool_start(
-                    event, tool_name, current_agent_id, current_depth
-                )
+                await self._handle_tool_start(event, tool_name, current_agent_id, current_depth)
             case "on_tool_end":
-                await self._handle_tool_end(
-                    event, tool_name, current_agent_id, current_depth
-                )
+                await self._handle_tool_end(event, tool_name, current_agent_id, current_depth)
 
     async def _handle_task_start(self, event: StreamEvent) -> None:
         """处理 task 工具开始事件"""
@@ -176,9 +168,7 @@ class AgentEventProcessor:
         inp: dict[str, Any] = data.get("input", {})
 
         # 提取子代理信息
-        subagent_type = (
-            inp.get("subagent_type", "unknown") if isinstance(inp, dict) else "unknown"
-        )
+        subagent_type = inp.get("subagent_type", "unknown") if isinstance(inp, dict) else "unknown"
         description = inp.get("description", "")[:500] if isinstance(inp, dict) else ""
         run_id = event.get("run_id", uuid.uuid4().hex)
 
@@ -194,9 +184,7 @@ class AgentEventProcessor:
         if "|" in checkpoint_ns:
             first_seg, _, _ = checkpoint_ns.partition("|")
             current_depth = (
-                2
-                if first_seg in self.checkpoint_to_agent
-                else checkpoint_ns.count("|") + 1
+                2 if first_seg in self.checkpoint_to_agent else checkpoint_ns.count("|") + 1
             )
         else:
             current_depth = 1
@@ -480,9 +468,7 @@ class AgentEventProcessor:
                 elif isinstance(parsed, list):
                     # MCP content blocks 嵌套数组，如 [[{"type":"text","text":"..."}], null]
                     normalized = AgentEventProcessor._normalize_content(parsed)
-                    result = (
-                        normalized if isinstance(normalized, dict) else str(normalized)
-                    )
+                    result = normalized if isinstance(normalized, dict) else str(normalized)
             except (json.JSONDecodeError, TypeError):
                 pass
 
@@ -534,11 +520,7 @@ class AgentEventProcessor:
             if artifact is not None:
                 return artifact
             content = getattr(out, "content", None)
-            return (
-                AgentEventProcessor._normalize_content(content)
-                if content is not None
-                else ""
-            )
+            return AgentEventProcessor._normalize_content(content) if content is not None else ""
 
         # 3. list — [BaseMessage] 或 MCP content blocks [dict]
         if isinstance(out, list):
@@ -561,9 +543,7 @@ class AgentEventProcessor:
             nested = out.get("output")
             if nested is not None:
                 if isinstance(nested, dict):
-                    return AgentEventProcessor._normalize_content(
-                        nested.get("content", nested)
-                    )
+                    return AgentEventProcessor._normalize_content(nested.get("content", nested))
                 return nested
 
             return out
@@ -690,18 +670,14 @@ class AgentEventProcessor:
                 text_parts.append(str(text) if text is not None else "")
             elif btype in _media:
                 media_blocks.append(
-                    {k: v for k, v in block.items() if k not in _skip}
-                    if "id" in block
-                    else block
+                    {k: v for k, v in block.items() if k not in _skip} if "id" in block else block
                 )
                 has_media = True
             elif "text" in block:
                 text_parts.append(str(block["text"]))
             else:
                 media_blocks.append(
-                    {k: v for k, v in block.items() if k not in _skip}
-                    if "id" in block
-                    else block
+                    {k: v for k, v in block.items() if k not in _skip} if "id" in block else block
                 )
                 has_media = True
 
@@ -767,9 +743,7 @@ class AgentEventProcessor:
             if isinstance(content, str):
                 text_parts.append(content)
             elif isinstance(content, list):
-                if AgentEventProcessor._collect_blocks(
-                    content, text_parts, media_blocks
-                ):
+                if AgentEventProcessor._collect_blocks(content, text_parts, media_blocks):
                     has_media = True
             elif isinstance(content, dict):
                 text_parts.append(json.dumps(content, ensure_ascii=False))
