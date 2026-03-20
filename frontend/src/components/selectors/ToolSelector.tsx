@@ -226,14 +226,8 @@ export function ToolSelector({
                 </div>
 
                 {/* Tools List */}
-                <div
-                  className={`grid transition-all duration-300 ease-out ${
-                    isExpanded
-                      ? "grid-rows-[1fr] opacity-100"
-                      : "grid-rows-[0fr] opacity-0"
-                  }`}
-                >
-                  <div className="overflow-hidden">
+                {isExpanded && (
+                  <div className="animate-[fade-in_150ms_ease-out]">
                     <div className="px-1.5 sm:px-2 pb-2 pt-1 space-y-0.5">
                       {categoryTools.map((tool: ToolState) => {
                         const isToolExpanded = expandedTools.has(tool.name);
@@ -299,15 +293,9 @@ export function ToolSelector({
                               </div>
                             </div>
 
-                            {/* Parameters - Animated Expand */}
-                            <div
-                              className={`grid transition-all duration-300 ease-out ${
-                                isToolExpanded && hasParams
-                                  ? "grid-rows-[1fr] opacity-100"
-                                  : "grid-rows-[0fr] opacity-0"
-                              }`}
-                            >
-                              <div className="overflow-hidden">
+                            {/* Parameters - Conditional Render */}
+                            {isToolExpanded && hasParams && (
+                              <div className="animate-[fade-in_150ms_ease-out]">
                                 <div className="mx-2 sm:mx-4 mb-1.5 sm:mb-2 rounded-lg border border-stone-200/80 dark:border-stone-600/50 overflow-hidden">
                                   {/* Table Header */}
                                   <div className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 bg-stone-100 dark:bg-stone-700/60 border-b border-stone-200/80 dark:border-stone-600/50">
@@ -370,13 +358,13 @@ export function ToolSelector({
                                   </div>
                                 </div>
                               </div>
-                            </div>
+                            )}
                           </div>
                         );
                       })}
                     </div>
                   </div>
-                </div>
+                )}
               </div>
             );
           },

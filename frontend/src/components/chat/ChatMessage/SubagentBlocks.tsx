@@ -100,22 +100,15 @@ export function ThinkingBlock({
         />
       </button>
 
-      <div
-        className={clsx(
-          "grid transition-all duration-200 ease-out",
-          isExpanded
-            ? "grid-rows-[1fr] opacity-100 mt-1"
-            : "grid-rows-[0fr] opacity-0",
-        )}
-      >
-        <div className="overflow-hidden">
+      {isExpanded && (
+        <div className="mt-1 animate-[fade-in_150ms_ease-out]">
           <div className="ml-4 pl-3 border-l-2 border-stone-300 dark:border-stone-600">
             <div className="text-xs text-stone-600 dark:text-stone-300 leading-relaxed pl-1 pt-2">
               <MarkdownContent content={content} isStreaming={isStreaming} />
             </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

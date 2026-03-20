@@ -165,16 +165,11 @@ export function CollapsiblePill({
         )}
       </button>
 
-      <div
-        className={clsx(
-          "grid transition-all duration-200 ease-out",
-          isExpanded && hasChildren
-            ? "grid-rows-[1fr] opacity-100 mt-1"
-            : "grid-rows-[0fr] opacity-0",
-        )}
-      >
-        <div className="overflow-hidden">{children}</div>
-      </div>
+      {isExpanded && hasChildren && (
+        <div className="mt-1 animate-[fade-in_150ms_ease-out]">
+          {children}
+        </div>
+      )}
     </div>
   );
 }

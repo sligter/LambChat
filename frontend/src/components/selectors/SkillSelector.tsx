@@ -214,14 +214,8 @@ export function SkillSelector({
                 </div>
 
                 {/* Skills List */}
-                <div
-                  className={`grid transition-all duration-300 ease-out ${
-                    isExpanded
-                      ? "grid-rows-[1fr] opacity-100"
-                      : "grid-rows-[0fr] opacity-0"
-                  }`}
-                >
-                  <div className="overflow-hidden">
+                {isExpanded && (
+                  <div className="animate-[fade-in_150ms_ease-out]">
                     <div className="px-1.5 sm:px-2 pb-2 pt-1 space-y-0.5">
                       {categorySkills.map((skill: SkillResponse) => (
                         <div key={skill.name} className="group">
@@ -267,7 +261,7 @@ export function SkillSelector({
                       ))}
                     </div>
                   </div>
-                </div>
+                )}
               </div>
             );
           },
