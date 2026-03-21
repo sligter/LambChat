@@ -276,8 +276,8 @@ export function ChatMessage({
               )}
             </>
           )}
-          {/* Streaming indicator - bottom of message */}
-          {message.isStreaming && (
+          {/* Streaming indicator - bottom of message (only when content is being streamed, not during initial thinking) */}
+          {message.isStreaming && !isStreaming && (
             <div className="mt-3 px-2">
               <CollapsiblePill
                 status="loading"
