@@ -465,6 +465,16 @@ class BackgroundTaskManager:
                     "Task interrupted (instance unavailable)",
                     run_id=run_id,
                 )
+                # 释放 Redis 并发槽位
+                user_id = session.get("user_id")
+                if user_id:
+                    try:
+                        from .concurrency import get_concurrency_limiter
+
+                        limiter = get_concurrency_limiter()
+                        await limiter.release(user_id, run_id)
+                    except Exception as e:
+                        logger.warning(f"Failed to release concurrency slot for stale task: {e}")
                 cleaned_count += 1
 
             if cleaned_count > 0:
@@ -522,6 +532,9 @@ class BackgroundTaskManager:
             if self._executor is None:
                 self._executor = TaskExecutor(self.storage, self._run_info, self._heartbeat)
 
+            from .concurrency import get_concurrency_limiter
+
+            limiter = get_concurrency_limiter()
             for run_id, task in self._tasks.items():
                 if not task.done():
                     task.cancel()
@@ -537,6 +550,15 @@ class BackgroundTaskManager:
                                 "Server shutdown",
                                 run_id=run_id,
                             )
+                        # 释放 Redis 并发槽位
+                        user_id = info.get("user_id")
+                        if user_id:
+                            try:
+                                await limiter.release(user_id, run_id)
+                            except Exception as e:
+                                logger.warning(
+                                    f"Failed to release concurrency slot on shutdown: {e}"
+                                )
                     logger.warning(f"Task marked as failed (shutdown): run_id={run_id}")
 
             self._tasks.clear()

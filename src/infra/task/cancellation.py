@@ -174,6 +174,19 @@ class TaskCancellation:
             except Exception as e:
                 logger.warning(f"Failed to publish cancel signal: {e}")
 
+        # 释放 Redis 并发槽位（无论本地还是远程取消都需要）
+        user_id = run_info.get("user_id") if run_info else None
+        interrupt_success = interrupt_signal_set or run_id in _interrupted_runs
+        if user_id and (cancelled_locally or interrupt_success):
+            try:
+                from src.infra.task.concurrency import get_concurrency_limiter
+
+                limiter = get_concurrency_limiter()
+                await limiter.release(user_id, run_id)
+                logger.info(f"Concurrency slot released for run_id={run_id}")
+            except Exception as e:
+                logger.warning(f"Failed to release concurrency slot on cancel: {e}")
+
         # 构建返回结果
         # success: 中断信号成功设置即认为成功（即使任务在其他实例运行）
         success = interrupt_signal_set or run_id in _interrupted_runs

@@ -151,6 +151,12 @@ async def lifespan(app: FastAPI):
     await task_manager.shutdown()
     logger.info("Background tasks marked as failed")
 
+    # 清理 executor 注册表
+    from src.infra.task.concurrency import unregister_executor
+
+    unregister_executor("agent_stream")
+    logger.info("Executor registry cleaned up")
+
     # 关闭所有 sandbox
     await SandboxFactory.close_all()
 

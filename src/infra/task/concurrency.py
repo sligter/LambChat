@@ -19,6 +19,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Callable, Dict, Optional, Tuple
 
+from src.infra.session.storage import SessionUpdate
 from src.infra.storage.redis import get_redis_client
 from src.infra.task.constants import HEARTBEAT_TIMEOUT
 
@@ -36,6 +37,11 @@ _EXECUTOR_REGISTRY: Dict[str, Callable] = {}
 def register_executor(key: str, executor: Callable) -> None:
     """Register an executor callable under a stable string key."""
     _EXECUTOR_REGISTRY[key] = executor
+
+
+def unregister_executor(key: str) -> None:
+    """Unregister an executor callable. Removes the key from the registry."""
+    _EXECUTOR_REGISTRY.pop(key, None)
 
 
 def get_registered_executor(key: str) -> Optional[Callable]:
@@ -395,15 +401,39 @@ class UserConcurrencyLimiter:
             entries = await self.redis.lrange(queue_key, 0, -1)
             to_keep = []
             removed = 0
+            removed_run_ids = []
             for entry in entries:
                 data = json.loads(entry)
                 if data.get("session_id") == session_id:
                     removed += 1
+                    removed_run_ids.append(data.get("run_id"))
                 else:
                     to_keep.append(entry)
             if removed:
                 await redis_delete_and_repush(self.redis, queue_key, to_keep)
                 logger.info(f"Removed {removed} queued tasks for session {session_id}")
+                # 更新 MongoDB session 状态
+                try:
+                    from src.infra.session.storage import SessionStorage
+                    from src.infra.task.status import TaskStatus
+
+                    storage = SessionStorage()
+                    for run_id in removed_run_ids:
+                        if run_id:
+                            await storage.update(
+                                session_id,
+                                SessionUpdate(
+                                    metadata={
+                                        "task_status": TaskStatus.FAILED.value,
+                                        "task_error": "Task cancelled by user",
+                                        "current_run_id": run_id,
+                                    }
+                                ),
+                            )
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to update session status after removing from queue: {e}"
+                    )
             return removed
         except Exception as e:
             logger.warning(f"Failed to remove from queue: {e}")

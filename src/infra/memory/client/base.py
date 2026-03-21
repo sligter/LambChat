@@ -89,6 +89,9 @@ def clear_loop_locals(namespace: str) -> None:
     if loop_id in _loop_locals:
         _loop_locals[loop_id].pop(f"{namespace}_semaphore", None)
         _loop_locals[loop_id].pop(f"{namespace}_client_lock", None)
+        # Clean up empty loop entries to prevent memory accumulation
+        if not _loop_locals[loop_id]:
+            del _loop_locals[loop_id]
 
 
 # ============================================================================
