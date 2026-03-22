@@ -17,7 +17,10 @@ export const authApi = {
   /**
    * 用户登录
    */
-  async login(credentials: LoginRequest, turnstileToken?: string): Promise<TokenResponse> {
+  async login(
+    credentials: LoginRequest,
+    turnstileToken?: string,
+  ): Promise<TokenResponse> {
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
     };
@@ -163,6 +166,16 @@ export const authApi = {
   },
 
   /**
+   * 更新用户偏好 metadata（部分合并）
+   */
+  async updateMetadata(metadata: Record<string, unknown>): Promise<User> {
+    return authFetch<User>(`${API_BASE}/api/auth/profile/metadata`, {
+      method: "PUT",
+      body: JSON.stringify({ metadata }),
+    });
+  },
+
+  /**
    * 获取可用的 OAuth 提供商列表
    */
   async getOAuthProviders(): Promise<{
@@ -247,14 +260,11 @@ export const authApi = {
    * 验证邮箱
    */
   async verifyEmail(token: string): Promise<{ message: string }> {
-    return authFetch<{ message: string }>(
-      `${API_BASE}/api/auth/verify-email`,
-      {
-        method: "POST",
-        skipAuth: true,
-        body: JSON.stringify({ token }),
-      },
-    );
+    return authFetch<{ message: string }>(`${API_BASE}/api/auth/verify-email`, {
+      method: "POST",
+      skipAuth: true,
+      body: JSON.stringify({ token }),
+    });
   },
 
   /**
