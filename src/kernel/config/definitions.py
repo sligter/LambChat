@@ -21,13 +21,39 @@ SETTING_DEFINITIONS: dict[str, dict] = {
     "WELCOME_SUGGESTIONS": {
         "type": SettingType.JSON,
         "category": SettingCategory.FRONTEND,
-        "description": "Welcome page suggestions displayed to users (JSON array with icon and text)",
-        "default": [
-            {"icon": "🐍", "text": "Create a Python hello world script"},
-            {"icon": "📁", "text": "List files in the workspace directory"},
-            {"icon": "📄", "text": "Read the README.md file"},
-            {"icon": "🔧", "text": "Help me write a shell script"},
-        ],
+        "description": "Welcome page suggestions displayed to users (multi-language JSON object keyed by language code)",
+        "default": {
+            "en": [
+                {"icon": "🐍", "text": "Create a Python hello world script"},
+                {"icon": "📁", "text": "List files in the workspace directory"},
+                {"icon": "📄", "text": "Read the README.md file"},
+                {"icon": "🔧", "text": "Help me write a shell script"},
+            ],
+            "zh": [
+                {"icon": "🐍", "text": "创建一个 Python Hello World 脚本"},
+                {"icon": "📁", "text": "列出工作区目录中的文件"},
+                {"icon": "📄", "text": "读取 README.md 文件"},
+                {"icon": "🔧", "text": "帮我写一个 Shell 脚本"},
+            ],
+            "ja": [
+                {"icon": "🐍", "text": "PythonのHello Worldスクリプトを作成"},
+                {"icon": "📁", "text": "ワークスペースディレクトリのファイルを一覧表示"},
+                {"icon": "📄", "text": "README.mdファイルを読む"},
+                {"icon": "🔧", "text": "シェルスクリプトを書くのを手伝って"},
+            ],
+            "ko": [
+                {"icon": "🐍", "text": "Python Hello World 스크립트 만들기"},
+                {"icon": "📁", "text": "작업 공간 디렉토리의 파일 목록 보기"},
+                {"icon": "📄", "text": "README.md 파일 읽기"},
+                {"icon": "🔧", "text": "쉘 스크립트 작성 도와줘"},
+            ],
+            "ru": [
+                {"icon": "🐍", "text": "Создайте скрипт Python Hello World"},
+                {"icon": "📁", "text": "Покажите файлы в рабочей директории"},
+                {"icon": "📄", "text": "Прочитайте файл README.md"},
+                {"icon": "🔧", "text": "Помогите написать скрипт оболочки"},
+            ],
+        },
         "frontend_visible": True,
     },
     # ============================================
