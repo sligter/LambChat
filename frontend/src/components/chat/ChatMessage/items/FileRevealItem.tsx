@@ -201,7 +201,7 @@ export function FileRevealItem({
   }
 
   return (
-    <div className="my-2 sm:my-3">
+    <div className="my-2 sm:my-3 min-w-0">
       {showPreview && filePath && !isImage && (
         <DocumentPreview
           path={filePath}

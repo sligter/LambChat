@@ -9,7 +9,6 @@ import {
   Copy,
   Check,
   Download,
-  ChevronDown,
   Maximize2,
   Minimize2,
   Eye,
@@ -571,14 +570,7 @@ export default function DocumentPreview({
               className="flex items-center justify-center w-9 h-9 sm:w-9 sm:h-9 rounded-xl hover:bg-stone-100 dark:hover:bg-stone-800 transition-all duration-200 active:scale-95 cursor-pointer"
               aria-label={t("common.close")}
             >
-              <ChevronDown
-                size={24}
-                className="sm:hidden text-stone-500 dark:text-stone-400"
-              />
-              <X
-                size={18}
-                className="hidden sm:block text-stone-500 dark:text-stone-400"
-              />
+              <X size={20} className="text-stone-500 dark:text-stone-400" />
             </button>
           </div>
         </div>

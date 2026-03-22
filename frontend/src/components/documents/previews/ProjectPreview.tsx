@@ -12,8 +12,6 @@ import {
   Code2,
   FolderTree,
   ExternalLink,
-  Maximize2,
-  Minimize2,
   X,
   AlertCircle,
 } from "lucide-react";
@@ -125,8 +123,7 @@ export default function ProjectPreview({
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<"preview" | "code">("preview");
   const [showExplorer, setShowExplorer] = useState(showFileExplorer);
-  const [internalFullscreen, setInternalFullscreen] = useState(false);
-  const isFullscreen = externalFullscreen || internalFullscreen;
+  const isFullscreen = !!externalFullscreen;
 
   // 检测并转换文件格式
   const sandpackFiles = useMemo(() => {
@@ -185,14 +182,14 @@ export default function ProjectPreview({
     >
       {/* 工具栏 */}
       {showHeader && (
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between px-2 sm:px-4 py-2 sm:py-3 border-b border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-900 shrink-0 gap-2 sm:gap-0">
+        <div className="flex items-center justify-between px-2 sm:px-4 py-1.5 sm:py-3 border-b border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-900 shrink-0 gap-1 sm:gap-0">
           {/* 左侧：项目信息 */}
-          <div className="flex items-center gap-2 sm:gap-3">
-            <div className="p-1.5 sm:p-2 rounded-lg bg-gradient-to-br from-blue-500 to-purple-500 text-white">
-              <Code2 size={16} />
+          <div className="flex items-center gap-1.5 sm:gap-3 min-w-0 flex-1">
+            <div className="p-1 sm:p-2 rounded-md sm:rounded-lg bg-gradient-to-br from-blue-500 to-purple-500 text-white shrink-0">
+              <Code2 size={14} className="sm:w-4 sm:h-4" />
             </div>
             <div className="min-w-0">
-              <h3 className="text-sm font-semibold text-stone-900 dark:text-stone-100 truncate max-w-[120px] sm:max-w-none">
+              <h3 className="text-xs sm:text-sm font-semibold text-stone-900 dark:text-stone-100 truncate">
                 {name || t("project.untitled", "未命名项目")}
               </h3>
               <p className="text-xs text-stone-500 dark:text-stone-400 hidden sm:block">
@@ -204,79 +201,84 @@ export default function ProjectPreview({
             </div>
           </div>
 
-          {/* 中间：标签切换 */}
-          {showTabs && (
-            <div className="flex items-center gap-1 bg-stone-100 dark:bg-stone-800 rounded-lg p-0.5 sm:p-1">
-              <button
-                onClick={() => setActiveTab("preview")}
-                className={clsx(
-                  "flex items-center gap-1 px-2 sm:px-3 py-1 rounded-md text-xs font-medium transition-colors",
-                  activeTab === "preview"
-                    ? "bg-white dark:bg-stone-700 text-stone-900 dark:text-stone-100 shadow-sm"
-                    : "text-stone-500 dark:text-stone-400 hover:text-stone-700 dark:hover:text-stone-300",
-                )}
-              >
-                <Play size={14} />
-                <span className="hidden sm:inline">
-                  {t("project.preview", "预览")}
-                </span>
-              </button>
-              <button
-                onClick={() => setActiveTab("code")}
-                className={clsx(
-                  "flex items-center gap-1 px-2 sm:px-3 py-1 rounded-md text-xs font-medium transition-colors",
-                  activeTab === "code"
-                    ? "bg-white dark:bg-stone-700 text-stone-900 dark:text-stone-100 shadow-sm"
-                    : "text-stone-500 dark:text-stone-400 hover:text-stone-700 dark:hover:text-stone-300",
-                )}
-              >
-                <Code2 size={14} />
-                <span className="hidden sm:inline">
-                  {t("project.code", "代码")}
-                </span>
-              </button>
-            </div>
-          )}
+          {/* 右侧：标签切换 + 操作按钮 */}
+          <div className="flex items-center gap-0.5 sm:gap-1 shrink-0">
+            {/* 手机端：单个切换按钮 | 桌面端：双按钮组 */}
+            {showTabs && (
+              <>
+                {/* 手机切换按钮 */}
+                <button
+                  onClick={() =>
+                    setActiveTab(activeTab === "preview" ? "code" : "preview")
+                  }
+                  className="sm:hidden flex items-center justify-center w-7 h-7 rounded-md bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 transition-colors"
+                  title={
+                    activeTab === "preview"
+                      ? t("project.code", "代码")
+                      : t("project.preview", "预览")
+                  }
+                >
+                  {activeTab === "preview" ? (
+                    <Code2 size={14} />
+                  ) : (
+                    <Play size={14} />
+                  )}
+                </button>
 
-          {/* 右侧：操作按钮 */}
-          <div className="flex items-center gap-0.5 sm:gap-1">
-            {/* 文件浏览器切换 - 仅在启用时显示 */}
+                {/* 桌面双按钮组 */}
+                <div className="hidden sm:flex items-center bg-stone-100 dark:bg-stone-800 rounded-lg p-0.5">
+                  <button
+                    onClick={() => setActiveTab("preview")}
+                    className={clsx(
+                      "flex items-center gap-1 px-3 py-1 rounded-md text-xs font-medium transition-colors",
+                      activeTab === "preview"
+                        ? "bg-white dark:bg-stone-700 text-stone-900 dark:text-stone-100 shadow-sm"
+                        : "text-stone-500 dark:text-stone-400 hover:text-stone-700 dark:hover:text-stone-300",
+                    )}
+                  >
+                    <Play size={14} />
+                    {t("project.preview", "预览")}
+                  </button>
+                  <button
+                    onClick={() => setActiveTab("code")}
+                    className={clsx(
+                      "flex items-center gap-1 px-3 py-1 rounded-md text-xs font-medium transition-colors",
+                      activeTab === "code"
+                        ? "bg-white dark:bg-stone-700 text-stone-900 dark:text-stone-100 shadow-sm"
+                        : "text-stone-500 dark:text-stone-400 hover:text-stone-700 dark:hover:text-stone-300",
+                    )}
+                  >
+                    <Code2 size={14} />
+                    {t("project.code", "代码")}
+                  </button>
+                </div>
+              </>
+            )}
+
+            {/* 文件浏览器切换 */}
             {showFileExplorer && (
               <button
                 onClick={() => setShowExplorer(!showExplorer)}
                 className={clsx(
-                  "p-1.5 sm:p-2 rounded-lg transition-colors",
+                  "p-1 sm:p-1.5 rounded-md sm:rounded-lg transition-colors",
                   showExplorer
                     ? "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
                     : "text-stone-400 dark:text-stone-500 hover:bg-stone-100 dark:hover:bg-stone-800",
                 )}
                 title={t("project.toggleExplorer", "切换文件浏览器")}
               >
-                <FolderTree size={16} />
+                <FolderTree size={14} className="sm:w-4 sm:h-4" />
               </button>
             )}
-
-            {/* 全屏按钮 */}
-            <button
-              onClick={() => setInternalFullscreen(!internalFullscreen)}
-              className="p-1.5 sm:p-2 rounded-lg text-stone-400 dark:text-stone-500 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors"
-              title={
-                isFullscreen
-                  ? t("project.exitFullscreen")
-                  : t("project.fullscreen")
-              }
-            >
-              {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
-            </button>
 
             {/* 关闭按钮 */}
             {onClose && (
               <button
                 onClick={onClose}
-                className="p-1.5 sm:p-2 rounded-lg text-stone-400 dark:text-stone-500 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors"
+                className="p-1 sm:p-1.5 rounded-md sm:rounded-lg text-stone-400 dark:text-stone-500 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors"
                 title={t("common.close")}
               >
-                <X size={16} />
+                <X size={14} className="sm:w-4 sm:h-4" />
               </button>
             )}
           </div>

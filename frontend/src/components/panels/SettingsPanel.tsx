@@ -643,7 +643,7 @@ export function SettingsPanel() {
                               )
                             }
                             disabled={!canManage}
-                            rows={4}
+                            rows={8}
                             className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-stone-900 focus:border-stone-500 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-100"
                           />
                         )}
@@ -680,9 +680,9 @@ export function SettingsPanel() {
                       </div>
 
                       {/* Actions and Info */}
-                      <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="mt-3 flex flex-wrap-nowrap items-center justify-between gap-2">
                         {canManage && (
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex shrink-0 items-center gap-1.5">
                             <button
                               onClick={() => handleSave(setting)}
                               disabled={!modified || isSaving}
@@ -712,15 +712,13 @@ export function SettingsPanel() {
                         )}
 
                         {/* Default Value and Updated Info */}
-                        <div className="hidden text-xs text-stone-400 sm:block dark:text-stone-500">
-                          <span>
-                            {t("common.default")}:{" "}
-                            {typeof setting.default_value === "object"
-                              ? JSON.stringify(setting.default_value)
-                              : String(setting.default_value)}
-                          </span>
+                        <div className="hidden text-xs text-stone-400 sm:block dark:text-stone-500 max-w-full truncate">
+                          {t("common.default")}:{" "}
+                          {typeof setting.default_value === "object"
+                            ? JSON.stringify(setting.default_value)
+                            : String(setting.default_value)}
                           {setting.updated_at && (
-                            <span className="ml-2">
+                            <span className="ml-2 inline-flex">
                               {new Date(setting.updated_at).toLocaleString()}
                               {setting.updated_by && ` · ${setting.updated_by}`}
                             </span>

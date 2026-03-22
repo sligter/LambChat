@@ -144,7 +144,7 @@ export function ProjectRevealItem({
   }
 
   return (
-    <div className="my-2 sm:my-3">
+    <div className="my-2 sm:my-3 min-w-0">
       {showFullPreview &&
         createPortal(
           <div
