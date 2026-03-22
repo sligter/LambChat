@@ -23,6 +23,7 @@ class UserBase(BaseModel):
     avatar_url: Optional[str] = None  # Data URI for avatar (data:image/xxx;base64,...)
     oauth_provider: Optional[OAuthProvider] = None  # OAuth provider (google, github, apple)
     oauth_id: Optional[str] = None  # OAuth provider user ID
+    metadata: Optional[dict] = None  # User preferences: { language, theme, ... }
 
 
 class UserCreate(UserBase):
