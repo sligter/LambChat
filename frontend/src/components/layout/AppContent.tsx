@@ -720,8 +720,11 @@ export function AppContent({ activeTab }: AppContentProps) {
                             suggestions = rawValue;
                           } else if (rawValue && typeof rawValue === "object") {
                             // Multi-language format: { en: [...], zh: [...], ... }
-                            suggestions =
-                              rawValue[currentLang] || rawValue["en"];
+                            const langMap = rawValue as Record<
+                              string,
+                              Array<{ icon: string; text: string }>
+                            >;
+                            suggestions = langMap[currentLang] || langMap["en"];
                           }
                           return suggestions;
                         })()?.map((suggestion, i) => (
