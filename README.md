@@ -289,7 +289,19 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guid
 ---
 
 <p align="center">
-  Made with ❤️ by <a href="https://github.com/Yanyutin753">Clivia</a>
+  ## 📲 Contact
+
+<p align="center">
+  <a href="mailto:3254822118@qq.com">
+    <img src="https://img.shields.io/badge/Email-3254822118%40qq.com-D14836?style=flat-square&logo=gmail&logoColor=white" />
+  </a>
+  <a href="https://github.com/Yanyutin753">
+    <img src="https://img.shields.io/badge/GitHub-Yanyutin753-181717?style=flat-square&logo=github&logoColor=white" />
+  </a>
 </p>
+
+---
+
+<p align="center">
   Made with ❤️ by <a href="https://github.com/Yanyutin753">Clivia</a>
 </p>
