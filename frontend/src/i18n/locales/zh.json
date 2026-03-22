@@ -710,7 +710,14 @@
     "username": "用户名",
     "usernameLengthError": "用户名长度需为 3-50 个字符",
     "usernameUpdateFailed": "用户名修改失败",
-    "usernameUpdated": "用户名修改成功"
+    "usernameUpdated": "用户名修改成功",
+    "preferences": "偏好设置",
+    "language": "语言",
+    "theme": "主题",
+    "lightTheme": "浅色",
+    "darkTheme": "深色",
+    "languageSynced": "语言偏好已保存",
+    "themeSynced": "主题偏好已保存"
   },
   "project": {
     "code": "代码",

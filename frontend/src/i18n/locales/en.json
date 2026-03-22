@@ -711,7 +711,14 @@
     "username": "Username",
     "usernameLengthError": "Username must be 3-50 characters",
     "usernameUpdateFailed": "Failed to update username",
-    "usernameUpdated": "Username updated successfully"
+    "usernameUpdated": "Username updated successfully",
+    "preferences": "Preferences",
+    "language": "Language",
+    "theme": "Theme",
+    "lightTheme": "Light",
+    "darkTheme": "Dark",
+    "languageSynced": "Language preference saved",
+    "themeSynced": "Theme preference saved"
   },
   "project": {
     "code": "Code",

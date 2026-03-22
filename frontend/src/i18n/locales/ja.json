@@ -666,7 +666,14 @@
     "username": "ユーザー名",
     "usernameLengthError": "ユーザー名は3〜50文字である必要があります",
     "usernameUpdateFailed": "ユーザー名の更新に失敗しました",
-    "usernameUpdated": "ユーザー名が更新されました"
+    "usernameUpdated": "ユーザー名が更新されました",
+    "preferences": "設定",
+    "language": "言語",
+    "theme": "テーマ",
+    "lightTheme": "ライト",
+    "darkTheme": "ダーク",
+    "languageSynced": "言語設定を保存しました",
+    "themeSynced": "テーマ設定を保存しました"
   },
   "project": {
     "code": "コード",

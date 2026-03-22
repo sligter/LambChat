@@ -666,7 +666,14 @@
     "username": "사용자 이름",
     "usernameLengthError": "사용자 이름은 3~50자여야 합니다",
     "usernameUpdateFailed": "사용자 이름 업데이트 실패",
-    "usernameUpdated": "사용자 이름이 업데이트되었습니다"
+    "usernameUpdated": "사용자 이름이 업데이트되었습니다",
+    "preferences": "환경설정",
+    "language": "언어",
+    "theme": "테마",
+    "lightTheme": "라이트",
+    "darkTheme": "다크",
+    "languageSynced": "언어 환경설정이 저장되었습니다",
+    "themeSynced": "테마 환경설정이 저장되었습니다"
   },
   "project": {
     "code": "코드",

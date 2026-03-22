@@ -712,7 +712,14 @@
     "username": "Имя пользователя",
     "usernameLengthError": "Имя пользователя должно быть от 3 до 50 символов",
     "usernameUpdateFailed": "Не удалось обновить имя пользователя",
-    "usernameUpdated": "Имя пользователя успешно обновлено"
+    "usernameUpdated": "Имя пользователя успешно обновлено",
+    "preferences": "Настройки",
+    "language": "Язык",
+    "theme": "Тема",
+    "lightTheme": "Светлая",
+    "darkTheme": "Тёмная",
+    "languageSynced": "Настройки языка сохранены",
+    "themeSynced": "Настройки темы сохранены"
   },
   "project": {
     "code": "Код",
