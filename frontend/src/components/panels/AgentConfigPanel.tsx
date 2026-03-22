@@ -389,8 +389,17 @@ export function AgentConfigPanel() {
         agentApi.list(),
       ]);
 
-      // 设置可用 agents
-      setAvailableAgents(agentList.agents || []);
+      // 管理员使用全局配置的全部 agent（用于角色分配），非管理员使用过滤后的列表
+      setAvailableAgents(
+        canManage && globalConfig
+          ? globalConfig.agents.map((a) => ({
+              id: a.id,
+              name: a.name,
+              description: a.description,
+              version: "",
+            }))
+          : agentList.agents || [],
+      );
 
       // 设置全局 agents
       if (globalConfig) {

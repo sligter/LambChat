@@ -261,7 +261,12 @@
     "send": "Send message",
     "shiftEnterNewLine": "for new line",
     "skillUpdated": "Skill {{action}}",
+    "status": {
+      "cancelled": "chat.status.cancelled"
+    },
     "stop": "Stop generating",
+    "stopConfirmMessage": "Are you sure you want to stop generating? The content generated so far will be kept.",
+    "stopConfirmTitle": "Stop generating",
     "title": "Chat",
     "todo": {
       "progress": "{{completed}}/{{total}} completed"

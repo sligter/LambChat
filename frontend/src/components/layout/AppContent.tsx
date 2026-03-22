@@ -445,8 +445,9 @@ export function AppContent({ activeTab }: AppContentProps) {
     virtuosoScrollerRef,
     isNearBottom,
     showScrollTop,
-    setShowScrollTop,
     handleVirtuosoAtBottomChange,
+    scrollToBottom,
+    scrollToTop,
   } = useMessageScroll(messages);
 
   // Memoize Virtuoso components to prevent re-renders from resetting scroll
@@ -475,7 +476,7 @@ export function AppContent({ activeTab }: AppContentProps) {
           </div>
         );
       },
-      Footer: () => <div ref={messagesEndRef} className="h-6" />,
+      Footer: () => <div ref={messagesEndRef} className="h-8" />,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
@@ -795,8 +796,7 @@ export function AppContent({ activeTab }: AppContentProps) {
                     className="dark:divide-stone-800"
                     data={messages}
                     atBottomStateChange={handleVirtuosoAtBottomChange}
-                    atBottomThreshold={100}
-                    followOutput="smooth"
+                    atBottomThreshold={50}
                     components={virtuosoComponents}
                     itemContent={virtuosoItemContent}
                     initialTopMostItemIndex={messages.length - 1}
@@ -808,11 +808,7 @@ export function AppContent({ activeTab }: AppContentProps) {
               {messages.length > 0 && showScrollTop && (
                 <button
                   onClick={() => {
-                    virtuosoRef.current?.scrollTo({
-                      top: 0,
-                      behavior: "smooth",
-                    });
-                    setShowScrollTop(false);
+                    scrollToTop();
                   }}
                   className="absolute right-3 sm:right-4 z-50 flex items-center p-2 rounded-full bg-white/90 dark:bg-stone-800/90 border border-stone-200/80 dark:border-stone-700/60 shadow-lg backdrop-blur-sm hover:shadow-xl transition-all duration-200 hover:scale-105 active:scale-95"
                   style={{ bottom: "9rem" }}
@@ -836,10 +832,7 @@ export function AppContent({ activeTab }: AppContentProps) {
               {messages.length > 0 && !isNearBottom && (
                 <button
                   onClick={() => {
-                    virtuosoRef.current?.scrollTo({
-                      top: Number.MAX_SAFE_INTEGER,
-                      behavior: "smooth",
-                    });
+                    scrollToBottom();
                   }}
                   className="absolute left-1/2 z-50 flex items-center p-2 rounded-full bg-white/90 dark:bg-stone-800/90 border border-stone-200/80 dark:border-stone-700/60 shadow-lg backdrop-blur-sm hover:shadow-xl transition-all duration-200 hover:scale-105 active:scale-95"
                   style={{

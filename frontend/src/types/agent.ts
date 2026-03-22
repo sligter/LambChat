@@ -62,7 +62,19 @@ export interface RoleAgentAssignment {
   allowed_agents: string[];
 }
 
+// Response after updating role's accessible agents
+export interface RoleAgentAssignmentResponse {
+  role_id: string;
+  role_name: string;
+  allowed_agents: string[];
+}
+
 // User's default agent preference
 export interface UserAgentPreference {
+  default_agent_id: string | null;
+}
+
+// Response for user agent preference operations
+export interface UserAgentPreferenceResponse {
   default_agent_id: string | null;
 }

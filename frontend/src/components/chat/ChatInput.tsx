@@ -1,7 +1,9 @@
-import { useState, useRef, useEffect, memo } from "react";
+import { useState, useRef, useEffect, memo, useCallback } from "react";
+import toast from "react-hot-toast";
 import {
   ArrowUp,
   Square,
+  Ban,
   Lock,
   Brain,
   Zap,
@@ -18,6 +20,7 @@ import { uploadApi, getFullUrl } from "../../services/api";
 import DocumentPreview from "../documents/DocumentPreview";
 import { AttachmentCard } from "../common/AttachmentCard";
 import { ImageViewer } from "../common";
+import { ConfirmDialog } from "../common/ConfirmDialog";
 import { useFileUpload } from "../../hooks/useFileUpload";
 import type {
   ToolState,
@@ -376,6 +379,7 @@ export const ChatInput = memo(function ChatInput({
     useState<MessageAttachment | null>(null);
   const [imageViewerSrc, setImageViewerSrc] = useState<string | null>(null);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
+  const [stopConfirmOpen, setStopConfirmOpen] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Use external attachments if provided, otherwise use internal state
@@ -457,7 +461,7 @@ export const ChatInput = memo(function ChatInput({
       e.preventDefault();
       // 如果正在加载，按 Enter 应该停止而不是发送
       if (isLoading) {
-        onStop();
+        setStopConfirmOpen(true);
       } else {
         handleSubmit(e);
       }
@@ -641,7 +645,7 @@ export const ChatInput = memo(function ChatInput({
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    onStop();
+                    setStopConfirmOpen(true);
                   }}
                   className="flex items-center justify-center rounded-full p-2 bg-stone-800 dark:bg-stone-500 text-white dark:text-stone-100 transition-all duration-200 hover:scale-105 active:scale-95 shadow-md"
                   title={t("chat.stop")}
@@ -694,6 +698,27 @@ export const ChatInput = memo(function ChatInput({
           onClose={() => setImageViewerSrc(null)}
         />
       )}
+
+      {/* 停止生成确认框 */}
+      <ConfirmDialog
+        isOpen={stopConfirmOpen}
+        title={t("chat.stopConfirmTitle")}
+        message={t("chat.stopConfirmMessage")}
+        confirmText={t("chat.stop")}
+        cancelText={t("common.cancel")}
+        variant="warning"
+        onConfirm={() => {
+          setStopConfirmOpen(false);
+          onStop();
+          toast.custom(() => (
+            <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200/60 dark:border-amber-800/60 text-amber-700 dark:text-amber-400 text-sm font-medium">
+              <Ban size={16} className="shrink-0" />
+              <span>{t("chat.status.cancelled")}</span>
+            </div>
+          ));
+        }}
+        onCancel={() => setStopConfirmOpen(false)}
+      />
     </div>
   );
 });

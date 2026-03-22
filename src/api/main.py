@@ -90,6 +90,13 @@ async def lifespan(app: FastAPI):
     discover_agents()
     logger.info("Agents discovered")
 
+    # 初始化 Agent 配置存储索引
+    from src.infra.agent.config_storage import get_agent_config_storage
+
+    agent_config_storage = get_agent_config_storage()
+    await agent_config_storage.ensure_indexes()
+    logger.info("Agent config storage indexes initialized")
+
     # 初始化默认角色
     from src.infra.role.manager import RoleManager
 

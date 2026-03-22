@@ -262,7 +262,12 @@
     "send": "Отправить сообщение",
     "shiftEnterNewLine": "для новой строки",
     "skillUpdated": "Навык {{action}}",
+    "status": {
+      "cancelled": "Отменено"
+    },
     "stop": "Остановить генерацию",
+    "stopConfirmMessage": "Вы уверены, что хотите остановить генерацию? Сгенерированное содержимое будет сохранено.",
+    "stopConfirmTitle": "Остановить генерацию",
     "title": "Чат",
     "todo": {
       "progress": "{{completed}}/{{total}} выполнено"

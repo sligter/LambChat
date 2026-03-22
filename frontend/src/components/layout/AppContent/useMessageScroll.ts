@@ -8,8 +8,9 @@ interface UseMessageScrollReturn {
   virtuosoScrollerRef: React.RefObject<HTMLDivElement | null>;
   isNearBottom: boolean;
   showScrollTop: boolean;
-  setShowScrollTop: React.Dispatch<React.SetStateAction<boolean>>;
   handleVirtuosoAtBottomChange: (atBottom: boolean) => void;
+  scrollToBottom: () => void;
+  scrollToTop: () => void;
 }
 
 export function useMessageScroll(
@@ -24,20 +25,67 @@ export function useMessageScroll(
   const [showScrollTop, setShowScrollTop] = useState(false);
   const rafRef = useRef<number>(0);
 
+  // Whether the user has manually scrolled up (away from bottom)
+  const userScrolledUpRef = useRef(false);
+
   // Track previous message count to detect new messages
-  const prevMessagesCountRef = useRef(messages.length);
+  const prevMessagesCountRef = useRef(0);
+
+  // Track if we've done initial scroll (for page refresh case)
+  const initialScrollDoneRef = useRef(false);
 
   // Called by Virtuoso's atBottomStateChange
   const handleVirtuosoAtBottomChange = useCallback((atBottom: boolean) => {
     cancelAnimationFrame(rafRef.current);
     rafRef.current = requestAnimationFrame(() => {
       setIsNearBottom(atBottom);
-      if (atBottom) setShowScrollTop(false);
+      if (atBottom) {
+        setShowScrollTop(false);
+        userScrolledUpRef.current = false;
+      }
     });
   }, []);
 
+  const scrollToBottom = useCallback(() => {
+    userScrolledUpRef.current = false;
+
+    const scroller = virtuosoScrollerRef.current;
+    if (!scroller || !virtuosoRef.current) return;
+
+    // Virtuoso uses virtual rendering — not all items are measured at once,
+    // so a single scrollTo may not reach the true bottom.
+    // Poll until scrollTop + clientHeight >= scrollHeight (within 1px).
+    let attempts = 0;
+    const doScroll = () => {
+      virtuosoRef.current?.scrollTo({
+        top: Number.MAX_SAFE_INTEGER,
+        behavior: "auto",
+      });
+    };
+    doScroll();
+    const id = setInterval(() => {
+      if (
+        scroller.scrollTop + scroller.clientHeight >=
+        scroller.scrollHeight - 1
+      ) {
+        clearInterval(id);
+        return;
+      }
+      doScroll();
+      if (++attempts > 20) clearInterval(id);
+    }, 30);
+  }, []);
+
+  const scrollToTop = useCallback(() => {
+    userScrolledUpRef.current = true;
+    virtuosoRef.current?.scrollTo({
+      top: 0,
+      behavior: "auto",
+    });
+    setShowScrollTop(false);
+  }, []);
+
   // Attach scroll listener when Virtuoso Scroller mounts
-  // Dependency on messages.length > 0 ensures re-run when Virtuoso first renders
   useEffect(() => {
     const scroller = virtuosoScrollerRef.current;
     if (!scroller) return;
@@ -54,6 +102,7 @@ export function useMessageScroll(
 
       if (dt < 300 && dScroll > 30 && scrollTop > 200) {
         setShowScrollTop(true);
+        userScrolledUpRef.current = true;
         if (timer) clearTimeout(timer);
         timer = setTimeout(() => setShowScrollTop(false), 3000);
       } else if (scrollTop < 200) {
@@ -71,20 +120,22 @@ export function useMessageScroll(
     };
   }, [messages.length > 0]);
 
-  // Auto-scroll to bottom when new messages are added
+  // Auto-scroll to bottom when new messages arrive AND user hasn't scrolled up
   useEffect(() => {
     const prevCount = prevMessagesCountRef.current;
     const newCount = messages.length;
 
-    if (newCount > prevCount) {
-      virtuosoRef.current?.scrollTo({
-        top: Number.MAX_SAFE_INTEGER,
-        behavior: "auto",
-      });
+    if (newCount > prevCount && !userScrolledUpRef.current) {
+      // New message added - use scrollToBottom for reliable scrolling
+      scrollToBottom();
+    } else if (newCount > 0 && !initialScrollDoneRef.current) {
+      // Initial load or page refresh - scroll to bottom
+      scrollToBottom();
+      initialScrollDoneRef.current = true;
     }
 
     prevMessagesCountRef.current = newCount;
-  }, [messages]);
+  }, [messages, scrollToBottom]);
 
   return {
     messagesContainerRef,
@@ -93,7 +144,8 @@ export function useMessageScroll(
     virtuosoScrollerRef,
     isNearBottom,
     showScrollTop,
-    setShowScrollTop,
     handleVirtuosoAtBottomChange,
+    scrollToBottom,
+    scrollToTop,
   };
 }

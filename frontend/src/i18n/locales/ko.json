@@ -172,7 +172,7 @@
       "args": "인수",
       "assistant": "어시스턴트",
       "cancelled": "생성이 취소되었습니다",
-      "collapse": "[TODO]chat.message.collapse",
+      "collapse": "접기",
       "copied": "복사됨!",
       "copy": "복사",
       "copyCode": "코드 복사",
@@ -180,7 +180,7 @@
       "duration": "소요 시간",
       "error": "오류",
       "executing": "실행 중...",
-      "expandAll": "[TODO]chat.message.expandAll",
+      "expandAll": "모두 펼치기",
       "generating": "생성 중...",
       "mermaidError": "Mermaid 오류",
       "parameters": "매개변수",
@@ -234,7 +234,12 @@
     "send": "메시지 보내기",
     "shiftEnterNewLine": "로 줄바꿈",
     "skillUpdated": "스킬 {{action}}",
+    "status": {
+      "cancelled": "취소됨"
+    },
     "stop": "생성 중지",
+    "stopConfirmMessage": "정말로 생성을 중단하시겠습니까? 지금까지 생성된 내용은 유지됩니다.",
+    "stopConfirmTitle": "생성 중단",
     "title": "채팅",
     "todo": {
       "progress": "{{completed}}/{{total}} 완료"

@@ -140,6 +140,20 @@ class AgentConfigUpdate(BaseModel):
     agents: list[AgentConfig] = Field(..., description="List of agent configurations")
 
 
+class GlobalAgentConfigResponse(BaseModel):
+    """Response for global agent config."""
+
+    agents: list[AgentConfig] = Field(
+        ..., description="All registered agents with their enabled status"
+    )
+    available_agents: list[str] = Field(..., description="List of enabled agent IDs")
+
+
+# ============================================
+# Role Agent Schemas
+# ============================================
+
+
 class RoleAgentAssignment(BaseModel):
     """Role's accessible agents."""
 
@@ -154,6 +168,19 @@ class RoleAgentAssignmentUpdate(BaseModel):
     allowed_agents: list[str] = Field(..., description="List of allowed agent IDs")
 
 
+class RoleAgentAssignmentResponse(BaseModel):
+    """Response after updating role's accessible agents."""
+
+    role_id: str = Field(..., description="Role ID")
+    role_name: str = Field(..., description="Role name")
+    allowed_agents: list[str] = Field(default_factory=list, description="List of allowed agent IDs")
+
+
+# ============================================
+# User Agent Preference Schemas
+# ============================================
+
+
 class UserAgentPreference(BaseModel):
     """User's default agent preference."""
 
@@ -166,10 +193,7 @@ class UserAgentPreferenceUpdate(BaseModel):
     default_agent_id: str = Field(..., description="Default agent ID")
 
 
-class GlobalAgentConfigResponse(BaseModel):
-    """Response for global agent config."""
+class UserAgentPreferenceResponse(BaseModel):
+    """Response for user agent preference operations."""
 
-    agents: list[AgentConfig] = Field(
-        ..., description="All registered agents with their enabled status"
-    )
-    available_agents: list[str] = Field(..., description="List of enabled agent IDs")
+    default_agent_id: Optional[str] = Field(None, description="Default agent ID for the user")

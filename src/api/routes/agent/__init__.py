@@ -269,7 +269,7 @@ async def list_agents(
             if role:
                 role_ids.append(role.id)
                 role_agents = await storage.get_role_agents(role.id)
-                # 空列表表示明确配置了"无权限"，非空列表表示有配置，None表示未配置
+                # None = 未配置, list = 已配置(空列表表示明确禁止所有)
                 role_agent_map[role.id] = role_agents
                 logger.info(
                     f"[Agents API] role_name={role_name}, role_id={role.id}, role_agents={role_agents}"
