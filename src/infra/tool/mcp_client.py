@@ -21,7 +21,7 @@ logger = get_logger(__name__)
 # MCP 重试配置
 MCP_MAX_RETRIES = 3
 MCP_RETRY_DELAY = 1.0  # 秒
-MCP_TOOL_TIMEOUT = 60  # 单次工具调用超时（秒）
+MCP_TOOL_TIMEOUT = 300  # 单次工具调用超时（秒）
 
 # 与 deepagents backend 冲突的工具名（需要过滤掉）
 CONFLICTING_TOOL_NAMES = frozenset(
