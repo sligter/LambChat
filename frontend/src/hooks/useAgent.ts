@@ -485,6 +485,7 @@ export function useAgent(options?: UseAgentOptions): UseAgentReturn {
           content,
           sessionId ?? undefined,
           agentOptions,
+          attachments,
           pendingProjectIdRef.current ?? undefined,
         )) as {
           session_id: string;

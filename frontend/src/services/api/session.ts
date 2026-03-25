@@ -2,7 +2,11 @@
  * Session API - 会话管理
  */
 
-import type { SessionEventsResponse, RunSummary } from "../../types";
+import type {
+  SessionEventsResponse,
+  RunSummary,
+  MessageAttachment,
+} from "../../types";
 import { API_BASE } from "./config";
 import { authFetch } from "./fetch";
 import { getAccessToken } from "./token";
@@ -214,6 +218,7 @@ export const sessionApi = {
     message: string,
     sessionId?: string,
     agentOptions?: Record<string, boolean | string | number>,
+    attachments?: MessageAttachment[],
     projectId?: string,
   ): Promise<{
     session_id: string;
@@ -225,6 +230,7 @@ export const sessionApi = {
       message,
       session_id: sessionId,
       agent_options: agentOptions,
+      attachments,
     };
     if (projectId) {
       body.project_id = projectId;
