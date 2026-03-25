@@ -36,10 +36,13 @@ from src.infra.storage.s3 import (
     get_storage_service,
     init_storage,
 )
+from src.infra.upload.file_record import FileRecordStorage
 from src.kernel.config import settings
 from src.kernel.schemas.user import TokenPayload
 
 logger = get_logger(__name__)
+
+_file_record_storage = FileRecordStorage()
 
 
 def _parse_bool(value: Any) -> bool:
@@ -151,6 +154,31 @@ async def resolve_upload_limits(user_roles: list[str]) -> dict:
     return resolved
 
 
+class FileCheckRequest(BaseModel):
+    hash: str = Field(..., min_length=64, max_length=64, description="SHA-256 hex digest")
+    size: int = Field(..., gt=0, description="File size in bytes")
+    name: str = Field(..., description="Original filename")
+    mime_type: str = Field(..., description="MIME type")
+
+
+@router.post("/check")
+async def check_file_exists(
+    body: FileCheckRequest,
+    current_user: TokenPayload = Depends(get_current_user_required),
+) -> dict:
+    record = await _file_record_storage.find_by_hash(body.hash)
+    if record is None:
+        raise HTTPException(status_code=404, detail="File not found")
+    return {
+        "exists": True,
+        "key": record["key"],
+        "name": record["name"],
+        "type": record["category"],
+        "mime_type": record["mime_type"],
+        "size": record["size"],
+    }
+
+
 @router.post("/file")
 async def upload_file(
     request: Request,
@@ -226,28 +254,60 @@ async def upload_file(
 
     # Upload - stream file directly to S3 without buffering in memory
     # Upload - use user_id as folder
+    import hashlib
+
     try:
-        result = await storage.upload_file(
-            file=file.file,
+        # Read file content to compute hash
+        file_data = await file.read()
+        file_hash = hashlib.sha256(file_data).hexdigest()
+
+        # Check if hash already exists (race condition guard)
+        existing = await _file_record_storage.find_by_hash(file_hash)
+        if existing:
+            base_url = str(request.base_url).rstrip("/")
+            proxy_url = f"{base_url}/api/upload/file/{existing['key']}"
+            return {
+                "key": existing["key"],
+                "url": proxy_url,
+                "name": existing["name"],
+                "type": existing["category"],
+                "mime_type": existing["mime_type"],
+                "size": existing["size"],
+                "exists": True,
+            }
+
+        # Upload with hash-based key
+        storage_key = f"{current_user.sub}/{file_hash}"
+        await storage.upload_bytes(
+            data=file_data,
             folder=current_user.sub,
-            filename=file.filename or "unknown",
+            filename=file_hash,
             content_type=file.content_type,
-            metadata={"uploaded_by": current_user.sub},
+            metadata={"uploaded_by": current_user.sub, "content_hash": file_hash},
             skip_size_limit=True,
         )
 
-        # 获取 base_url 并生成完整 URL
+        # Write file record
+        await _file_record_storage.create(
+            file_hash=file_hash,
+            key=storage_key,
+            name=file.filename or "unknown",
+            mime_type=file.content_type or "application/octet-stream",
+            size=len(file_data),
+            category=category.value,
+            uploaded_by=current_user.sub,
+        )
+
         base_url = str(request.base_url).rstrip("/")
-        proxy_path = f"/api/upload/file/{result.key}"
-        proxy_url = f"{base_url}{proxy_path}"
+        proxy_url = f"{base_url}/api/upload/file/{storage_key}"
 
         return {
-            "key": result.key,
+            "key": storage_key,
             "url": proxy_url,
             "name": file.filename,
             "type": category.value,
             "mime_type": file.content_type,
-            "size": result.size,
+            "size": len(file_data),
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
@@ -406,6 +466,7 @@ async def delete_file(
     async def background_delete():
         try:
             await storage.delete_file(key)
+            await _file_record_storage.delete_by_key(key)
             logger.info(f"Background delete completed for key: {key}")
         except Exception as e:
             logger.error(f"Background delete failed for key {key}: {e}")
@@ -643,11 +704,16 @@ async def get_file_proxy(
             if not content_type:
                 content_type = "application/octet-stream"
 
-            filename = key.split("/")[-1]
+            # Try to get original filename from file records
+            record = (
+                await _file_record_storage.find_by_hash(key.split("/")[-1]) if "/" in key else None
+            )
+            filename_for_disposition = record["name"] if record else None
+
             return FileResponse(
                 path=str(file_path),
                 media_type=content_type,
-                filename=filename,
+                filename=filename_for_disposition,
                 content_disposition_type="inline",
                 headers={"Cache-Control": "public, max-age=86400"},
             )
