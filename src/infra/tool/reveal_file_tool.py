@@ -12,7 +12,7 @@ Reveal File 工具
     "url": "...",
     "name": "...",
     "type": "image" | "video" | "audio" | "document",
-    "mimeType": "...",
+    "mime_type": "...",
     "size": ...
 }
 

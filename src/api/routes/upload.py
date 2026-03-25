@@ -245,7 +245,7 @@ async def upload_file(
             "url": proxy_url,
             "name": file.filename,
             "type": category.value,
-            "mimeType": file.content_type,
+            "mime_type": file.content_type,
             "size": result.size,
         }
     except Exception as e:
