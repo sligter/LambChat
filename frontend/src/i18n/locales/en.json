@@ -768,6 +768,18 @@
     "userSettings": "User Management",
     "users": "Users"
   },
+  "navDesc": {
+    "chat": "Conversations with AI agents",
+    "skills": "Manage and configure skills",
+    "marketplace": "Discover and install skills",
+    "mcp": "Manage MCP server connections",
+    "users": "Manage user accounts and access",
+    "roles": "Configure roles and permissions",
+    "settings": "Application and system settings",
+    "feedback": "View and manage user feedback",
+    "channels": "Manage communication channels",
+    "agents": "Configure and manage AI agents"
+  },
   "notification": {
     "taskCompleted": "Task completed",
     "taskFailed": "Task failed"

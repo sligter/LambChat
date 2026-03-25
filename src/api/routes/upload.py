@@ -6,6 +6,7 @@ Provides endpoints for file uploads to S3-compatible storage.
 
 import asyncio
 import base64
+import uuid
 from typing import Any
 
 from fastapi import (
@@ -30,7 +31,6 @@ from src.api.routes.file_type import (
 from src.infra.auth.rbac import check_permission
 from src.infra.logging import get_logger
 from src.infra.storage.s3 import (
-    LocalStorageBackend,
     S3Config,
     S3Provider,
     get_storage_service,
@@ -168,7 +168,7 @@ async def check_file_exists(
 ) -> dict:
     record = await _file_record_storage.find_by_hash(body.hash)
     if record is None:
-        raise HTTPException(status_code=404, detail="File not found")
+        return {"exists": False}
     return {
         "exists": True,
         "key": record["key"],
@@ -276,12 +276,17 @@ async def upload_file(
                 "exists": True,
             }
 
-        # Upload with hash-based key
-        storage_key = f"{current_user.sub}/{file_hash}"
-        await storage.upload_bytes(
+        # Upload with short key organized by category and user
+        short_id = uuid.uuid4().hex[:16]
+        ext = (file.filename or "").rsplit(".", 1)[-1] if "." in (file.filename or "") else ""
+        storage_key = (
+            f"{category.value}/{current_user.sub}/{short_id}.{ext}"
+            if ext
+            else f"{category.value}/{current_user.sub}/{short_id}"
+        )
+        await storage.upload_to_key(
             data=file_data,
-            folder=current_user.sub,
-            filename=file_hash,
+            key=storage_key,
             content_type=file.content_type,
             metadata={"uploaded_by": current_user.sub, "content_hash": file_hash},
             skip_size_limit=True,
@@ -568,14 +573,13 @@ async def get_signed_urls(
         )
 
     storage = await get_or_init_storage()
-    backend = storage._get_backend()
 
     # Local storage: return proxy URLs directly
-    if isinstance(backend, LocalStorageBackend):
+    if storage.is_local:
         urls = []
         for key in request.keys:
             try:
-                exists = await backend.exists(key)
+                exists = await storage.file_exists(key)
                 if exists:
                     urls.append(SignedUrlItem(key=key, url=f"/api/upload/file/{key}"))
                 else:
@@ -646,11 +650,10 @@ async def get_single_signed_url(
         )
 
     storage = await get_or_init_storage()
-    backend = storage._get_backend()
 
     try:
-        if isinstance(backend, LocalStorageBackend):
-            exists = await backend.exists(key)
+        if storage.is_local:
+            exists = await storage.file_exists(key)
             if not exists:
                 return SignedUrlItem(key=key, error="File not found")
             return SignedUrlItem(key=key, url=f"/api/upload/file/{key}")
@@ -684,17 +687,16 @@ async def get_file_proxy(
     from fastapi.responses import JSONResponse
 
     storage = await get_or_init_storage()
-    backend = storage._get_backend()
 
     base_url = str(request.base_url).rstrip("/")
     proxy_url = f"{base_url}/api/upload/file/{key}"
 
     # Local storage: serve file directly with FileResponse (native Range/sendfile support)
-    if isinstance(backend, LocalStorageBackend):
+    if storage.is_local:
         if direct:
             return JSONResponse({"url": proxy_url})
         try:
-            file_path = backend._get_file_path(key)
+            file_path = await storage.get_file_path(key)
             if not file_path.exists():
                 raise HTTPException(status_code=404, detail="File not found")
 
@@ -705,9 +707,7 @@ async def get_file_proxy(
                 content_type = "application/octet-stream"
 
             # Try to get original filename from file records
-            record = (
-                await _file_record_storage.find_by_hash(key.split("/")[-1]) if "/" in key else None
-            )
+            record = await _file_record_storage.find_by_key(key)
             filename_for_disposition = record["name"] if record else None
 
             return FileResponse(

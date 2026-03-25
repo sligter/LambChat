@@ -170,7 +170,11 @@ export function GithubImportModal({
                               : "hover:bg-[var(--theme-primary)]/4"
                           }`}
                         >
-                          <Checkbox size="sm" checked={selected} />
+                          <Checkbox
+                            size="sm"
+                            checked={selected}
+                            onChange={() => onGithubSkillToggle(skill.name)}
+                          />
                           <div className="flex-1 min-w-0">
                             <p
                               className={`text-sm font-medium truncate transition-colors ${

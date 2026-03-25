@@ -696,6 +696,18 @@
     "userSettings": "사용자 관리",
     "users": "사용자"
   },
+  "navDesc": {
+    "chat": "AI 에이전트와 대화",
+    "skills": "스킬 관리 및 설정",
+    "marketplace": "스킬 탐색 및 설치",
+    "mcp": "MCP 서버 연결 관리",
+    "users": "사용자 계정 및 접근 권한 관리",
+    "roles": "역할 및 권한 설정",
+    "settings": "앱 및 시스템 설정",
+    "feedback": "사용자 피드백 확인 및 관리",
+    "channels": "커뮤니케이션 채널 관리",
+    "agents": "AI 에이전트 설정 및 관리"
+  },
   "notification": {
     "taskCompleted": "작업 완료",
     "taskFailed": "작업 실패"

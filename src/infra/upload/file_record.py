@@ -57,6 +57,21 @@ class FileRecordStorage:
             doc["id"] = str(doc.pop("_id"))
         return doc
 
+    async def find_by_key(self, key: str) -> Optional[dict]:
+        """Look up a file record by storage key.
+
+        Args:
+            key: Storage object key (e.g. "category/user_id/uuid.ext").
+
+        Returns:
+            Document dict with ``id`` (instead of ``_id``), or None.
+        """
+        await self.ensure_indexes_if_needed()
+        doc = await self.collection.find_one({"key": key})
+        if doc:
+            doc["id"] = str(doc.pop("_id"))
+        return doc
+
     async def create(
         self,
         file_hash: str,

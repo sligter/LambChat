@@ -141,10 +141,12 @@ export const uploadApi = {
       body: JSON.stringify({ hash, size, name, mime_type: mimeType }),
     });
     if (!res.ok) {
-      if (res.status === 404) return { exists: false } as FileCheckResult;
       throw new Error(`Check failed: ${res.status}`);
     }
     const data = await res.json();
+    if (!data.exists) {
+      return { exists: false };
+    }
     return {
       ...data,
       mimeType: data.mime_type || data.mimeType,

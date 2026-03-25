@@ -180,7 +180,14 @@ export function ZipUploadModal({
                                 : "hover:bg-[var(--theme-primary)]/4"
                           }`}
                         >
-                          <Checkbox size="sm" checked={selected} />
+                          <Checkbox
+                            size="sm"
+                            checked={selected}
+                            onChange={() =>
+                              !skill.already_exists &&
+                              onZipSkillToggle(skill.name)
+                            }
+                          />
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
                               <p

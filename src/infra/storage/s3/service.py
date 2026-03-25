@@ -53,6 +53,11 @@ class S3StorageService:
         self._config = config
         self._backend = None
 
+    @property
+    def is_local(self) -> bool:
+        """Whether the storage backend is local filesystem."""
+        return self._config.provider == S3Provider.LOCAL
+
     def _get_backend(self) -> S3StorageBackend:
         """Get or create the storage backend"""
         if self._backend is None:
@@ -129,6 +134,25 @@ class S3StorageService:
         unique_suffix = uuid.uuid4().hex[:8]
         key = f"{folder}/{timestamp}_{unique_suffix}_{safe_filename}"
 
+        return await self.upload_to_key(data, key, content_type, metadata, skip_size_limit=True)
+
+    async def upload_to_key(
+        self,
+        data: bytes,
+        key: str,
+        content_type: Optional[str] = None,
+        metadata: Optional[dict[str, str]] = None,
+        *,
+        skip_size_limit: bool = False,
+    ) -> UploadResult:
+        """Upload bytes to a specific key (caller controls the full key)."""
+        if not skip_size_limit and len(data) > self._config.internal_max_upload_size:
+            max_mb = self._config.internal_max_upload_size / (1024 * 1024)
+            raise ValueError(
+                f"Data size ({len(data) / (1024 * 1024):.1f}MB) exceeds "
+                f"internal upload limit ({max_mb:.0f}MB)"
+            )
+
         backend = self._get_backend()
         result = await backend.upload_bytes(data, key, content_type, metadata)
 
@@ -204,6 +228,13 @@ class S3StorageService:
     async def file_exists(self, key: str) -> bool:
         """Check if a file exists"""
         return await self._get_backend().exists(key)
+
+    def get_file_path(self, key: str):
+        """Get local filesystem path for a key (local backend only)."""
+        backend = self._get_backend()
+        if not isinstance(backend, LocalStorageBackend):
+            raise RuntimeError("get_file_path is only available for local storage")
+        return backend._get_file_path(key)
 
     async def get_file_url(self, key: str) -> str:
         """Get public URL for a file"""

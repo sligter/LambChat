@@ -263,7 +263,10 @@ export function ToolSelector({
                                   {tool.description || t("tools.noDescription")}
                                 </p>
                               </div>
-                              <Checkbox checked={tool.enabled} />
+                              <Checkbox
+                                checked={tool.enabled}
+                                onChange={() => onToggleTool(tool.name)}
+                              />
                             </div>
 
                             {/* Parameters - Conditional Render */}

@@ -767,6 +767,18 @@
     "userSettings": "用户管理",
     "users": "用户"
   },
+  "navDesc": {
+    "chat": "与 AI 助手对话",
+    "skills": "管理和配置技能",
+    "marketplace": "发现和安装技能",
+    "mcp": "管理 MCP 服务器连接",
+    "users": "管理用户账户和访问权限",
+    "roles": "配置角色和权限",
+    "settings": "应用和系统设置",
+    "feedback": "查看和管理用户反馈",
+    "channels": "管理通信渠道",
+    "agents": "配置和管理 AI 助手"
+  },
   "notification": {
     "taskCompleted": "任务已完成",
     "taskFailed": "任务失败"

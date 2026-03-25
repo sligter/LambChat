@@ -4,7 +4,6 @@ import { AgentSelector } from "../../agent/AgentSelector";
 import { LanguageToggle } from "../../common/LanguageToggle";
 import { ThemeToggle } from "../../common/ThemeToggle";
 import { UserMenu } from "../UserMenu";
-import { APP_NAME } from "../../../constants";
 import type { TabType } from "./types";
 import type { AgentInfo, Project } from "../../../types";
 
@@ -139,10 +138,15 @@ export function Header({
                 />
               </svg>
             </button>
-            <div className="flex h-8 items-center gap-2">
-              <span className="text-base font-bold text-stone-700 dark:text-stone-200 font-serif">
-                {APP_NAME}
+            <div className="flex flex-col justify-center">
+              <span className="text-base font-bold text-stone-700 dark:text-stone-200 font-serif leading-tight">
+                {t(`nav.${activeTab}`, { defaultValue: activeTab })}
               </span>
+              {t(`navDesc.${activeTab}`, { defaultValue: "" }) && (
+                <span className="text-xs text-stone-400 dark:text-stone-500 leading-tight mt-0.5">
+                  {t(`navDesc.${activeTab}`)}
+                </span>
+              )}
             </div>
           </div>
         )}

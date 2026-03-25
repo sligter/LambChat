@@ -88,54 +88,64 @@ function ChatPage() {
   }, [sessionId]);
 
   // Use session name if available, otherwise use default "nav.chat"
-  usePageTitle(sessionName || "nav.chat");
+  usePageTitle(sessionName || "nav.chat", undefined, {
+    description: "navDesc.chat",
+  });
 
   return <AppContent activeTab="chat" />;
 }
 
 // Simple page components that set the page title and render AppContent
 function SkillsPage() {
-  usePageTitle("nav.skills");
+  usePageTitle("nav.skills", undefined, { description: "navDesc.skills" });
   return <AppContent activeTab="skills" />;
 }
 
 function MarketplacePage() {
-  usePageTitle("nav.marketplace");
+  usePageTitle("nav.marketplace", undefined, {
+    description: "navDesc.marketplace",
+  });
   return <AppContent activeTab="marketplace" />;
 }
 
 function UsersPage() {
-  usePageTitle("nav.users");
+  usePageTitle("nav.users", undefined, { description: "navDesc.users" });
   return <AppContent activeTab="users" />;
 }
 
 function RolesPage() {
-  usePageTitle("nav.roles");
+  usePageTitle("nav.roles", undefined, { description: "navDesc.roles" });
   return <AppContent activeTab="roles" />;
 }
 
 function SettingsPage() {
-  usePageTitle("nav.settings");
+  usePageTitle("nav.settings", undefined, {
+    description: "navDesc.settings",
+  });
   return <AppContent activeTab="settings" />;
 }
 
 function MCPPage() {
-  usePageTitle("nav.mcp");
+  usePageTitle("nav.mcp", undefined, { description: "navDesc.mcp" });
   return <AppContent activeTab="mcp" />;
 }
 
 function FeedbackPage() {
-  usePageTitle("nav.feedback");
+  usePageTitle("nav.feedback", undefined, {
+    description: "navDesc.feedback",
+  });
   return <AppContent activeTab="feedback" />;
 }
 
 function ChannelsPage() {
-  usePageTitle("nav.channels");
+  usePageTitle("nav.channels", undefined, {
+    description: "navDesc.channels",
+  });
   return <AppContent activeTab="channels" />;
 }
 
 function AgentsPage() {
-  usePageTitle("nav.agents");
+  usePageTitle("nav.agents", undefined, { description: "navDesc.agents" });
   return <AppContent activeTab="agents" />;
 }
 
