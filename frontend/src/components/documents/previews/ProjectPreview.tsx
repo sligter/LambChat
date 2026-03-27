@@ -110,6 +110,15 @@ export default function ProjectPreview({
     () => buildSandpackConfig(template, files, entry),
     [template, files, entry],
   );
+  const sandpackInstanceKey = useMemo(
+    () =>
+      JSON.stringify({
+        template: config.template ?? "custom",
+        entry: config.customSetup?.entry ?? config.entryFile,
+        filePaths: Object.keys(config.files).sort(),
+      }),
+    [config],
+  );
 
   if (Object.keys(config.files).length === 0) {
     return (
@@ -147,7 +156,8 @@ export default function ProjectPreview({
                 {t("project.fileCount", "{{count}} 个文件", {
                   count: Object.keys(config.files).length,
                 })}
-                {config.template && config.template !== "static" &&
+                {config.template &&
+                  config.template !== "static" &&
                   ` · ${config.template}`}
               </p>
             </div>
@@ -252,6 +262,7 @@ export default function ProjectPreview({
         )}
       >
         <SandpackProvider
+          key={sandpackInstanceKey}
           template={config.template}
           customSetup={config.customSetup}
           files={config.files}
@@ -294,6 +305,15 @@ export function ProjectPreviewCompact({
     () => buildSandpackConfig(template, files),
     [template, files],
   );
+  const sandpackInstanceKey = useMemo(
+    () =>
+      JSON.stringify({
+        template: config.template ?? "custom",
+        entry: config.customSetup?.entry ?? config.entryFile,
+        filePaths: Object.keys(config.files).sort(),
+      }),
+    [config],
+  );
 
   return (
     <div className="my-2 sm:my-3">
@@ -312,7 +332,8 @@ export function ProjectPreviewCompact({
                 {t("project.fileCount", "{{count}} 个文件", {
                   count: Object.keys(config.files).length,
                 })}
-                {config.template && config.template !== "static" &&
+                {config.template &&
+                  config.template !== "static" &&
                   ` · ${config.template}`}
               </p>
             </div>
@@ -334,6 +355,7 @@ export function ProjectPreviewCompact({
         {/* 预览区域 */}
         <div className="h-[250px] sm:h-[400px]">
           <SandpackProvider
+            key={sandpackInstanceKey}
             template={config.template}
             customSetup={config.customSetup}
             files={config.files}
