@@ -191,8 +191,11 @@ function normalizePaths(
 export interface SandpackConfig {
   /** 传给 SandpackProvider 的 template（static 模板时为 undefined） */
   template?: SandpackTemplate;
-  /** 传给 SandpackProvider 的 customSetup（仅 static 模板使用） */
-  customSetup?: { entry: string; environment: "static" };
+  /** 传给 SandpackProvider 的 customSetup（static 模板或框架模板需要覆盖入口时使用） */
+  customSetup?: {
+    entry: string;
+    environment?: "static" | "node" | "parcel";
+  };
   /** 规范化后的用户文件 */
   files: Record<string, string>;
   /** 入口文件路径 */
@@ -207,7 +210,8 @@ export interface SandpackConfig {
  * 核心设计：
  * - static 模板：不使用 Sandpack 内置模板，改用 customSetup 避免模板默认文件
  *   （Hello world、/styles.css、/package.json）通过 Object.assign 污染用户项目
- * - 框架模板（react/vue 等）：正常使用内置模板以获取依赖和构建配置
+ * - 框架模板（react/vue 等）：使用内置模板获取依赖和构建配置，同时通过
+ *   customSetup.entry 覆盖模板默认入口，确保用户项目正确渲染
  */
 export function buildSandpackConfig(
   template: string,
@@ -228,8 +232,11 @@ export function buildSandpackConfig(
     };
   }
 
+  // 框架模板：使用 customSetup.entry 覆盖 Sandpack 模板默认入口，
+  // 防止模板的 Hello World 默认文件污染用户项目
   return {
     template: detected,
+    customSetup: { entry: entryFile },
     files: normalized,
     entryFile,
     visibleFiles,

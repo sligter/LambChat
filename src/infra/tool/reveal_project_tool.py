@@ -163,33 +163,82 @@ IGNORE_FILES = {
     ".eslintcache",
 }
 
-# 入口文件候选顺序
-ENTRY_CANDIDATES = [
-    "/pages/index.tsx",
-    "/pages/index.jsx",
-    "/pages/_app.tsx",
-    "/pages/_app.jsx",
-    "/index.html",
-    "/src/index.html",
-    "/public/index.html",
-    "/src/main.ts",
-    "/src/index.ts",
-    "/src/index.tsx",
-    "/src/index.jsx",
-    "/src/main.tsx",
-    "/src/main.jsx",
-    "/src/main.js",
-    "/src/main.vue",
-    "/src/App.svelte",
-    "/main.ts",
-    "/index.ts",
-    "/index.js",
-    "/main.js",
-    "/index.tsx",
-    "/index.jsx",
-    "/App.tsx",
-    "/App.jsx",
-]
+# 入口文件候选顺序（按模板类型分组，避免 React 项目误选 /index.html）
+ENTRY_CANDIDATES_BY_TEMPLATE: dict[str, list[str]] = {
+    "nextjs": [
+        "/pages/index.tsx",
+        "/pages/index.jsx",
+        "/pages/_app.tsx",
+        "/pages/_app.jsx",
+        "/index.html",
+    ],
+    "react": [
+        "/src/main.tsx",
+        "/src/main.jsx",
+        "/src/index.tsx",
+        "/src/index.jsx",
+        "/src/main.ts",
+        "/src/main.js",
+        "/main.tsx",
+        "/main.jsx",
+        "/main.js",
+        "/src/App.tsx",
+        "/src/App.jsx",
+        "/App.tsx",
+        "/App.jsx",
+        "/index.html",
+    ],
+    "vue": [
+        "/src/main.vue",
+        "/src/App.vue",
+        "/App.vue",
+        "/index.html",
+    ],
+    "svelte": [
+        "/src/App.svelte",
+        "/App.svelte",
+        "/src/main.svelte",
+        "/main.svelte",
+        "/index.html",
+    ],
+    "angular": [
+        "/src/main.ts",
+        "/src/main.js",
+        "/main.ts",
+        "/main.js",
+        "/index.html",
+    ],
+    "solid": [
+        "/src/index.tsx",
+        "/src/index.jsx",
+        "/src/main.tsx",
+        "/src/main.jsx",
+        "/index.html",
+    ],
+    # static / vanilla / fallback：index.html 优先
+    "_default": [
+        "/index.html",
+        "/src/index.html",
+        "/public/index.html",
+        "/src/main.ts",
+        "/src/index.ts",
+        "/src/index.tsx",
+        "/src/index.jsx",
+        "/src/main.tsx",
+        "/src/main.jsx",
+        "/src/main.js",
+        "/main.ts",
+        "/index.ts",
+        "/index.js",
+        "/main.js",
+        "/src/main.vue",
+        "/src/App.svelte",
+        "/index.tsx",
+        "/index.jsx",
+        "/App.tsx",
+        "/App.jsx",
+    ],
+}
 
 
 def _has_any_file(file_keys: set[str], candidates: tuple[str, ...]) -> bool:
@@ -328,6 +377,11 @@ async def _get_storage():
     return await get_or_init_storage()
 
 
+def _is_sandbox_backend(backend: Any) -> bool:
+    """判断 backend 是否为沙箱类型（支持 shell 命令执行）"""
+    return hasattr(backend, "execute") or hasattr(backend, "aexecute")
+
+
 async def _download_file_from_backend(backend: Any, file_path: str) -> Optional[bytes]:
     """通过 download_files 获取原始文件内容（沙箱/非沙箱均适用，无行号）"""
     if hasattr(backend, "adownload_files"):
@@ -350,7 +404,7 @@ async def _download_file_from_backend(backend: Any, file_path: str) -> Optional[
 
 
 async def _execute_command(backend: Any, command: str) -> Optional[str]:
-    """在 backend 中执行 shell 命令并返回 stdout"""
+    """在沙箱 backend 中执行 shell 命令并返回 stdout，非沙箱返回 None"""
     if hasattr(backend, "aexecute"):
         try:
             result = await backend.aexecute(command)
@@ -360,6 +414,7 @@ async def _execute_command(backend: Any, command: str) -> Optional[str]:
                 return result
         except Exception as e:
             logger.debug(f"aexecute failed: {e}")
+            return None
 
     if hasattr(backend, "execute"):
         try:
@@ -374,13 +429,41 @@ async def _execute_command(backend: Any, command: str) -> Optional[str]:
     return None
 
 
+async def _list_project_files_via_glob(backend: Any, project_path: str) -> list[str]:
+    """使用 glob_info 递归列出项目文件（适用于非沙箱 backend，效率高于逐级 ls_info）"""
+    pattern = "**/*"
+
+    # 优先使用 async 版本
+    if hasattr(backend, "aglob_info"):
+        try:
+            entries = await backend.aglob_info(pattern, path=project_path)
+            files = [
+                entry.get("path") if isinstance(entry, dict) else getattr(entry, "path", None)
+                for entry in (entries or [])
+            ]
+            return [f for f in files if f]
+        except Exception as e:
+            logger.debug(f"aglob_info failed for {project_path}: {e}")
+
+    # 回退到 sync 版本
+    if hasattr(backend, "glob_info"):
+        try:
+            entries = await asyncio.to_thread(backend.glob_info, pattern, project_path)
+            files = [
+                entry.get("path") if isinstance(entry, dict) else getattr(entry, "path", None)
+                for entry in (entries or [])
+            ]
+            return [f for f in files if f]
+        except Exception as e:
+            logger.debug(f"glob_info failed for {project_path}: {e}")
+
+    return []
+
+
 async def _list_project_files_via_backend_api(
     backend: Any, project_path: str
 ) -> tuple[list[str], bool]:
-    """优先使用 backend 的原生文件 API 递归列出项目文件。"""
-    if not hasattr(backend, "ls_info"):
-        return [], True
-
+    """使用 backend 的原生 ls_info 递归列出项目文件（glob 不可用时的兜底方案）"""
     files: set[str] = set()
     pending = [project_path]
     visited: set[str] = set()
@@ -392,10 +475,22 @@ async def _list_project_files_via_backend_api(
             continue
         visited.add(current)
 
-        try:
-            entries = await asyncio.to_thread(backend.ls_info, current)
-        except Exception as e:
-            logger.debug(f"ls_info failed for {current}: {e}")
+        # 优先使用 async 版本
+        if hasattr(backend, "als_info"):
+            try:
+                entries = await backend.als_info(current)
+            except Exception as e:
+                logger.debug(f"als_info failed for {current}: {e}")
+                had_errors = True
+                continue
+        elif hasattr(backend, "ls_info"):
+            try:
+                entries = await asyncio.to_thread(backend.ls_info, current)
+            except Exception as e:
+                logger.debug(f"ls_info failed for {current}: {e}")
+                had_errors = True
+                continue
+        else:
             had_errors = True
             continue
 
@@ -419,33 +514,58 @@ async def _list_project_files_via_backend_api(
 
 
 async def _list_project_files(backend: Any, project_path: str) -> list[str]:
-    """递归列出项目目录下的所有文件，shell find 为主，原生文件 API 补充。"""
-    # 先用 shell find 作为基础（最可靠）
-    output = await _execute_command(
-        backend,
-        f'LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 find "{project_path}" -type f 2>/dev/null | head -200',
-    )
-    files: list[str] = []
-    if output:
-        for line in output.strip().split("\n"):
-            line = line.strip()
-            if line and not line.startswith("find:"):
-                files.append(line)
+    """递归列出项目目录下的所有文件，根据 backend 类型选择最优策略。
 
-    # 再用原生 API 补充（处理 find 可能遗漏的情况）
-    api_files, _ = await _list_project_files_via_backend_api(backend, project_path)
-    if api_files:
-        files.extend(api_files)
+    - 沙箱 backend（Daytona/E2B）：shell find 为主，原生 API 补充
+    - 非沙箱 backend（State/Store）：glob_info 为主，递归 ls_info 兜底
+    """
+    if _is_sandbox_backend(backend):
+        # 沙箱模式：shell find 最可靠
+        output = await _execute_command(
+            backend,
+            f'LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 find "{project_path}" -type f 2>/dev/null | head -200',
+        )
+        files: list[str] = []
+        if output:
+            for line in output.strip().split("\n"):
+                line = line.strip()
+                if line and not line.startswith("find:"):
+                    files.append(line)
 
-    logger.debug(
-        f"_list_project_files({project_path}): find={len(files) - len(api_files)}, api={len(api_files)}, total={len(set(files))}"
-    )
-    return sorted(set(files))
+        # 用原生 API 补充（处理 find 可能遗漏的情况）
+        api_files, _ = await _list_project_files_via_backend_api(backend, project_path)
+        if api_files:
+            files.extend(api_files)
+
+        logger.debug(
+            f"_list_project_files({project_path}) [sandbox]: find={len(files) - len(api_files)}, api={len(api_files)}, total={len(set(files))}"
+        )
+        return sorted(set(files))
+    else:
+        # 非沙箱模式：glob_info 高效递归
+        glob_files = await _list_project_files_via_glob(backend, project_path)
+
+        if glob_files:
+            logger.debug(
+                f"_list_project_files({project_path}) [non-sandbox]: glob={len(glob_files)}"
+            )
+            return sorted(glob_files)
+
+        # glob 不可用时回退到递归 ls_info
+        api_files, _ = await _list_project_files_via_backend_api(backend, project_path)
+        logger.debug(
+            f"_list_project_files({project_path}) [non-sandbox]: ls_fallback={len(api_files)}"
+        )
+        return api_files
 
 
-def _find_entry(file_keys: set[str]) -> Optional[str]:
-    """查找项目入口文件"""
-    for candidate in ENTRY_CANDIDATES:
+def _find_entry(file_keys: set[str], template: Optional[str] = None) -> Optional[str]:
+    """查找项目入口文件，优先使用模板对应的候选列表"""
+    # 按模板类型选择候选列表
+    candidates = ENTRY_CANDIDATES_BY_TEMPLATE.get(template or "_default", [])
+    if not candidates:
+        candidates = ENTRY_CANDIDATES_BY_TEMPLATE["_default"]
+    for candidate in candidates:
         if candidate in file_keys:
             return candidate
     return None
@@ -683,7 +803,7 @@ async def reveal_project(
             "description": description or "",
             "template": detected_template,
             "files": files_manifest,
-            "entry": _find_entry(file_keys),
+            "entry": _find_entry(file_keys, detected_template),
             "path": project_path,
             "file_count": len(files_manifest),
             "scanned_file_count": len(all_files),

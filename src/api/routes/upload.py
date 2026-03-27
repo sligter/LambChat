@@ -778,7 +778,7 @@ async def get_file_proxy(
         if direct:
             return JSONResponse({"url": proxy_url})
         try:
-            file_path = await storage.get_file_path(key)
+            file_path = storage.get_file_path(key)
             if not file_path.exists():
                 raise HTTPException(status_code=404, detail="File not found")
 

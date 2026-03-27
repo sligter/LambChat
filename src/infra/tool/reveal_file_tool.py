@@ -5,6 +5,7 @@ Reveal File 工具
 文件会自动从 backend 下载并上传到 S3，返回 S3 URL。
 
 统一通过 download_files 获取原始文件内容（沙箱/非沙箱均适用）。
+非沙箱模式下，若 backend 下载失败，会回退到直接读取本地文件系统。
 
 返回格式与前端 UploadResult 一致：
 {
@@ -25,6 +26,7 @@ Reveal File 工具
 import asyncio
 import json
 import mimetypes
+import os
 from typing import Annotated, Any, Literal, Optional
 
 from langchain.tools import ToolRuntime, tool
@@ -86,6 +88,11 @@ def get_mime_type(filename: str) -> str:
     return mime_type or "application/octet-stream"
 
 
+def _is_sandbox_backend(backend: Any) -> bool:
+    """判断 backend 是否为沙箱类型（支持 shell 命令执行）"""
+    return hasattr(backend, "execute") or hasattr(backend, "aexecute")
+
+
 async def _get_storage():
     """获取已初始化的 storage 服务（复用 upload 模块的初始化逻辑）"""
     from src.api.routes.upload import get_or_init_storage
@@ -135,6 +142,19 @@ async def _download_file_from_backend(backend: Any, file_path: str) -> Optional[
     return None
 
 
+async def _read_file_from_filesystem(file_path: str) -> Optional[bytes]:
+    """非沙箱模式下的兜底：直接从本地文件系统读取文件内容"""
+    try:
+        if os.path.isfile(file_path):
+            return await asyncio.to_thread(
+                lambda: open(file_path, "rb").read()
+            )
+        logger.debug(f"[reveal_file] File not found on filesystem: {file_path}")
+    except Exception as e:
+        logger.warning(f"[reveal_file] Failed to read from filesystem: {file_path}: {e}")
+    return None
+
+
 @tool
 async def reveal_file(
     file_path: Annotated[str, "要展示的文件路径（绝对路径或相对于工作目录的路径）"],
@@ -177,6 +197,11 @@ async def reveal_file(
 
     try:
         file_content = await _download_file_from_backend(backend, file_path)
+
+        # 非沙箱模式兜底：backend 下载失败时尝试直接读取本地文件系统
+        if file_content is None and not _is_sandbox_backend(backend):
+            logger.info(f"[reveal_file] Backend download failed, trying filesystem fallback for {file_path}")
+            file_content = await _read_file_from_filesystem(file_path)
 
         if file_content is None:
             logger.error(f"Failed to read file {file_path} from backend")
