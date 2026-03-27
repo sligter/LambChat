@@ -333,7 +333,7 @@ async def _download_file_from_backend(backend: Any, file_path: str) -> Optional[
     if hasattr(backend, "adownload_files"):
         try:
             responses = await backend.adownload_files([file_path])
-            if responses and responses[0].content:
+            if responses and responses[0].content is not None:
                 return responses[0].content
         except Exception as e:
             logger.debug(f"adownload_files failed for {file_path}: {e}")
@@ -341,7 +341,7 @@ async def _download_file_from_backend(backend: Any, file_path: str) -> Optional[
     if hasattr(backend, "download_files"):
         try:
             responses = await asyncio.to_thread(backend.download_files, [file_path])
-            if responses and responses[0].content:
+            if responses and responses[0].content is not None:
                 return responses[0].content
         except Exception as e:
             logger.debug(f"download_files failed for {file_path}: {e}")
@@ -374,8 +374,54 @@ async def _execute_command(backend: Any, command: str) -> Optional[str]:
     return None
 
 
+async def _list_project_files_via_backend_api(backend: Any, project_path: str) -> tuple[list[str], bool]:
+    """优先使用 backend 的原生文件 API 递归列出项目文件。"""
+    if not hasattr(backend, "ls_info"):
+        return [], True
+
+    files: set[str] = set()
+    pending = [project_path]
+    visited: set[str] = set()
+    had_errors = False
+
+    while pending:
+        current = pending.pop()
+        if current in visited:
+            continue
+        visited.add(current)
+
+        try:
+            entries = await asyncio.to_thread(backend.ls_info, current)
+        except Exception as e:
+            logger.debug(f"ls_info failed for {current}: {e}")
+            had_errors = True
+            continue
+
+        for entry in entries or []:
+            if isinstance(entry, dict):
+                entry_path = entry.get("path")
+                is_dir = bool(entry.get("is_dir"))
+            else:
+                entry_path = getattr(entry, "path", None)
+                is_dir = bool(getattr(entry, "is_dir", False))
+
+            if not entry_path:
+                continue
+            normalized_path = str(entry_path).rstrip("/") if is_dir else str(entry_path)
+            if is_dir:
+                pending.append(normalized_path)
+            else:
+                files.add(str(entry_path))
+
+    return sorted(files), had_errors
+
+
 async def _list_project_files(backend: Any, project_path: str) -> list[str]:
-    """递归列出项目目录下的所有文件（使用 find 命令）"""
+    """递归列出项目目录下的所有文件，优先使用原生文件 API，shell find 作为兜底。"""
+    api_files, api_had_errors = await _list_project_files_via_backend_api(backend, project_path)
+    if api_files and not api_had_errors:
+        return api_files
+
     output = await _execute_command(
         backend,
         f'LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 find "{project_path}" -type f 2>/dev/null | head -200',
@@ -388,7 +434,9 @@ async def _list_project_files(backend: Any, project_path: str) -> list[str]:
         line = line.strip()
         if line and not line.startswith("find:"):
             files.append(line)
-    return files
+    if api_files:
+        files.extend(api_files)
+    return sorted(set(files))
 
 
 def _find_entry(file_keys: set[str]) -> Optional[str]:
@@ -442,13 +490,13 @@ async def _upload_file(
     folder_name: str,
     base_url: str,
     semaphore: asyncio.Semaphore,
-) -> Optional[tuple[str, dict[str, Any], Optional[str]]]:
+) -> Optional[tuple[str, dict[str, Any], Optional[str], Optional[str]]]:
     """下载并上传单个文件到 OSS，返回 (rel_path, file_info, package_json_content)"""
     async with semaphore:
         content_bytes = await _download_file_from_backend(backend, file_path)
-        if not content_bytes:
+        if content_bytes is None:
             logger.debug(f"Failed to read: {rel_path}")
-            return None
+            return rel_path, {}, None, "read_failed"
 
         max_size = getattr(storage, "_config", None)
         max_size = (
@@ -496,7 +544,7 @@ async def _upload_file(
             except UnicodeDecodeError:
                 pass
 
-        return rel_path, file_info, package_json_content
+        return rel_path, file_info, package_json_content, None
 
 
 @tool
@@ -566,6 +614,7 @@ async def reveal_project(
 
         # 预处理：计算 rel_path 并过滤需要跳过的文件
         upload_tasks: list[tuple[str, str]] = []  # (file_path, rel_path)
+        skipped_files = 0
         for file_path in all_files:
             rel_path = (
                 file_path[len(project_path) :] if file_path.startswith(project_path) else file_path
@@ -574,6 +623,8 @@ async def reveal_project(
                 rel_path = "/" + rel_path
             if not _should_skip(rel_path):
                 upload_tasks.append((file_path, rel_path))
+            else:
+                skipped_files += 1
 
         # 并发上传所有文件到 OSS
         semaphore = asyncio.Semaphore(UPLOAD_CONCURRENCY)
@@ -587,10 +638,14 @@ async def reveal_project(
         # 构建 manifest
         files_manifest: dict[str, dict[str, Any]] = {}
         package_json_content: Optional[str] = None
+        failed_reads: list[str] = []
         for upload in results:
             if upload is None:
                 continue
-            rel_path, file_info, pkg_content = upload
+            rel_path, file_info, pkg_content, error = upload
+            if error == "read_failed":
+                failed_reads.append(rel_path)
+                continue
             files_manifest[rel_path] = file_info
             if pkg_content is not None:
                 package_json_content = pkg_content
@@ -627,7 +682,13 @@ async def reveal_project(
             "entry": _find_entry(file_keys),
             "path": project_path,
             "file_count": len(files_manifest),
+            "scanned_file_count": len(all_files),
+            "filtered_file_count": len(upload_tasks),
+            "skipped_file_count": skipped_files,
+            "read_failed_count": len(failed_reads),
         }
+        if failed_reads:
+            result["read_failed_files"] = failed_reads[:20]
 
         logger.info(f"Revealed project {project_name} with {len(files_manifest)} files (v2)")
         return json.dumps(result, ensure_ascii=False)
