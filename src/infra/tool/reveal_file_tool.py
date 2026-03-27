@@ -146,9 +146,7 @@ async def _read_file_from_filesystem(file_path: str) -> Optional[bytes]:
     """非沙箱模式下的兜底：直接从本地文件系统读取文件内容"""
     try:
         if os.path.isfile(file_path):
-            return await asyncio.to_thread(
-                lambda: open(file_path, "rb").read()
-            )
+            return await asyncio.to_thread(lambda: open(file_path, "rb").read())
         logger.debug(f"[reveal_file] File not found on filesystem: {file_path}")
     except Exception as e:
         logger.warning(f"[reveal_file] Failed to read from filesystem: {file_path}: {e}")
@@ -200,7 +198,9 @@ async def reveal_file(
 
         # 非沙箱模式兜底：backend 下载失败时尝试直接读取本地文件系统
         if file_content is None and not _is_sandbox_backend(backend):
-            logger.info(f"[reveal_file] Backend download failed, trying filesystem fallback for {file_path}")
+            logger.info(
+                f"[reveal_file] Backend download failed, trying filesystem fallback for {file_path}"
+            )
             file_content = await _read_file_from_filesystem(file_path)
 
         if file_content is None:

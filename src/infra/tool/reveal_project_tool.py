@@ -189,6 +189,10 @@ ENTRY_CANDIDATES_BY_TEMPLATE: dict[str, list[str]] = {
         "/index.html",
     ],
     "vue": [
+        "/src/main.js",
+        "/src/main.ts",
+        "/main.js",
+        "/main.ts",
         "/src/main.vue",
         "/src/App.vue",
         "/App.vue",
@@ -268,6 +272,11 @@ def detect_template(
         if "react" in deps:
             return "react"
         if "vue" in deps:
+            # 如果有 vite.config，使用 vite-vue 模板以获得更好的支持
+            if file_keys and any(
+                f.endswith(("vite.config.js", "vite.config.ts")) for f in file_keys
+            ):
+                return "vue"  # 前端会自动检测为 vite-vue
             return "vue"
     except (json.JSONDecodeError, AttributeError):
         pass
@@ -366,6 +375,36 @@ def _is_binary(filename: str) -> bool:
 
 def _get_mime_type(filename: str) -> str:
     """根据文件名获取 MIME 类型"""
+    ext = os.path.splitext(filename)[1].lower()
+
+    # 为前端文件扩展名提供明确的 MIME 类型映射
+    frontend_mime_types = {
+        ".vue": "text/plain",
+        ".svelte": "text/plain",
+        ".jsx": "text/plain",
+        ".tsx": "text/plain",
+        ".ts": "text/plain",
+        ".mts": "text/plain",
+        ".cts": "text/plain",
+        ".mjs": "text/plain",
+        ".cjs": "text/plain",
+        ".scss": "text/plain",
+        ".sass": "text/plain",
+        ".less": "text/plain",
+        ".styl": "text/plain",
+        ".json5": "text/plain",
+        ".toml": "text/plain",
+        ".yaml": "text/plain",
+        ".yml": "text/plain",
+        ".md": "text/plain",
+        ".mdx": "text/plain",
+        ".graphql": "text/plain",
+        ".gql": "text/plain",
+    }
+
+    if ext in frontend_mime_types:
+        return frontend_mime_types[ext]
+
     mime_type, _ = mimetypes.guess_type(filename)
     return mime_type or "application/octet-stream"
 

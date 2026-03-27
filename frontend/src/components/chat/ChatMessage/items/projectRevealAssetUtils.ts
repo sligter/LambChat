@@ -114,6 +114,11 @@ function rewriteStaticAssetImports(
       _quote: string,
       rawRef: string,
     ) => {
+      // 跳过 .vue, .jsx, .tsx, .svelte 等组件文件
+      if (/\.(vue|jsx|tsx|svelte)$/i.test(rawRef)) {
+        return match;
+      }
+
       const resolvedPath = resolveAssetPath(sourcePath, rawRef);
       if (!resolvedPath) return match;
 
@@ -133,6 +138,11 @@ function rewriteStaticAssetImports(
       _quote: string,
       rawRef: string,
     ) => {
+      // 跳过 .vue, .jsx, .tsx, .svelte 等组件文件
+      if (/\.(vue|jsx|tsx|svelte)$/i.test(rawRef)) {
+        return match;
+      }
+
       const resolvedPath = resolveAssetPath(sourcePath, rawRef);
       if (!resolvedPath) return match;
 

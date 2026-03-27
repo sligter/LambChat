@@ -19,6 +19,7 @@ import {
 import { clsx } from "clsx";
 import { exportProjectZip } from "../../../utils/exportProjectZip";
 import { buildSandpackConfig } from "./projectPreviewUtils";
+import StackBlitzPreview from "./StackBlitzPreview";
 
 interface ProjectPreviewProps {
   name: string;
@@ -110,6 +111,10 @@ export default function ProjectPreview({
     () => buildSandpackConfig(template, files, entry),
     [template, files, entry],
   );
+
+  // 对 Vue 项目使用 StackBlitz
+  const useStackBlitz = template === "vue" || config.template === "vue" || config.template === "vue-ts";
+
   const sandpackInstanceKey = useMemo(
     () =>
       JSON.stringify({
@@ -254,14 +259,22 @@ export default function ProjectPreview({
         </div>
       )}
 
-      {/* Sandpack 区域 */}
+      {/* 预览区域 */}
       <div
         className={clsx(
           "flex-1 min-h-0 h-[200px] sm:h-auto",
           isFullscreen && "h-[calc(100vh-120px)]",
         )}
       >
-        <SandpackProvider
+        {useStackBlitz ? (
+          <StackBlitzPreview
+            name={name}
+            template={template}
+            files={files}
+            entry={entry}
+          />
+        ) : (
+          <SandpackProvider
           key={sandpackInstanceKey}
           template={config.template}
           customSetup={config.customSetup}
@@ -283,6 +296,7 @@ export default function ProjectPreview({
             isFullscreen={isFullscreen}
           />
         </SandpackProvider>
+        )}
       </div>
     </div>
   );

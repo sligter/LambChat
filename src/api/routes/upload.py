@@ -782,15 +782,18 @@ async def get_file_proxy(
             if not file_path.exists():
                 raise HTTPException(status_code=404, detail="File not found")
 
-            import mimetypes
-
-            content_type, _ = mimetypes.guess_type(key)
-            if not content_type:
-                content_type = "application/octet-stream"
-
-            # Try to get original filename from file records
+            # Try to get original filename and content type from file records
             record = await _file_record_storage.find_by_key(key)
             filename_for_disposition = record["name"] if record else None
+            content_type = record["mime_type"] if record and record.get("mime_type") else None
+
+            # Fallback to guessing from filename if not in record
+            if not content_type:
+                import mimetypes
+
+                content_type, _ = mimetypes.guess_type(key)
+                if not content_type:
+                    content_type = "application/octet-stream"
 
             return FileResponse(
                 path=str(file_path),

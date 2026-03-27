@@ -379,6 +379,28 @@ function shouldUseTemplateEntrypoint(
   );
 }
 
+function ensureVueIndexHtml(files: Record<string, string>): Record<string, string> {
+  const indexHtml = files["/index.html"];
+  if (!indexHtml) return files;
+
+  // 检查是否已有 id="app" 的元素
+  if (indexHtml.includes('id="app"') || indexHtml.includes("id='app'")) {
+    return files;
+  }
+
+  // 替换 id="root" 为 id="app"，或在 body 后添加
+  let fixed = indexHtml.replace(/id=["']root["']/gi, 'id="app"');
+
+  if (!fixed.includes('id="app"')) {
+    fixed = fixed.replace(
+      /(<body[^>]*>)/i,
+      '$1\n    <div id="app"></div>'
+    );
+  }
+
+  return { ...files, "/index.html": fixed };
+}
+
 export function buildSandpackConfig(
   template: string,
   files: Record<string, string>,
@@ -386,7 +408,13 @@ export function buildSandpackConfig(
 ): SandpackConfig {
   const normalized = normalizePaths(files);
   const detected = resolveSandpackTemplate(template, normalized);
-  const patchedFiles = mergePackageJsonForTemplate(detected, normalized);
+  let patchedFiles = mergePackageJsonForTemplate(detected, normalized);
+
+  // 确保 Vue 项目的 index.html 有挂载点
+  if (detected === "vue" || detected === "vue-ts") {
+    patchedFiles = ensureVueIndexHtml(patchedFiles);
+  }
+
   const entryFile = resolveEntryFile(patchedFiles, entry);
   const visibleFiles = Object.keys(patchedFiles);
 
