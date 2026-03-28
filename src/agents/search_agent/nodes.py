@@ -14,6 +14,7 @@ from deepagents.middleware.subagents import CompiledSubAgent, SubAgent
 from langchain_core.runnables import RunnableConfig
 
 from src.agents.core.base import get_presenter
+from src.infra.agent.middleware import create_retry_middleware
 from src.agents.core.node_utils import (
     build_human_message,
     emit_token_usage,
@@ -121,6 +122,7 @@ async def agent_node(state: Dict[str, Any], config: RunnableConfig) -> Dict[str,
             "name": "general-purpose",
             "description": "General-purpose agent for researching complex questions, searching for files and content, and executing multi-step tasks. When you are searching for a keyword or file and are not confident that you will find the right match in the first few tries use this agent to perform the search for you. This agent has access to all tools as the main agent.",
             "system_prompt": SUBAGENT_PROMPT,
+            "middleware": create_retry_middleware(),
         }
     ]
 
@@ -133,6 +135,7 @@ async def agent_node(state: Dict[str, Any], config: RunnableConfig) -> Dict[str,
         store=store,  # 传递 PostgresStore
         skills=None,  # 禁用 SkillsMiddleware，使用 build_skills_prompt 代替
         subagents=custom_subagents,
+        middleware=create_retry_middleware(),
     ).with_config({"recursion_limit": settings.SESSION_MAX_RUNS_PER_SESSION})
     graph_compile_time = time.time() - graph_compile_start
     logger.debug(f"[Agent] Graph compile: {graph_compile_time * 1000:.3f}ms")
