@@ -688,7 +688,7 @@ async def get_signed_urls(
     if storage._config.public_bucket:
         # Public bucket - return direct URLs instead
         urls = []
-        for key in request.keys:
+        for key in body.keys:
             try:
                 url = await storage.get_file_url(key)
                 urls.append(SignedUrlItem(key=key, url=url))
@@ -698,15 +698,15 @@ async def get_signed_urls(
 
     # Private bucket - generate presigned URLs
     urls = []
-    for key in request.keys:
+    for key in body.keys:
         try:
-            url = await storage.get_presigned_url(key, request.expires)
+            url = await storage.get_presigned_url(key, body.expires)
             urls.append(SignedUrlItem(key=key, url=url))
         except Exception as e:
             logger.warning(f"Failed to generate signed URL for {key}: {e}")
             urls.append(SignedUrlItem(key=key, error=str(e)))
 
-    return SignedUrlResponse(urls=urls, expires_in=request.expires)
+    return SignedUrlResponse(urls=urls, expires_in=body.expires)
 
 
 @router.get(
