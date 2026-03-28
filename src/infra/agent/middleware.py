@@ -7,7 +7,6 @@ import logging
 from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING
 
-from langchain_core.messages import AIMessage
 from langchain.agents.middleware import ModelRetryMiddleware
 from langchain.agents.middleware.types import (
     AgentMiddleware,
@@ -16,6 +15,7 @@ from langchain.agents.middleware.types import (
     ModelResponse,
     ResponseT,
 )
+from langchain_core.messages import AIMessage
 
 from src.kernel.config import settings
 

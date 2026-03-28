@@ -13,7 +13,6 @@ from deepagents.middleware.subagents import CompiledSubAgent, SubAgent
 from langchain_core.runnables import RunnableConfig
 
 from src.agents.core.base import get_presenter
-from src.infra.agent.middleware import create_retry_middleware
 from src.agents.core.node_utils import (
     build_human_message,
     emit_token_usage,
@@ -27,6 +26,7 @@ from src.agents.fast_agent.prompt import (
     HINDSIGHT_MEMORY_SECTION,
 )
 from src.infra.agent import AgentEventProcessor
+from src.infra.agent.middleware import create_retry_middleware
 from src.infra.backend.deepagent import create_persistent_backend_factory
 from src.infra.llm.client import LLMClient
 from src.infra.logging import get_logger

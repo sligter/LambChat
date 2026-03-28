@@ -255,9 +255,9 @@ class SettingsService:
     async def _publish_change(key: Optional[str], value: Any) -> None:
         """Broadcast a settings change to other instances via Redis pub/sub."""
         try:
+            from src.infra.settings.pubsub import get_settings_pubsub
             from src.infra.storage.redis import get_redis_client
             from src.infra.task.constants import SETTINGS_CHANNEL
-            from src.infra.settings.pubsub import get_settings_pubsub
 
             redis_client = get_redis_client()
             instance_id = get_settings_pubsub().instance_id
