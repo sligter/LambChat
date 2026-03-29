@@ -59,6 +59,9 @@ htmlcov/
 frontend/node_modules/
 mcp.json
 
+# DeepAgent workspace
+workspace/
+
 # Documentation
 docs/deepagents
 .omc/

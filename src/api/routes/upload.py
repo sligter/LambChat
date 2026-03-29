@@ -664,12 +664,6 @@ async def get_signed_urls(
     Returns:
         List of signed URLs for each requested key
     """
-    if not get_s3_enabled():
-        raise HTTPException(
-            status_code=503,
-            detail="File storage is not enabled. Please configure S3 settings.",
-        )
-
     storage = await get_or_init_storage()
 
     base_url = _get_base_url(req)
@@ -737,12 +731,6 @@ async def get_single_signed_url(
     Returns:
         Signed URL for the requested key
     """
-    if not get_s3_enabled():
-        raise HTTPException(
-            status_code=503,
-            detail="File storage is not enabled. Please configure S3 settings.",
-        )
-
     # Validate expires range
     if expires < 60 or expires > 86400:
         raise HTTPException(
