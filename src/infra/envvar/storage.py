@@ -132,9 +132,7 @@ class EnvVarStorage:
         if not existing:
             count = await self._coll.count_documents({"user_id": user_id})
             if count >= MAX_ENV_VARS_PER_USER:
-                raise ValueError(
-                    f"Maximum {MAX_ENV_VARS_PER_USER} environment variables per user"
-                )
+                raise ValueError(f"Maximum {MAX_ENV_VARS_PER_USER} environment variables per user")
 
         encrypted = self._encrypt_value(value)
         await self._coll.update_one(
