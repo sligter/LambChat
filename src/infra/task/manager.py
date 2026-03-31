@@ -149,6 +149,8 @@ class BackgroundTaskManager:
             del self._tasks[run_id]
         # 清理运行信息，防止内存泄漏
         run_info = self._run_info.pop(run_id, None)
+        # 清理待处理任务上下文（如果存在）
+        self._pending_tasks.pop(run_id, None)
         # 释放并发槽位
         user_id = run_info.get("user_id") if run_info else None
         if user_id:

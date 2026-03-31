@@ -15,6 +15,7 @@ interface UseMessageScrollReturn {
 
 export function useMessageScroll(
   messages: { id: string }[],
+  sessionId?: string | null,
 ): UseMessageScrollReturn {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -30,6 +31,9 @@ export function useMessageScroll(
 
   // Track previous message count to detect new messages
   const prevMessagesCountRef = useRef(0);
+
+  // Track previous sessionId to detect session changes
+  const prevSessionIdRef = useRef<string | null | undefined>(sessionId);
 
   // Track if we've done initial scroll (for page refresh case)
   const initialScrollDoneRef = useRef(false);
@@ -135,11 +139,19 @@ export function useMessageScroll(
   }, [messages.length]);
 
   // Auto-scroll to bottom when new messages arrive AND user hasn't scrolled up
+  // OR when session changes
   useEffect(() => {
     const prevCount = prevMessagesCountRef.current;
     const newCount = messages.length;
+    const prevSession = prevSessionIdRef.current;
+    const sessionChanged = prevSession !== sessionId;
 
-    if (newCount > prevCount && !userScrolledUpRef.current) {
+    if (sessionChanged && sessionId) {
+      // Session changed - always scroll to bottom and reset user scroll state
+      userScrolledUpRef.current = false;
+      scrollToBottom();
+      prevSessionIdRef.current = sessionId;
+    } else if (newCount > prevCount && !userScrolledUpRef.current) {
       // New message added - use scrollToBottom for reliable scrolling
       scrollToBottom();
     } else if (newCount > 0 && !initialScrollDoneRef.current) {
@@ -149,7 +161,7 @@ export function useMessageScroll(
     }
 
     prevMessagesCountRef.current = newCount;
-  }, [messages, scrollToBottom]);
+  }, [messages, sessionId, scrollToBottom]);
 
   return {
     messagesContainerRef,

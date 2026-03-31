@@ -162,7 +162,7 @@ async def cleanup_expired_connections() -> int:
                         task = asyncio.create_task(pooled.client.close())
                         _track_background_task(task)
                     elif hasattr(pooled.client, "__aexit__"):
-                        task = asyncio.create_task(pooled.client.__aexit__(None, None, None))
+                        task = asyncio.create_task(pooled.client.__aexit__(None, None, None))  # type: ignore[func-returns-value]
                         _track_background_task(task)
                 except Exception as e:
                     logger.debug(f"[MCP Pool] Error cleaning up client for {server_name}: {e}")

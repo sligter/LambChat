@@ -117,7 +117,7 @@ export function ChatView({
     handleVirtuosoAtBottomChange,
     scrollToBottom,
     scrollToTop,
-  } = useMessageScroll(messages);
+  } = useMessageScroll(messages, sessionId);
 
   const virtuosoComponents = useMemo(
     () => ({
