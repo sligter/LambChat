@@ -12,7 +12,7 @@ import { sessionApi, type BackendSession } from "../../services/api";
 import { useAuth } from "../../hooks/useAuth";
 import { useProjectSessionList } from "../../hooks/useSession";
 import { useProjectManager } from "../../hooks/useProjectManager";
-import { APP_NAME } from "../../constants";
+import { APP_NAME, GITHUB_URL } from "../../constants";
 import { useTouchDrag } from "../../hooks/useTouchDrag";
 import { ConfirmDialog } from "../common/ConfirmDialog";
 import { ProjectItem } from "../sidebar/ProjectItem";
@@ -242,7 +242,7 @@ export function SessionSidebar({
             className="size-6 rounded-full object-cover ring-1 ring-stone-200 dark:ring-stone-700"
           />
           <a
-            href="https://github.com/Yanyutin753/LambChat"
+            href="{GITHUB_URL}"
             target="_blank"
             rel="noopener noreferrer"
             className="text-md font-semibold leading-none text-stone-800 dark:text-stone-100 hover:text-stone-900 dark:hover:text-stone-50 transition-colors font-serif"

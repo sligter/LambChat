@@ -119,9 +119,9 @@ export function ProfileModal({
       </div>
       <button
         onClick={onCloseProfileModal}
-        className="text-[11px] font-medium text-stone-400 dark:text-stone-500 hover:text-stone-600 dark:hover:text-stone-300 transition-colors px-2 py-1 rounded-md hover:bg-stone-100 dark:hover:bg-stone-700/60"
+        className="text-[11px] font-medium text-stone-400 dark:text-stone-500 hover:text-stone-600 dark:hover:text-stone-300 transition-colors py-1 rounded-md hover:bg-stone-100 dark:hover:bg-stone-700/60"
       >
-        {t("common.close")}
+        {t("common.poweredBy")}
       </button>
     </div>
   );

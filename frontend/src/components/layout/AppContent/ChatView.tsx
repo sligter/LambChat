@@ -1,5 +1,6 @@
 import { useMemo, useCallback } from "react";
 import { useTranslation } from "react-i18next";
+import { useAuth } from "../../../hooks/useAuth";
 import { toast } from "react-hot-toast";
 import { ChatMessage } from "../../chat/ChatMessage";
 import { ChatInput } from "../../chat/ChatInput";
@@ -106,6 +107,28 @@ export function ChatView({
   i18n,
 }: ChatViewProps) {
   const { t } = useTranslation();
+  const { user } = useAuth();
+
+  const greeting = useMemo(() => {
+    const h = new Date().getHours();
+    const timeGreeting =
+      h < 6 ? "晚上好" : h < 12 ? "早上好" : h < 18 ? "下午好" : "晚上好";
+    const lang = i18n.language;
+    if (lang === "zh" || lang === "ja" || lang === "ko") {
+      return user?.username
+        ? `${timeGreeting}，${user.username}`
+        : timeGreeting;
+    }
+    const timeEn =
+      h < 6
+        ? "Good evening"
+        : h < 12
+          ? "Good morning"
+          : h < 18
+            ? "Good afternoon"
+            : "Good evening";
+    return user?.username ? `${timeEn}, ${user.username}` : timeEn;
+  }, [i18n.language, user?.username]);
 
   const {
     messagesContainerRef,
@@ -200,12 +223,15 @@ export function ChatView({
               <div className="relative mb-5 sm:mb-6">
                 <div className="absolute -inset-3 rounded-[1.75rem] bg-gradient-to-br from-amber-300/30 to-rose-300/20 dark:from-amber-500/10 dark:to-rose-500/5 blur-xl" />
               </div>
-              <h1 className="welcome-title text-4xl sm:text-5xl lg:text-6xl font-bold bg-gradient-to-r from-stone-800 via-stone-600 to-stone-800 dark:from-stone-50 dark:via-stone-200 dark:to-stone-50 bg-clip-text text-transparent font-serif tracking-tight mb-1 sm:mb-6">
+              <p className="text-base sm:text-lg text-stone-400 dark:text-stone-500 mb-2 sm:mb-4">
+                {greeting}
+              </p>
+              <h1 className="welcome-title text-4xl sm:text-5xl font-bold bg-gradient-to-r from-stone-800 via-stone-600 to-stone-800 dark:from-stone-50 dark:via-stone-200 dark:to-stone-50 bg-clip-text text-transparent font-serif tracking-tight mb-1 sm:mb-6">
                 {APP_NAME}
               </h1>
             </div>
 
-            <div className="relative w-full max-w-xl sm:max-w-2xl px-2 sm:px-4">
+            <div className="relative w-full max-w-xl sm:max-w-2xl px-2 sm:px-4 sm:block hidden">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-5">
                 {suggestions?.map((suggestion, i) => (
                   <button
@@ -306,6 +332,27 @@ export function ChatView({
         onRespond={onRespondApproval}
         isLoading={approvalLoading}
       />
+
+      {messages.length === 0 && (
+        <div className="sm:hidden px-3 pb-2 flex gap-2 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+          {suggestions?.map((suggestion) => (
+            <button
+              key={suggestion.text}
+              onClick={() => {
+                if (!canSendMessage) {
+                  toast.error(t("chat.noPermissionHint"));
+                  return;
+                }
+                onSendMessage(suggestion.text);
+              }}
+              className="shrink-0 inline-flex items-center gap-1.5 rounded-full border border-stone-200/70 dark:border-stone-700/40 bg-white/60 dark:bg-stone-800/30 px-3 py-1.5 text-[13px] text-stone-500 dark:text-stone-400 active:bg-stone-100 dark:active:bg-stone-700/40 transition-colors"
+            >
+              {suggestion.icon}
+              {suggestion.text}
+            </button>
+          ))}
+        </div>
+      )}
 
       <ChatInput
         onSend={onSendMessage}
