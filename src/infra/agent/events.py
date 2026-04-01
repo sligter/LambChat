@@ -644,6 +644,9 @@ class AgentEventProcessor:
 
         # 1. 非 dict/list/str 对象: Command (.update) 或 BaseMessage (.content/.artifact)
         if not isinstance(out, (dict, list, str)):
+            # MCP content_and_artifact tools return (content, artifact) tuple
+            if isinstance(out, tuple) and len(out) >= 1:
+                return AgentEventProcessor._extract_tool_output(out[0])
             update = getattr(out, "update", None)
             if isinstance(update, dict):
                 messages = update.get("messages")

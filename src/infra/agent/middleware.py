@@ -513,18 +513,26 @@ class ToolSearchMiddleware(AgentMiddleware):
                     args = request.tool_call.get("args", {})
                     result = await tool.ainvoke(args)
 
-                    # MCP 工具可能返回 dict/list，需要安全序列化
-                    if isinstance(result, str):
-                        content = result
-                    elif isinstance(result, (dict, list)):
-                        content = json.dumps(result, ensure_ascii=False, default=str)
+                    # MCP 工具使用 response_format="content_and_artifact" 时
+                    # ainvoke() 返回 tuple (content, artifact)，需要解包
+                    if isinstance(result, tuple) and len(result) == 2:
+                        result = result[0]
+
+                    # MCP content blocks ([{"type":"text","text":"..."}]) 直接作为 list 传递，
+                    # 保持 ToolMessage.content 的 str | list[dict] 格式
+                    if isinstance(result, list):
+                        msg_content: str | list[Any] = result
+                    elif isinstance(result, str):
+                        msg_content = result
+                    elif isinstance(result, dict):
+                        msg_content = json.dumps(result, ensure_ascii=False, default=str)
                     elif result is not None:
-                        content = str(result)
+                        msg_content = str(result)
                     else:
-                        content = ""
+                        msg_content = ""
 
                     return ToolMessage(
-                        content=content,
+                        content=msg_content,
                         tool_call_id=request.tool_call.get("id", ""),
                         name=tool_name,
                     )
