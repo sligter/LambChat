@@ -27,6 +27,7 @@ from src.infra.agent.middleware import (
     AppPromptMiddleware,
     PromptCachingMiddleware,
     SandboxMCPMiddleware,
+    SubagentActivityMiddleware,
     ToolResultBinaryMiddleware,
     create_retry_middleware,
 )
@@ -149,6 +150,7 @@ async def agent_node(state: Dict[str, Any], config: RunnableConfig) -> Dict[str,
             "middleware": [
                 *create_retry_middleware(),
                 ToolResultBinaryMiddleware(base_url=search_base_url),
+                SubagentActivityMiddleware(backend=backend_factory),
             ],
         }
     ]

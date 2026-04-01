@@ -7,6 +7,7 @@ import base64
 import json
 import logging
 import mimetypes
+import re
 import time
 import uuid
 from collections.abc import Awaitable, Callable
@@ -696,6 +697,9 @@ _MAX_RESULT_SNIPPET = 800
 # Maximum chars for a single LLM text snippet
 _MAX_LLM_TEXT_SNIPPET = 600
 
+# Externalize payloads larger than this into separate files, keeping the log readable
+_MAX_INLINE_PAYLOAD_CHARS = 2000
+
 
 class SubagentActivityMiddleware(AgentMiddleware):
     """Records all subagent activity (LLM reasoning + tool calls) to a log file.
@@ -725,10 +729,12 @@ class SubagentActivityMiddleware(AgentMiddleware):
         self._keep_recent = keep_recent
         self._run_id = uuid.uuid4().hex[:8]
         self._log_path = f"/workspace/subagent_logs/activity_{self._run_id}.md"
+        self._payload_dir = f"/workspace/subagent_logs/payloads/{self._run_id}"
         self._entries: list[str] = []
         self._total_chars = 0
         self._compressed = False
         self._written = False
+        self._payload_counter = 0
 
     def _get_backend(self, runtime: Any) -> Any:
         """Resolve backend instance (mirrors FilesystemMiddleware pattern)."""
@@ -746,11 +752,69 @@ class SubagentActivityMiddleware(AgentMiddleware):
     def _timestamp(self) -> str:
         return time.strftime("%H:%M:%S")
 
+    def _next_payload_path(self, kind: str, label: str, extension: str = "txt") -> str:
+        """Build a stable, unique payload path for this subagent run."""
+        self._payload_counter += 1
+        safe_label = re.sub(r"[^a-z0-9]+", "_", label.lower()).strip("_") or kind
+        return (
+            f"{self._payload_dir}/"
+            f"{self._payload_counter:04d}_{kind}_{safe_label}.{extension}"
+        )
+
+    async def _write_payload(
+        self,
+        runtime: Any,
+        *,
+        kind: str,
+        label: str,
+        content: str,
+        extension: str = "txt",
+    ) -> str | None:
+        """Persist a full payload for later inspection and return its path."""
+        try:
+            backend = self._get_backend(runtime)
+            payload_path = self._next_payload_path(kind, label, extension)
+            write_result = await backend.awrite(payload_path, content)
+            if write_result.error:
+                logger.warning("[SubagentActivity] Payload write failed: %s", write_result.error)
+                return None
+            return payload_path
+        except Exception:
+            logger.warning("[SubagentActivity] Payload write failed", exc_info=True)
+            return None
+
+    @staticmethod
+    def _serialize_tool_result(result: Any) -> str:
+        """Normalize tool results into text for logging / payload storage."""
+        if isinstance(result, ToolMessage):
+            content = result.content
+            if isinstance(content, str):
+                return content
+            if isinstance(content, list):
+                parts: list[str] = []
+                for block in content:
+                    if isinstance(block, str):
+                        parts.append(block)
+                    elif isinstance(block, dict):
+                        if block.get("type") == "text":
+                            parts.append(str(block.get("text", "")))
+                        else:
+                            parts.append(json.dumps(block, ensure_ascii=False))
+                return "\n".join(part for part in parts if part)
+            if isinstance(content, dict):
+                return json.dumps(content, ensure_ascii=False, indent=2)
+            return str(content)
+        if isinstance(result, (dict, list, tuple)):
+            return json.dumps(result, ensure_ascii=False, indent=2)
+        if result is None:
+            return ""
+        return str(result)
+
     # ------------------------------------------------------------------
     # Log entry builders
     # ------------------------------------------------------------------
 
-    def _build_llm_entry(self, ai_message: AIMessage) -> str:
+    async def _build_llm_entry(self, runtime: Any, ai_message: AIMessage) -> str:
         ts = self._timestamp()
         parts: list[str] = [f"\n## [{ts}] LLM"]
 
@@ -766,7 +830,19 @@ class SubagentActivityMiddleware(AgentMiddleware):
             text = text.strip()
 
         if text:
-            parts.append(f"> {self._truncate(text, _MAX_LLM_TEXT_SNIPPET)}")
+            if len(text) > _MAX_INLINE_PAYLOAD_CHARS:
+                payload_path = await self._write_payload(
+                    runtime,
+                    kind="llm",
+                    label="response",
+                    content=text,
+                    extension="md",
+                )
+                parts.append(f"> {self._truncate(text, _MAX_LLM_TEXT_SNIPPET)}")
+                if payload_path:
+                    parts.append(f"Full payload: {payload_path}")
+            else:
+                parts.append(f"> {text}")
 
         # Tool calls
         tool_calls = getattr(ai_message, "tool_calls", None)
@@ -806,12 +882,25 @@ class SubagentActivityMiddleware(AgentMiddleware):
 
         return ", ".join(f"{k}={v!r}" for k, v in args.items())
 
-    def _build_tool_entry(self, name: str, args: dict, result_preview: str) -> str:
+    async def _build_tool_entry(self, runtime: Any, name: str, args: dict, result_text: str) -> str:
         ts = self._timestamp()
         args_str = self._format_args(name, args)
-        result_snippet = self._truncate(result_preview, _MAX_RESULT_SNIPPET)
+        result_snippet = result_text
+        payload_path: str | None = None
+        if len(result_text) > _MAX_INLINE_PAYLOAD_CHARS:
+            payload_path = await self._write_payload(
+                runtime,
+                kind="tool",
+                label=name,
+                content=result_text,
+                extension="txt",
+            )
+            result_snippet = self._truncate(result_text, _MAX_RESULT_SNIPPET)
 
-        return f"\n## [{ts}] Tool: {name}\nArgs: {args_str}\nResult: {result_snippet}"
+        entry = f"\n## [{ts}] Tool: {name}\nArgs: {args_str}\nResult: {result_snippet}"
+        if payload_path:
+            entry += f"\nFull payload: {payload_path}"
+        return entry
 
     # ------------------------------------------------------------------
     # Append + compress logic
@@ -936,7 +1025,7 @@ class SubagentActivityMiddleware(AgentMiddleware):
         ai_message = messages[0]
 
         # Record LLM activity
-        entry = self._build_llm_entry(ai_message)
+        entry = await self._build_llm_entry(request.runtime, ai_message)
         if entry:
             self._append_entry(entry)
 
@@ -983,21 +1072,8 @@ class SubagentActivityMiddleware(AgentMiddleware):
         result = await handler(request)
 
         # Extract result preview
-        result_preview = ""
-        if isinstance(result, ToolMessage):
-            content = result.content
-            if isinstance(content, str):
-                result_preview = content
-            elif isinstance(content, list):
-                texts: list[str] = []
-                for block in content:
-                    if isinstance(block, str):
-                        texts.append(block)
-                    elif isinstance(block, dict) and block.get("type") == "text":
-                        texts.append(block.get("text", ""))
-                result_preview = " ".join(texts)
-
-        entry = self._build_tool_entry(tool_name, tool_args, result_preview)
+        result_text = self._serialize_tool_result(result)
+        entry = await self._build_tool_entry(request.runtime, tool_name, tool_args, result_text)
         self._append_entry(entry)
 
         # Compress in memory if needed (no file write)
