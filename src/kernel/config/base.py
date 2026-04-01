@@ -243,6 +243,9 @@ class Settings(BaseSettings):
     NATIVE_MEMORY_API_BASE: str = ""
     NATIVE_MEMORY_API_KEY: str = ""
     NATIVE_MEMORY_MAX_TOKENS: int = 2000
+    NATIVE_MEMORY_INLINE_CONTENT_MAX_CHARS: int = 1200
+    NATIVE_MEMORY_STORE_NAMESPACE: str = "memories"
+    NATIVE_MEMORY_APPEND_MAX_DETAILS: int = 8
 
     model_config = {
         "env_file": str(PROJECT_ROOT / ".env"),

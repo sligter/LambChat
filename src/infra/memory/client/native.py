@@ -9,6 +9,7 @@ import asyncio
 import json
 import re
 import uuid
+from collections.abc import Awaitable
 from datetime import datetime, timedelta, timezone
 from typing import Any, Callable, Optional
 
@@ -82,6 +83,7 @@ class NativeMemoryBackend(MemoryBackend):
         self._collection: Any = None
         self._embedding_fn: Optional[Callable] = None
         self._httpx_client: Any = None  # keep ref for proper cleanup
+        self._store: Any = None
         # In-memory cache for memory index: {user_id: (built_at, index_str)}
         self._index_cache: dict[str, tuple[float, str]] = {}
         # Per-user consolidation dedup: prevents spawning multiple tasks
@@ -120,6 +122,7 @@ class NativeMemoryBackend(MemoryBackend):
             self._httpx_client = None
         self._collection = None
         self._embedding_fn = None
+        self._store = None
         self._index_cache.clear()
 
     # ------------------------------------------------------------------
@@ -170,13 +173,11 @@ class NativeMemoryBackend(MemoryBackend):
                 "error": "Content too short (minimum 10 characters)",
             }
 
-        # Noise filter: reject code patterns, file paths, error traces
-        for pat in EXCLUDED_CONTENT_PATTERNS:
-            if re.search(pat, content, re.IGNORECASE):
-                return {
-                    "success": False,
-                    "error": "Content rejected: appears to be code, commands, or technical noise",
-                }
+        if not self._is_manual_memory_worthy(content, context):
+            return {
+                "success": False,
+                "error": "Content rejected: appears transient, noisy, or not durable enough",
+            }
 
         # Deduplication: reject if too similar to existing recent memory
         summary = self._build_summary(content)
@@ -198,9 +199,11 @@ class NativeMemoryBackend(MemoryBackend):
         doc = {
             "memory_id": memory_id,
             "user_id": user_id,
-            "content": content[:5000],
             "title": title,
             "summary": summary,
+            "index_label": await self._maybe_await(
+                self._llm_build_index_label(title, summary, content)
+            ),
             "memory_type": memory_type,
             "context": context,
             "tags": tags,
@@ -211,6 +214,7 @@ class NativeMemoryBackend(MemoryBackend):
             "accessed_at": now,
             "access_count": 0,
         }
+        doc.update(await self._build_content_fields(user_id, memory_id, content))
 
         await self._collection.insert_one(doc)
         # Invalidate index cache (local + distributed)
@@ -246,6 +250,7 @@ class NativeMemoryBackend(MemoryBackend):
 
         if memories:
             memories = memories[:max_results]
+            memories = [await self._hydrate_formatted_memory(memory) for memory in memories]
             await self._update_access_stats([m["memory_id"] for m in memories])
 
         return {
@@ -297,6 +302,7 @@ class NativeMemoryBackend(MemoryBackend):
                         "content": summary_text[:5000],
                         "summary": summary[:100],
                         "title": f"Session {session_id[:8]}",
+                        "index_label": f"Session {session_id[:8]}",
                         "updated_at": now,
                     }
                 },
@@ -309,6 +315,7 @@ class NativeMemoryBackend(MemoryBackend):
                     "content": summary_text[:5000],
                     "summary": summary[:100],
                     "title": f"Session {session_id[:8]}",
+                    "index_label": f"Session {session_id[:8]}",
                     "memory_type": "reference",
                     "context": f"session:{session_id}",
                     "tags": self._extract_tags(summary),
@@ -338,20 +345,52 @@ class NativeMemoryBackend(MemoryBackend):
         if not memories:
             return
 
-        # Deduplicate against existing memories
-        memories = await self._deduplicate_against_existing(user_id, memories)
-        if not memories:
-            return
-
         now = datetime.now(timezone.utc)
         docs = []
         for mem in memories[:2]:
+            if not self._passes_lightweight_memory_filter(mem["content"]):
+                continue
+
+            target = await self._find_existing_memory_for_update(user_id, mem)
+            decision = await self._llm_score_memory_candidate(mem, existing_memory=target)
+            action = str(decision.get("action", "skip")).lower()
+            score = float(decision.get("score", 0.0) or 0.0)
+            decided_type = str(decision.get("memory_type") or mem.get("memory_type") or "user")
+            if decided_type in ("user", "feedback", "project", "reference"):
+                mem["memory_type"] = decided_type
+
+            if action == "skip" or score < 0.35:
+                continue
+
+            if target is not None:
+                if action == "replace":
+                    updated_fields = await self._replace_existing_memory(target, mem, now)
+                    await self._collection.update_one(
+                        {"memory_id": target["memory_id"]},
+                        {"$set": updated_fields},
+                    )
+                    continue
+                if action == "append":
+                    updated_fields = await self._append_to_existing_memory(target, mem, now)
+                    await self._collection.update_one(
+                        {"memory_id": target["memory_id"]},
+                        {"$set": updated_fields},
+                    )
+                    continue
+
+            memory_id = uuid.uuid4().hex
             doc = {
-                "memory_id": uuid.uuid4().hex,
+                "memory_id": memory_id,
                 "user_id": user_id,
-                "content": mem["content"][:5000],
                 "summary": mem["summary"],
                 "title": mem.get("title", ""),
+                "index_label": await self._maybe_await(
+                    self._llm_build_index_label(
+                        mem.get("title", ""),
+                        mem["summary"],
+                        mem["content"],
+                    )
+                ),
                 "memory_type": mem["memory_type"],
                 "context": context or "auto_retained",
                 "tags": mem.get("tags", []),
@@ -362,6 +401,7 @@ class NativeMemoryBackend(MemoryBackend):
                 "accessed_at": now,
                 "access_count": 0,
             }
+            doc.update(await self._build_content_fields(user_id, memory_id, mem["content"]))
             docs.append(doc)
 
         if docs:
@@ -815,6 +855,7 @@ class NativeMemoryBackend(MemoryBackend):
                     "items": {
                         "$push": {
                             "title": "$title",
+                            "index_label": "$index_label",
                             "summary": "$summary",
                             "memory_id": "$memory_id",
                             "updated_at": "$updated_at",
@@ -866,7 +907,7 @@ class NativeMemoryBackend(MemoryBackend):
                 else:
                     age_str = f"{age_days}d ago"
                 # Display: title + short_id (fallback to summary[:30] for old memories)
-                display_title = item.get("title") or ""
+                display_title = item.get("index_label") or item.get("title") or ""
                 if not display_title:
                     display_title = (item.get("summary") or "")[:30]
                 short_id = (item.get("memory_id") or "")[:6]
@@ -936,6 +977,9 @@ class NativeMemoryBackend(MemoryBackend):
             # Fallback: text index might not exist yet, do keyword match
             logger.debug("[NativeMemory] Text search failed, falling back to keyword match")
             docs = await self._keyword_fallback(user_id, query, limit, memory_types)
+        else:
+            if not docs:
+                docs = await self._keyword_fallback(user_id, query, limit, memory_types)
 
         return [self._format_memory(doc, doc.get("score", 0)) for doc in docs]
 
@@ -954,7 +998,12 @@ class NativeMemoryBackend(MemoryBackend):
         base: dict[str, Any] = {"user_id": user_id}
         if memory_types:
             base["memory_type"] = {"$in": memory_types}
-        base["$or"] = [{"content": {"$regex": re.escape(w), "$options": "i"}} for w in words]
+        base["$or"] = []
+        for w in words:
+            escaped = re.escape(w)
+            base["$or"].append({"content": {"$regex": escaped, "$options": "i"}})
+            base["$or"].append({"summary": {"$regex": escaped, "$options": "i"}})
+            base["$or"].append({"title": {"$regex": escaped, "$options": "i"}})
 
         cursor = self._collection.find(base).sort("updated_at", -1).limit(limit)
         return await cursor.to_list(length=limit)
@@ -1000,8 +1049,11 @@ class NativeMemoryBackend(MemoryBackend):
         # Fallback: Python cosine similarity (only project needed fields)
         logger.debug("[NativeMemory] Atlas $vectorSearch unavailable, using Python cosine fallback")
         projection = {
+            "user_id": 1,
             "memory_id": 1,
             "content": 1,
+            "content_storage_mode": 1,
+            "content_store_key": 1,
             "summary": 1,
             "memory_type": 1,
             "source": 1,
@@ -1189,6 +1241,8 @@ class NativeMemoryBackend(MemoryBackend):
                 # Post-extraction validation: reject low-quality candidates
                 if not self._is_valid_memory_content(content):
                     continue
+                if not self._passes_lightweight_memory_filter(content):
+                    continue
                 # Noise post-check: reject code patterns / file paths
                 if any(re.search(pat, content, re.IGNORECASE) for pat in EXCLUDED_CONTENT_PATTERNS):
                     continue
@@ -1259,6 +1313,483 @@ class NativeMemoryBackend(MemoryBackend):
             filtered.append(mem)
 
         return filtered
+
+    @staticmethod
+    async def _maybe_await(value: Any) -> Any:
+        if isinstance(value, Awaitable):
+            return await value
+        return value
+
+    def _looks_like_code_or_path(self, content: str) -> bool:
+        lowered = content.lower()
+        if content.count("/") + content.count("\\") >= 3:
+            return True
+        code_markers = (
+            "import ",
+            "def ",
+            "class ",
+            "traceback",
+            "exception:",
+            "error:",
+            "git ",
+            "pip install",
+            "npm install",
+            "npm run",
+            "src/",
+            "node_modules",
+            ".py",
+            ".ts",
+            ".tsx",
+            ".js",
+            ".jsx",
+        )
+        return any(marker in lowered for marker in code_markers)
+
+    def _is_transient_status_content(self, content: str) -> bool:
+        stripped = content.strip()
+        starts = (
+            "正在",
+            "现在",
+            "刚刚",
+            "我在看",
+            "我在改",
+            "我来",
+            "让我",
+            "准备",
+            "先",
+            "currently",
+            "right now",
+            "i am checking",
+            "i'm checking",
+            "i am looking",
+            "i'm looking",
+            "let me",
+        )
+        markers = (
+            "看一下",
+            "改一下",
+            "查一下",
+            "reading",
+            "checking",
+            "searching",
+            "definitions.py",
+            "nodes.py",
+            "base.py",
+        )
+        lowered = stripped.lower()
+        return stripped.startswith(starts) or any(marker in lowered for marker in markers)
+
+    def _passes_lightweight_memory_filter(self, content: str) -> bool:
+        stripped = content.strip()
+        if len(stripped) < 20:
+            return False
+        if self._is_transient_status_content(stripped):
+            return False
+        if self._looks_like_code_or_path(stripped):
+            return False
+        return True
+
+    def _is_manual_memory_worthy(self, content: str, context: Optional[str] = None) -> bool:
+        stripped = content.strip()
+        if len(stripped) < 10:
+            return False
+        if not self._passes_lightweight_memory_filter(stripped):
+            return False
+        if context:
+            ctx = context.lower()
+            if "project" in ctx or "reference" in ctx:
+                return True
+        return True
+
+    async def _llm_score_memory_candidate(
+        self,
+        candidate: dict[str, Any],
+        existing_memory: Optional[dict] = None,
+        manual: bool = False,
+    ) -> dict[str, Any]:
+        try:
+            from langchain_core.messages import HumanMessage, SystemMessage
+
+            model = self._get_memory_model()
+            candidate_type = str(candidate.get("memory_type") or candidate.get("type") or "user")
+            candidate_title = str(candidate.get("title", "")).strip()
+            candidate_summary = str(candidate.get("summary", "")).strip()
+            candidate_content = str(candidate.get("content", "")).strip()
+            existing_text = ""
+            existing_title = ""
+            existing_summary = ""
+            if existing_memory is not None:
+                existing_text = await self._hydrate_memory_text(existing_memory)
+                existing_title = str(existing_memory.get("title", "")).strip()
+                existing_summary = str(existing_memory.get("summary", "")).strip()
+
+            prompt = (
+                "You are a strict long-term memory judge.\n\n"
+                "Decide whether this candidate deserves cross-session memory.\n"
+                "Return JSON only with keys: score, action, memory_type, reason.\n"
+                "score: number between 0 and 1.\n"
+                "action: one of skip, create, append, replace.\n"
+                "memory_type: one of user, feedback, project, reference.\n"
+                "Be conservative for auto-retain. Most candidates should be skipped unless they are durable and useful.\n"
+                "Use append only when the candidate adds new durable detail to the existing memory.\n"
+                "Use replace when the candidate supersedes the existing memory.\n"
+                "Use create when there is no good existing memory or the fact should stand alone.\n\n"
+                f"Mode: {'manual' if manual else 'auto'}\n"
+                f"Candidate type: {candidate_type}\n"
+                f"Candidate title: {candidate_title}\n"
+                f"Candidate summary: {candidate_summary}\n"
+                f"Candidate content:\n{candidate_content[:1500]}\n\n"
+                f"Existing title: {existing_title}\n"
+                f"Existing summary: {existing_summary}\n"
+                f"Existing content:\n{existing_text[:1500]}\n"
+            )
+
+            response = await model.ainvoke(
+                [
+                    SystemMessage(content="Judge memory candidates. Output only compact JSON."),
+                    HumanMessage(content=prompt),
+                ]
+            )
+            text = response.content
+            if isinstance(text, list):
+                for item in text:
+                    if isinstance(item, dict) and item.get("type") == "text":
+                        text = item.get("text", "")
+                        break
+                else:
+                    return self._default_memory_decision(candidate, existing_memory, manual)
+            text = str(text).strip()
+            if text.startswith("```"):
+                text = text.split("\n", 1)[1] if "\n" in text else text[3:]
+            if text.endswith("```"):
+                text = text[:-3]
+            parsed = json.loads(text.strip())
+            if not isinstance(parsed, dict):
+                return self._default_memory_decision(candidate, existing_memory, manual)
+            return self._normalize_memory_decision(parsed, candidate, existing_memory, manual)
+        except Exception as e:
+            logger.debug("[NativeMemory] LLM scoring failed, using fallback decision: %s", e)
+            return self._default_memory_decision(candidate, existing_memory, manual)
+
+    def _normalize_memory_decision(
+        self,
+        decision: dict[str, Any],
+        candidate: dict[str, Any],
+        existing_memory: Optional[dict],
+        manual: bool,
+    ) -> dict[str, Any]:
+        action = str(decision.get("action", "skip")).lower()
+        if action not in {"skip", "create", "append", "replace"}:
+            action = "skip"
+        if action in {"append", "replace"} and existing_memory is None:
+            action = "create"
+        memory_type = str(decision.get("memory_type") or candidate.get("memory_type") or "user")
+        if memory_type not in {"user", "feedback", "project", "reference"}:
+            memory_type = "user"
+        try:
+            score = float(decision.get("score", 0.0) or 0.0)
+        except (TypeError, ValueError):
+            score = 0.0
+        score = max(0.0, min(1.0, score))
+        return {
+            "score": score,
+            "action": action,
+            "memory_type": memory_type,
+            "reason": str(decision.get("reason", "")).strip(),
+        }
+
+    def _default_memory_decision(
+        self,
+        candidate: dict[str, Any],
+        existing_memory: Optional[dict],
+        manual: bool,
+    ) -> dict[str, Any]:
+        memory_type = str(candidate.get("memory_type") or candidate.get("type") or "user")
+        if memory_type not in {"user", "feedback", "project", "reference"}:
+            memory_type = "user"
+        if manual:
+            return {
+                "score": 0.9,
+                "action": "create" if existing_memory is None else "replace",
+                "memory_type": memory_type,
+                "reason": "manual retention fallback",
+            }
+        if existing_memory is not None and memory_type in {"project", "reference"}:
+            return {
+                "score": 0.7,
+                "action": "append",
+                "memory_type": memory_type,
+                "reason": "fallback append for existing project/reference memory",
+            }
+        return {
+            "score": 0.65,
+            "action": "create",
+            "memory_type": memory_type,
+            "reason": "fallback create decision",
+        }
+
+    async def _find_existing_memory_for_update(
+        self, user_id: str, candidate: dict[str, Any]
+    ) -> Optional[dict]:
+        memory_type = candidate.get("memory_type")
+        if memory_type not in {MemoryType.PROJECT.value, MemoryType.REFERENCE.value}:
+            return None
+
+        query = {"user_id": user_id, "memory_type": memory_type}
+        try:
+            docs = await self._collection.find(query).to_list(length=20)
+        except Exception:
+            return None
+
+        title = str(candidate.get("title", "")).strip().lower()
+        tags = set(candidate.get("tags") or [])
+        for doc in docs:
+            doc_title = str(doc.get("title", "")).strip().lower()
+            if title and doc_title == title:
+                return doc
+            doc_tags = set(doc.get("tags") or [])
+            if tags and doc_tags and tags & doc_tags:
+                return doc
+        return None
+
+    async def _append_to_existing_memory(
+        self, existing: dict[str, Any], candidate: dict[str, Any], now: datetime
+    ) -> dict[str, Any]:
+        candidate_text = str(candidate["content"]).strip()
+        composed = await self._llm_compose_memory(existing, candidate, action="append")
+        merged_text = str(composed.get("content") or "").strip()
+        if not merged_text:
+            existing_text = await self._hydrate_memory_text(existing)
+            if not existing_text:
+                merged_text = candidate_text
+            elif candidate_text in existing_text:
+                merged_text = existing_text
+            else:
+                merged_text = f"{existing_text}\n\n补充更新：{candidate_text}"
+
+        details = list(existing.get("details") or [])
+        details.append(
+            {
+                "summary": str((composed.get("summary") or candidate.get("summary") or ""))[:120],
+                "content": candidate_text[:500],
+                "updated_at": now.isoformat(),
+            }
+        )
+        max_details = int(getattr(settings, "NATIVE_MEMORY_APPEND_MAX_DETAILS", 8))
+        updated_fields = {
+            "summary": composed.get("summary")
+            or candidate.get("summary")
+            or existing.get("summary", ""),
+            "title": composed.get("title") or candidate.get("title") or existing.get("title", ""),
+            "index_label": await self._maybe_await(
+                self._llm_build_index_label(
+                    composed.get("title") or candidate.get("title") or existing.get("title", ""),
+                    composed.get("summary")
+                    or candidate.get("summary")
+                    or existing.get("summary", ""),
+                    merged_text,
+                )
+            ),
+            "memory_type": composed.get("memory_type")
+            or candidate.get("memory_type")
+            or existing.get("memory_type", "user"),
+            "tags": list(
+                dict.fromkeys([*(existing.get("tags") or []), *(candidate.get("tags") or [])])
+            )[:8],
+            "updated_at": now,
+            "details": details[-max_details:],
+            "embedding": await self._maybe_embed(merged_text),
+        }
+        updated_fields.update(
+            await self._build_content_fields(
+                existing["user_id"], existing["memory_id"], merged_text
+            )
+        )
+        return updated_fields
+
+    async def _replace_existing_memory(
+        self, existing: dict[str, Any], candidate: dict[str, Any], now: datetime
+    ) -> dict[str, Any]:
+        composed = await self._llm_compose_memory(existing, candidate, action="replace")
+        content = str(composed.get("content") or candidate["content"]).strip()
+        updated_fields = {
+            "summary": composed.get("summary")
+            or candidate.get("summary")
+            or existing.get("summary", ""),
+            "title": composed.get("title") or candidate.get("title") or existing.get("title", ""),
+            "index_label": await self._maybe_await(
+                self._llm_build_index_label(
+                    composed.get("title") or candidate.get("title") or existing.get("title", ""),
+                    composed.get("summary")
+                    or candidate.get("summary")
+                    or existing.get("summary", ""),
+                    content,
+                )
+            ),
+            "memory_type": composed.get("memory_type")
+            or candidate.get("memory_type")
+            or existing.get("memory_type", "user"),
+            "tags": candidate.get("tags") or existing.get("tags", []),
+            "updated_at": now,
+            "embedding": await self._maybe_embed(content),
+        }
+        updated_fields.update(
+            await self._build_content_fields(existing["user_id"], existing["memory_id"], content)
+        )
+        return updated_fields
+
+    async def _llm_compose_memory(
+        self,
+        existing_memory: dict[str, Any],
+        candidate: dict[str, Any],
+        action: str,
+    ) -> dict[str, Any]:
+        try:
+            from langchain_core.messages import HumanMessage, SystemMessage
+
+            model = self._get_memory_model()
+            existing_text = await self._hydrate_memory_text(existing_memory)
+            prompt = (
+                "You rewrite long-term memories into a clean durable form.\n\n"
+                "Return JSON only with keys: title, summary, content, memory_type.\n"
+                "Keep content concise but complete. Remove duplication, temporary phrasing, and chatter.\n"
+                "For append: merge old and new facts into one coherent memory.\n"
+                "For replace: keep only the superseding durable truth.\n\n"
+                f"Action: {action}\n"
+                f"Existing title: {existing_memory.get('title', '')}\n"
+                f"Existing summary: {existing_memory.get('summary', '')}\n"
+                f"Existing content:\n{existing_text[:2000]}\n\n"
+                f"Candidate title: {candidate.get('title', '')}\n"
+                f"Candidate summary: {candidate.get('summary', '')}\n"
+                f"Candidate content:\n{str(candidate.get('content', ''))[:2000]}\n"
+            )
+
+            response = await model.ainvoke(
+                [
+                    SystemMessage(content="Compose a durable long-term memory. Output only JSON."),
+                    HumanMessage(content=prompt),
+                ]
+            )
+            text = response.content
+            if isinstance(text, list):
+                for item in text:
+                    if isinstance(item, dict) and item.get("type") == "text":
+                        text = item.get("text", "")
+                        break
+                else:
+                    return {}
+            text = str(text).strip()
+            if text.startswith("```"):
+                text = text.split("\n", 1)[1] if "\n" in text else text[3:]
+            if text.endswith("```"):
+                text = text[:-3]
+            parsed = json.loads(text.strip())
+            if not isinstance(parsed, dict):
+                return {}
+            return {
+                "title": str(parsed.get("title", "")).strip()[:25],
+                "summary": str(parsed.get("summary", "")).strip()[:100],
+                "content": str(parsed.get("content", "")).strip()[:5000],
+                "memory_type": str(parsed.get("memory_type", "")).strip(),
+            }
+        except Exception as e:
+            logger.debug("[NativeMemory] LLM compose failed, using fallback merge: %s", e)
+            return {}
+
+    def _memory_store_namespace(self, user_id: str) -> tuple[str, ...]:
+        base = str(getattr(settings, "NATIVE_MEMORY_STORE_NAMESPACE", "memories") or "memories")
+        return (base, user_id, "content")
+
+    def _get_store(self) -> Any:
+        if self._store is None:
+            from src.infra.storage.mongodb_store import create_store
+
+            self._store = create_store()
+        return self._store
+
+    async def _store_put(self, namespace: tuple[str, ...], key: str, value: dict[str, Any]) -> None:
+        store = self._get_store()
+        if store is None:
+            return
+        if hasattr(store, "aput"):
+            await store.aput(namespace, key, value)
+            return
+        if hasattr(store, "put"):
+            await self._maybe_await(store.put(namespace, key, value))
+
+    async def _store_get(self, namespace: tuple[str, ...], key: str) -> Any:
+        store = self._get_store()
+        if store is None:
+            return None
+        if hasattr(store, "aget"):
+            return await store.aget(namespace, key)
+        if hasattr(store, "get"):
+            return await self._maybe_await(store.get(namespace, key))
+        return None
+
+    def _inline_preview(self, content: str) -> str:
+        max_chars = int(getattr(settings, "NATIVE_MEMORY_INLINE_CONTENT_MAX_CHARS", 1200))
+        if len(content) <= max_chars:
+            return content[:5000]
+        if max_chars <= 3:
+            return content[:max_chars]
+        return content[: max_chars - 3].rstrip() + "..."
+
+    async def _build_content_fields(
+        self, user_id: str, memory_id: str, content: str
+    ) -> dict[str, Any]:
+        preview = self._inline_preview(content)
+        max_chars = int(getattr(settings, "NATIVE_MEMORY_INLINE_CONTENT_MAX_CHARS", 1200))
+        if len(content) <= max_chars:
+            return {
+                "content": preview,
+                "content_storage_mode": "inline",
+                "content_store_key": None,
+            }
+
+        store_key = f"memory:{memory_id}"
+        await self._store_put(
+            self._memory_store_namespace(user_id),
+            store_key,
+            {"text": content, "memory_id": memory_id},
+        )
+        return {
+            "content": preview,
+            "content_storage_mode": "store",
+            "content_store_key": store_key,
+        }
+
+    async def _hydrate_memory_text(self, doc: dict[str, Any]) -> str:
+        if doc.get("content_storage_mode") != "store" or not doc.get("content_store_key"):
+            return str(doc.get("content", ""))
+
+        item = await self._store_get(
+            self._memory_store_namespace(doc["user_id"]),
+            doc["content_store_key"],
+        )
+        if item is None:
+            return str(doc.get("content", ""))
+        value = getattr(item, "value", item)
+        if isinstance(value, dict):
+            return str(value.get("text") or doc.get("content", ""))
+        return str(doc.get("content", ""))
+
+    async def _hydrate_formatted_memory(self, memory: dict[str, Any]) -> dict[str, Any]:
+        if memory.get("storage_mode") != "store":
+            memory.setdefault("preview", memory.get("text", ""))
+            memory.setdefault("storage_mode", "inline")
+            return memory
+
+        doc = {
+            "user_id": memory.get("user_id"),
+            "content": memory.get("text", ""),
+            "content_storage_mode": memory.get("storage_mode"),
+            "content_store_key": memory.get("content_store_key"),
+        }
+        full_text = await self._hydrate_memory_text(doc)
+        memory["preview"] = memory.get("text", "")
+        memory["text"] = full_text
+        return memory
 
     @staticmethod
     def _word_similarity(a: str, b: str) -> float:
@@ -1477,6 +2008,45 @@ class NativeMemoryBackend(MemoryBackend):
             logger.debug("[NativeMemory] LLM title failed, using fallback: %s", e)
         return self._build_summary(content, 25)
 
+    async def _llm_build_index_label(self, title: str, summary: str, content: str) -> str:
+        """Generate a short stable label for prompt memory indexes."""
+        seed = (title or summary or content).strip()
+        if not seed:
+            return ""
+        try:
+            from langchain_core.messages import HumanMessage, SystemMessage
+
+            model = self._get_memory_model()
+            response = await model.ainvoke(
+                [
+                    SystemMessage(
+                        content="Generate a compact memory index label in at most 12 characters. Output ONLY the label."
+                    ),
+                    HumanMessage(
+                        content=(
+                            "Create a short index label for this long-term memory.\n\n"
+                            f"Title: {title[:100]}\n"
+                            f"Summary: {summary[:150]}\n"
+                            f"Content: {content[:300]}"
+                        )
+                    ),
+                ],
+            )
+            text = response.content
+            if isinstance(text, list):
+                for item in text:
+                    if isinstance(item, dict) and item.get("type") == "text":
+                        text = item.get("text", "")
+                        break
+                else:
+                    return self._build_summary(seed, 12)
+            label = str(text).strip().strip("\"'")
+            if label:
+                return label[:12]
+        except Exception as e:
+            logger.debug("[NativeMemory] LLM index label failed, using fallback: %s", e)
+        return self._build_summary(seed, 12)
+
     @staticmethod
     def _format_memory(doc: dict, score: float) -> dict:
         now = datetime.now(timezone.utc)
@@ -1485,11 +2055,15 @@ class NativeMemoryBackend(MemoryBackend):
 
         result: dict[str, Any] = {
             "memory_id": doc["memory_id"],
+            "user_id": doc.get("user_id"),
             "text": doc["content"],
+            "preview": doc.get("content", ""),
             "summary": doc["summary"],
             "title": doc.get("title", ""),
             "type": doc["memory_type"],
             "source": doc.get("source", "manual"),
+            "storage_mode": doc.get("content_storage_mode", "inline"),
+            "content_store_key": doc.get("content_store_key"),
             "created_at": doc["created_at"].isoformat()
             if isinstance(doc["created_at"], datetime)
             else str(doc["created_at"]),

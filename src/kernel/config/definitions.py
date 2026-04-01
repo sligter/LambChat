@@ -974,4 +974,25 @@ SETTING_DEFINITIONS: dict[str, dict] = {
         "default": 2000,
         "depends_on": {"key": "MEMORY_PERFORM", "value": "native"},
     },
+    "NATIVE_MEMORY_INLINE_CONTENT_MAX_CHARS": {
+        "type": SettingType.NUMBER,
+        "category": SettingCategory.MEMORY,
+        "description": "Maximum number of characters to keep inline in MongoDB before offloading the full memory body to the store backend.",
+        "default": 1200,
+        "depends_on": {"key": "MEMORY_PERFORM", "value": "native"},
+    },
+    "NATIVE_MEMORY_STORE_NAMESPACE": {
+        "type": SettingType.STRING,
+        "category": SettingCategory.MEMORY,
+        "description": "Base namespace used when storing long native memory bodies in the shared store backend.",
+        "default": "memories",
+        "depends_on": {"key": "MEMORY_PERFORM", "value": "native"},
+    },
+    "NATIVE_MEMORY_APPEND_MAX_DETAILS": {
+        "type": SettingType.NUMBER,
+        "category": SettingCategory.MEMORY,
+        "description": "Maximum number of appended detail entries kept on project/reference memories before older detail entries are trimmed.",
+        "default": 8,
+        "depends_on": {"key": "MEMORY_PERFORM", "value": "native"},
+    },
 }
