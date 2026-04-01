@@ -691,11 +691,11 @@ _DEFAULT_ACTIVITY_TOKEN_LIMIT = 6000
 # Keep the most recent N entries as full text during compression
 _DEFAULT_KEEP_RECENT = 5
 
+# Timestamp format for activity log entries, including timezone offset.
+_ACTIVITY_TIMESTAMP_FORMAT = "%Y-%m-%d %H:%M:%S %z"
+
 # Maximum chars for a single tool result snippet
 _MAX_RESULT_SNIPPET = 800
-
-# Maximum chars for a single LLM text snippet
-_MAX_LLM_TEXT_SNIPPET = 600
 
 # Externalize payloads larger than this into separate files, keeping the log readable
 _MAX_INLINE_PAYLOAD_CHARS = 2000
@@ -750,7 +750,7 @@ class SubagentActivityMiddleware(AgentMiddleware):
         return text[:half] + "\n...\n" + text[-half:]
 
     def _timestamp(self) -> str:
-        return time.strftime("%H:%M:%S")
+        return time.strftime(_ACTIVITY_TIMESTAMP_FORMAT)
 
     def _next_payload_path(self, kind: str, label: str, extension: str = "txt") -> str:
         """Build a stable, unique payload path for this subagent run."""
@@ -827,25 +827,13 @@ class SubagentActivityMiddleware(AgentMiddleware):
             text = text.strip()
 
         if text:
-            if len(text) > _MAX_INLINE_PAYLOAD_CHARS:
-                payload_path = await self._write_payload(
-                    runtime,
-                    kind="llm",
-                    label="response",
-                    content=text,
-                    extension="md",
-                )
-                parts.append(f"> {self._truncate(text, _MAX_LLM_TEXT_SNIPPET)}")
-                if payload_path:
-                    parts.append(f"Full payload: {payload_path}")
-            else:
-                parts.append(f"> {text}")
+            parts.append(f"> {text}")
 
         # Tool calls
         tool_calls = getattr(ai_message, "tool_calls", None)
         if tool_calls:
             names = [tc.get("name", "?") for tc in tool_calls]
-            parts.append(f"→ Calling: {', '.join(names)}")
+            parts.append(f"Tool calls: {', '.join(names)}")
 
         return "\n".join(parts) if len(parts) > 1 else ""
 
