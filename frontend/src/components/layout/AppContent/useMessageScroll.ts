@@ -1,6 +1,9 @@
 import { useRef, useEffect, useState, useCallback } from "react";
 import type { VirtuosoHandle } from "react-virtuoso";
-import { startVirtuosoScrollToBottom } from "./messageScrollUtils";
+import {
+  hasNewOutgoingMessage,
+  startVirtuosoScrollToBottom,
+} from "./messageScrollUtils";
 
 interface UseMessageScrollReturn {
   messagesContainerRef: React.RefObject<HTMLDivElement | null>;
@@ -27,6 +30,7 @@ export function useMessageScroll(
   const [showScrollTop, setShowScrollTop] = useState(false);
   const rafRef = useRef<number>(0);
   const scrollCleanupRef = useRef<(() => void) | null>(null);
+  const previousMessagesRef = useRef(messages);
 
   const userScrolledUpRef = useRef(false);
 
@@ -114,6 +118,13 @@ export function useMessageScroll(
         scrollCleanupRef.current = null;
       };
     }
+  }, [messages, scrollToBottom]);
+
+  useEffect(() => {
+    if (hasNewOutgoingMessage(previousMessagesRef.current, messages)) {
+      scrollToBottom();
+    }
+    previousMessagesRef.current = messages;
   }, [messages, scrollToBottom]);
 
   useEffect(() => {

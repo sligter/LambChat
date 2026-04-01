@@ -1,6 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { startVirtuosoScrollToBottom } from "./messageScrollUtils.ts";
+import {
+  hasNewOutgoingMessage,
+  startVirtuosoScrollToBottom,
+} from "./messageScrollUtils.ts";
 
 test("keeps asking Virtuoso to scroll until the scroller reaches the bottom", async () => {
   const scrollCalls: Array<{ top: number; behavior: string }> = [];
@@ -48,4 +51,42 @@ test("falls back to the footer sentinel when Virtuoso handles are unavailable", 
   stop();
 
   assert.equal(called, true);
+});
+
+test("detects when the local send path appends a user message and placeholder reply", () => {
+  const hasOutgoingMessage = hasNewOutgoingMessage(
+    [{ id: "1", role: "assistant" }],
+    [
+      { id: "1", role: "assistant" },
+      { id: "2", role: "user" },
+      { id: "3", role: "assistant" },
+    ],
+  );
+
+  assert.equal(hasOutgoingMessage, true);
+});
+
+test("does not treat assistant-only streaming updates or bulk history loads as local sends", () => {
+  assert.equal(
+    hasNewOutgoingMessage(
+      [{ id: "1", role: "user" }],
+      [
+        { id: "1", role: "user" },
+        { id: "2", role: "assistant" },
+      ],
+    ),
+    false,
+  );
+
+  assert.equal(
+    hasNewOutgoingMessage(
+      [],
+      [
+        { id: "1", role: "user" },
+        { id: "2", role: "assistant" },
+        { id: "3", role: "user" },
+      ],
+    ),
+    false,
+  );
 });

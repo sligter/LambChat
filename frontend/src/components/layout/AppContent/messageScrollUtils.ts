@@ -22,6 +22,26 @@ interface StartVirtuosoScrollToBottomOptions {
   maxAttempts?: number;
 }
 
+interface ScrollMessageLike {
+  id: string;
+  role?: string;
+}
+
+export function hasNewOutgoingMessage(
+  previousMessages: ScrollMessageLike[],
+  nextMessages: ScrollMessageLike[],
+): boolean {
+  if (
+    nextMessages.length <= previousMessages.length ||
+    nextMessages.length - previousMessages.length > 2
+  ) {
+    return false;
+  }
+
+  const appendedMessages = nextMessages.slice(previousMessages.length);
+  return appendedMessages[0]?.role === "user";
+}
+
 export function startVirtuosoScrollToBottom({
   virtuoso,
   scroller,
