@@ -19,16 +19,13 @@ from src.agents.core.node_utils import (
     emit_token_usage,
     schedule_auto_retain,
 )
-from src.agents.core.subagent_prompts import SUBAGENT_PROMPT
+from src.agents.core.subagent_prompts import SUBAGENT_PROMPT, get_memory_guide
 from src.agents.search_agent.context import SearchAgentContext
-from src.agents.search_agent.prompt import (
-    DEFAULT_SYSTEM_PROMPT,
-    SANDBOX_SYSTEM_PROMPT,
-    get_memory_guide,
-)
+from src.agents.search_agent.prompt import DEFAULT_SYSTEM_PROMPT, SANDBOX_SYSTEM_PROMPT
 from src.infra.agent import AgentEventProcessor
 from src.infra.agent.middleware import (
     AppPromptMiddleware,
+    PromptCachingMiddleware,
     SandboxMCPMiddleware,
     ToolResultBinaryMiddleware,
     create_retry_middleware,
@@ -121,6 +118,18 @@ async def agent_node(state: Dict[str, Any], config: RunnableConfig) -> Dict[str,
         await context.get_tools()
         filtered_tools = context.filter_tools() or None
 
+        # 延迟加载模式：将 search_tools 注册到 ToolNode
+        # 这样 ToolNode 的 tools_by_name 里也有 search_tools，
+        # 避免 "not a valid tool" 错误
+        if context.deferred_manager is not None and filtered_tools is not None:
+            from src.infra.tool.tool_search_tool import ToolSearchTool
+
+            search_tool = ToolSearchTool(
+                manager=context.deferred_manager,
+                search_limit=settings.DEFERRED_TOOL_SEARCH_LIMIT,
+            )
+            filtered_tools.append(search_tool)
+
     # 创建内层 graph (deep agent)
     checkpointer_start = time.time()
     inner_checkpointer = await get_async_checkpointer()
@@ -144,12 +153,19 @@ async def agent_node(state: Dict[str, Any], config: RunnableConfig) -> Dict[str,
         }
     ]
 
-    # 构建中间件栈：retry → binary upload → app prompt (skills/memory) → memory index → sandbox MCP
+    # 构建中间件栈：retry → binary upload → app prompt (skills/memory) → sandbox MCP → memory index → tool search → cache tag
+    # Order: stable → semi-stable → dynamic → cache breakpoint
     user_middleware = create_retry_middleware()
     user_middleware.append(ToolResultBinaryMiddleware(base_url=search_base_url))
     user_middleware.append(
         AppPromptMiddleware(skills_prompt=skills_prompt, memory_guide=memory_guide)
     )
+    # SandboxMCP: session-stable, inject before MemoryIndex
+    if sandbox_backend:
+        user_middleware.append(
+            SandboxMCPMiddleware(backend=sandbox_backend, user_id=context.user_id or "default")
+        )
+    # MemoryIndex: 5-min cache, semi-stable
     if (
         settings.ENABLE_MEMORY
         and settings.MEMORY_PERFORM == "native"
@@ -159,12 +175,8 @@ async def agent_node(state: Dict[str, Any], config: RunnableConfig) -> Dict[str,
         from src.infra.agent.middleware import MemoryIndexMiddleware
 
         user_middleware.append(MemoryIndexMiddleware(user_id=context.user_id))
-    if sandbox_backend:
-        user_middleware.append(
-            SandboxMCPMiddleware(backend=sandbox_backend, user_id=context.user_id or "default")
-        )
 
-    # 延迟工具搜索中间件（当 MCP 工具被延迟时启用）
+    # Tool search: per-turn dynamic content
     if context.deferred_manager is not None:
         from src.infra.agent.middleware import ToolSearchMiddleware
 
@@ -175,6 +187,9 @@ async def agent_node(state: Dict[str, Any], config: RunnableConfig) -> Dict[str,
             )
         )
         logger.info("[SearchAgent] Tool search middleware enabled (deferred MCP loading)")
+
+    # KV cache: tag final system block + last tool AFTER all dynamic injection
+    user_middleware.append(PromptCachingMiddleware())
 
     inner_graph = create_deep_agent(
         model=llm,
