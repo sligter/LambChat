@@ -15,6 +15,7 @@ import {
 import { Checkbox } from "../common/Checkbox";
 import type { SkillResponse, SkillSource } from "../../types";
 import { collectSkillTags, skillMatchesQuery } from "../../utils/skillFilters";
+import { useSwipeToClose } from "../../hooks/useSwipeToClose";
 
 interface SkillSelectorProps {
   skills: SkillResponse[];
@@ -58,6 +59,10 @@ export function SkillSelector({
   >(new Set(["marketplace", "manual"]));
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const swipeRef = useSwipeToClose({
+    onClose: () => setIsOpen(false),
+    enabled: isOpen,
+  });
 
   // 锁定滚动
   useEffect(() => {
@@ -157,7 +162,10 @@ export function SkillSelector({
   };
 
   const ModalContent = () => (
-    <div className="bg-white dark:bg-stone-800 sm:rounded-2xl rounded-t-2xl shadow-2xl w-full sm:w-[40%] sm:min-w-[600px] min-h-[40vh] sm:max-h-[80vh] max-h-[85vh] max-h-[85dvh] flex flex-col overflow-hidden">
+    <div
+      ref={swipeRef as React.RefObject<HTMLDivElement>}
+      className="bg-white dark:bg-stone-800 sm:rounded-2xl rounded-t-2xl shadow-2xl w-full sm:w-[40%] sm:min-w-[600px] min-h-[40vh] sm:max-h-[80vh] max-h-[85vh] max-h-[85dvh] flex flex-col overflow-hidden"
+    >
       {/* Header */}
       <div className="flex items-center justify-between px-4 sm:px-5 py-3 sm:py-4 border-b border-stone-200 dark:border-stone-700">
         {/* Mobile drag handle */}

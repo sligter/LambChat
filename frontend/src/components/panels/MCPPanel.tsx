@@ -12,6 +12,7 @@ import { useMCP } from "../../hooks/useMcp";
 import { useAuth } from "../../hooks/useAuth";
 import { Permission } from "../../types";
 import type { MCPServerResponse, MCPServerCreate } from "../../types";
+import { useSwipeToClose } from "../../hooks/useSwipeToClose";
 
 export function MCPPanel() {
   const { t } = useTranslation();
@@ -205,6 +206,16 @@ export function MCPPanel() {
     setCreateAsSystem(false);
     setChangeToSystem(false);
   }, []);
+
+  const swipeRef = useSwipeToClose({
+    onClose: handleCancel,
+    enabled: showModal,
+  });
+
+  const swipeRefImport = useSwipeToClose({
+    onClose: () => setShowImportModal(false),
+    enabled: showImportModal,
+  });
 
   const handleDelete = useCallback(async (name: string, isSystem: boolean = false) => {
     setDeleteConfirmData({ name, isSystem });
@@ -442,7 +453,10 @@ export function MCPPanel() {
           <div className="fixed inset-0 " onClick={handleCancel} />
           {/* Modal */}
           <div className="modal-bottom-sheet sm:modal-centered-wrapper">
-            <div className="modal-bottom-sheet-content sm:modal-centered-content sm:max-w-[72rem]">
+            <div
+              ref={swipeRef as React.RefObject<HTMLDivElement>}
+              className="modal-bottom-sheet-content sm:modal-centered-content sm:max-w-[72rem]"
+            >
               {/* Mobile drag handle */}
               <div className="bottom-sheet-handle sm:hidden" />
 
@@ -519,7 +533,10 @@ export function MCPPanel() {
             onClick={() => setShowImportModal(false)}
           />
           <div className="modal-bottom-sheet sm:modal-centered-wrapper">
-            <div className="modal-bottom-sheet-content sm:modal-centered-content sm:max-w-[72rem]">
+            <div
+              ref={swipeRefImport as React.RefObject<HTMLDivElement>}
+              className="modal-bottom-sheet-content sm:modal-centered-content sm:max-w-[72rem]"
+            >
               <div className="bottom-sheet-handle sm:hidden" />
               <div className="flex items-center justify-between border-b border-stone-200 px-6 py-4 dark:border-stone-800">
                 <h3 className="text-xl font-semibold text-stone-900 dark:text-stone-100 font-serif">

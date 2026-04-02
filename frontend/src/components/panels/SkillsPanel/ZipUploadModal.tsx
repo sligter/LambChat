@@ -3,6 +3,7 @@ import { X, Archive, UploadCloud, FileArchive, Upload } from "lucide-react";
 import { LoadingSpinner } from "../../common/LoadingSpinner";
 import { Checkbox } from "../../common/Checkbox";
 import type { ZipSkillPreview } from "./useSkillsActions";
+import { useSwipeToClose } from "../../../hooks/useSwipeToClose";
 
 interface ZipUploadModalProps {
   showZipModal: boolean;
@@ -42,6 +43,10 @@ export function ZipUploadModal({
   onZipUpload,
 }: ZipUploadModalProps) {
   const { t } = useTranslation();
+  const swipeRef = useSwipeToClose({
+    onClose: () => setShowZipModal(false),
+    enabled: showZipModal,
+  });
 
   if (!showZipModal) return null;
 
@@ -54,7 +59,10 @@ export function ZipUploadModal({
         data-disable-global-file-drop="true"
         className="modal-bottom-sheet sm:modal-centered-wrapper"
       >
-        <div className="modal-bottom-sheet-content sm:modal-centered-content sm:max-w-[72rem]">
+        <div
+          ref={swipeRef as React.RefObject<HTMLDivElement>}
+          className="modal-bottom-sheet-content sm:modal-centered-content sm:max-w-[72rem]"
+        >
           <div className="bottom-sheet-handle sm:hidden" />
           <div className="skill-modal-header">
             <div>
