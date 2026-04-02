@@ -191,35 +191,21 @@ def _format_tools_list(data: Any) -> tuple[str, int]:
     lines = [
         "## Sandbox MCP Tools",
         "",
-        "MCP (Model Context Protocol) tools available in your sandbox environment, "
-        "managed via `mcporter`:",
-        "",
-        "Sandbox MCP tools are NOT part of `search_tools`.",
-        "Discover them with `mcporter list`.",
-        "Inspect schemas with `mcporter list --schema`.",
-        "Call them with `mcporter call server.tool ...`.",
+        "MCP tools available in your sandbox, managed via `mcporter`. "
+        "NOT part of `search_tools`.",
         "",
         "**Discovery**",
-        "- `mcporter list` — list all registered servers and tools",
-        "- `mcporter list --schema` — show parameter schemas for all tools "
-        "(ALWAYS check this before calling a tool for the first time)",
+        "- `mcporter list` — list all servers and tools",
+        "- `mcporter list --schema` — show parameter schemas (check before first use)",
         "",
-        "**Invocation** — `mcporter call server.tool <args>` supports these formats:",
+        "**Invocation** — `mcporter call server.tool <args>`:",
+        "- Named args: `mcporter call server.tool key=value` (values with spaces MUST be quoted)",
+        "- JSON payload: `mcporter call server.tool --args '{\"key\": \"value\"}'` (for complex params)",
         "",
-        "1. **Named args (recommended)**: `mcporter call server.tool key=value` or `key:value`",
-        '2. **JSON payload**: `mcporter call server.tool --args \'{"key": "value"}\'`',
-        "3. **Function-call syntax**: `mcporter call 'server.tool(key: \"value\", n: 1)'`",
-        '4. **Literal positional**: `mcporter call server.tool -- "literal value"`',
+        "Do NOT use `--flag value` syntax — that passes `value` as a positional arg.",
         "",
-        "Rules:",
-        '- Values with spaces MUST be quoted: `query="hello world"` or `query:"hello world"`',
-        "- Do NOT use `--flag value` syntax — that passes `value` as a positional arg, not to `--flag`",
-        "- Use `--args` with JSON object for complex/nested parameters",
-        "- Numeric strings that should stay strings: add `--raw-strings` flag",
-        "",
-        "**Server Management**",
-        "- `sandbox_mcp_add` / `sandbox_mcp_update` / `sandbox_mcp_remove` — "
-        "manage MCP servers. Changes are persisted and auto-restored on sandbox rebuild.",
+        "**Server Management**: `sandbox_mcp_add` / `sandbox_mcp_update` / `sandbox_mcp_remove` — "
+        "changes are persisted and auto-restored on sandbox rebuild.",
         "",
     ]
 
