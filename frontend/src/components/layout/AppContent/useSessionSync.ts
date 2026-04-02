@@ -1,7 +1,10 @@
 import { useRef, useEffect, useCallback } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
+import type { TabType } from "./types";
+import { shouldBlockSessionSelection } from "../../../utils/sessionSelectionGuard";
 
 interface UseSessionSyncOptions {
+  activeTab: TabType;
   sessionId: string | null;
   loadHistory: (sessionId: string) => Promise<void>;
   clearMessages: () => void;
@@ -12,7 +15,69 @@ interface UseSessionSyncReturn {
   handleNewSession: () => void;
 }
 
+interface SessionRouteSyncActionInput {
+  activeTab: TabType;
+  pathname: string;
+  browserPathname?: string;
+  sessionId: string | null;
+  urlSessionId: string | undefined;
+  externalNavigate: boolean;
+}
+
+interface SessionRouteSyncAction {
+  type: "clear-external-state" | "replace-url";
+  path: string;
+}
+
+export function shouldResetExternalNavigateFlag(
+  locationState: { externalNavigate?: boolean } | null | undefined,
+): boolean {
+  return locationState?.externalNavigate === true;
+}
+
+export function isChatPath(pathname: string): boolean {
+  return pathname === "/chat" || pathname.startsWith("/chat/");
+}
+
+export function getSessionRouteSyncAction({
+  activeTab,
+  pathname,
+  browserPathname,
+  sessionId,
+  urlSessionId,
+  externalNavigate,
+}: SessionRouteSyncActionInput): SessionRouteSyncAction | null {
+  const effectivePathname = browserPathname ?? pathname;
+
+  if (activeTab !== "chat") {
+    return externalNavigate
+      ? { type: "clear-external-state", path: effectivePathname }
+      : null;
+  }
+
+  if (externalNavigate) {
+    return { type: "clear-external-state", path: effectivePathname };
+  }
+
+  // Guard against route transitions: if the current pathname is no longer a
+  // chat route, never write a chat URL back into history from stale state.
+  if (!isChatPath(effectivePathname)) {
+    return null;
+  }
+
+  if (sessionId && sessionId !== urlSessionId) {
+    return { type: "replace-url", path: `/chat/${sessionId}` };
+  }
+
+  if (!sessionId && urlSessionId) {
+    return { type: "replace-url", path: "/chat" };
+  }
+
+  return null;
+}
+
 export function useSessionSync({
+  activeTab,
   sessionId,
   loadHistory,
   clearMessages,
@@ -26,6 +91,7 @@ export function useSessionSync({
   // Track if navigation was initiated internally (not from URL)
   const isInternalNavRef = useRef(false);
   const isLoadingRef = useRef(false);
+  const selectSessionRequestIdRef = useRef(0);
   // Track a single sync delay timeout for cleanup on unmount
   const syncTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -61,6 +127,8 @@ export function useSessionSync({
 
   // Sync from URL only on initial mount
   useEffect(() => {
+    if (activeTab !== "chat") return;
+
     if (urlSessionId && !isSyncingRef.current) {
       isSyncingRef.current = true;
       loadHistory(urlSessionId).finally(() => {
@@ -72,6 +140,8 @@ export function useSessionSync({
 
   // Load session when URL changes (e.g., from toast click)
   useEffect(() => {
+    if (activeTab !== "chat") return;
+
     // Skip if sessionId is null (new session being created, handled by clearMessages)
     if (!sessionId) return;
 
@@ -97,35 +167,61 @@ export function useSessionSync({
   useEffect(() => {
     if (isSyncingRef.current) return;
 
-    // Skip sync if this navigation was initiated externally (e.g., from toast click)
-    const externalNavigate = (
-      locationStateRef.current as { externalNavigate?: boolean }
-    )?.externalNavigate;
-    if (externalNavigate) {
-      // Clear the externalNavigate flag without triggering another navigation
-      window.history.replaceState({}, "", locationPathRef.current);
+    const action = getSessionRouteSyncAction({
+      activeTab,
+      pathname: locationPathRef.current,
+      browserPathname:
+        typeof window !== "undefined" ? window.location.pathname : undefined,
+      sessionId,
+      urlSessionId,
+      externalNavigate: shouldResetExternalNavigateFlag(
+        locationStateRef.current as { externalNavigate?: boolean } | null,
+      ),
+    });
+
+    if (!action) {
       return;
     }
 
-    if (sessionId && sessionId !== urlSessionId) {
-      // New session created - update URL
+    if (action.type === "clear-external-state") {
+      // Clear the externalNavigate flag using router navigation so the UI
+      // stays in sync with the browser history state.
+      navigate(action.path, { replace: true, state: null });
+      return;
+    }
+
+    if (action.type === "replace-url") {
       isSyncingRef.current = true;
-      navigate(`/chat/${sessionId}`, { replace: true });
-      scheduleSyncReset();
-    } else if (!sessionId && urlSessionId) {
-      // Session cleared - clear URL
-      isSyncingRef.current = true;
-      navigate("/chat", { replace: true });
+      navigate(action.path, { replace: true });
       scheduleSyncReset();
     }
-  }, [sessionId, urlSessionId, navigate, scheduleSyncReset]);
+  }, [activeTab, sessionId, urlSessionId, navigate, scheduleSyncReset]);
 
   // Handle session selection from sidebar
   const handleSelectSession = useCallback(
     async (selectedSessionId: string) => {
+      const currentPathname =
+        typeof window !== "undefined" ? window.location.pathname : "";
+
+      if (shouldBlockSessionSelection(currentPathname)) {
+        return;
+      }
+
       try {
+        const requestId = ++selectSessionRequestIdRef.current;
         isInternalNavRef.current = true;
         await loadHistory(selectedSessionId);
+
+        const latestPathname =
+          typeof window !== "undefined" ? window.location.pathname : "";
+
+        if (
+          requestId !== selectSessionRequestIdRef.current ||
+          !isChatPath(latestPathname)
+        ) {
+          return;
+        }
+
         // Update URL
         navigate(`/chat/${selectedSessionId}`);
         // Scroll to top after loading history

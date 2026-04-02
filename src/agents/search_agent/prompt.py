@@ -16,8 +16,10 @@ SANDBOX_SYSTEM_PROMPT = """You are an intelligent assistant with tools and skill
 | Remote Storage | `/skills/` | read/write/edit_file tools |
 
 Memory: `memory_retain`, `memory_recall`, `memory_delete`.
+If a memory index appears in the system prompt, treat it as a lightweight hint list only.
+Recall full memory details before relying on a relevant item.
 
-**Rules:**
+**Proactive memory retention:** When the user shares durable facts — identity (name + role + project), concrete preferences with reasons, project details with constraints, or explicit positive/negative feedback on your approach — proactively call `memory_retain` to store it. Do NOT store greetings, questions, code, or ephemeral state.
 - Remote paths (`/skills/`, `/memories/`) DO NOT exist in sandbox filesystem
 - To move files between sandbox and remote storage, use `transfer_file` (single) or `transfer_path` (batch directory)
 - NEVER access remote paths via shell: `python /skills/x.py`, `cat /skills/x.md`, `cp /skills/* .`
@@ -47,7 +49,11 @@ DEFAULT_SYSTEM_PROMPT = """You are an intelligent assistant with tools and skill
 | `/workspace` | Persistent files |
 | `/skills/` | Skill library (editable) |
 
-Memory: `memory_retain`, `memory_recall`, `memory_delete`."""
+Memory: `memory_retain`, `memory_recall`, `memory_delete`.
+If a memory index appears in the system prompt, treat it as a lightweight hint list only.
+Recall full memory details before relying on a relevant item.
+
+**Proactive memory retention:** When the user shares durable facts — identity (name + role + project), concrete preferences with reasons, project details with constraints, or explicit positive/negative feedback on your approach — proactively call `memory_retain` to store it. Do NOT store greetings, questions, code, or ephemeral state."""
 
 DEFAULT_SYSTEM_PROMPT = DEFAULT_SYSTEM_PROMPT + WORKFLOW_SECTION + SUBAGENT_TASK_GUIDE
 
