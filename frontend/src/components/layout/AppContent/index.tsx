@@ -20,7 +20,6 @@ import { useProjectManager } from "../../../hooks/useProjectManager";
 import { useSessionConfig } from "../../../hooks/useSessionConfig";
 import {
   Permission,
-  type AgentInfo,
   type Project,
   type ToolCategory,
   type SkillSource,
@@ -47,16 +46,16 @@ interface AppShellProps {
   sidebarCollapsed: boolean;
   setSidebarCollapsed: (collapsed: boolean) => void;
   setMobileSidebarOpen: (open: boolean) => void;
-  agents: AgentInfo[];
-  currentAgent: string;
-  agentsLoading: boolean;
-  onSelectAgent: (id: string) => void;
   currentProjectId: string | null;
   projectManager: { projects: Project[] };
   onNewSession: () => void;
   onShowProfile: () => void;
   sidebar?: ReactNode;
   children: ReactNode;
+  // Model selection
+  availableModels?: { value: string; label: string }[] | null;
+  currentModel?: string;
+  onSelectModel?: (modelValue: string) => void;
 }
 
 function AppShell({
@@ -67,16 +66,15 @@ function AppShell({
   sidebarCollapsed,
   setSidebarCollapsed,
   setMobileSidebarOpen,
-  agents,
-  currentAgent,
-  agentsLoading,
-  onSelectAgent,
   currentProjectId,
   projectManager,
   onNewSession,
   onShowProfile,
   sidebar,
   children,
+  availableModels,
+  currentModel,
+  onSelectModel,
 }: AppShellProps) {
   return (
     <>
@@ -95,14 +93,13 @@ function AppShell({
             sidebarCollapsed={sidebarCollapsed}
             setSidebarCollapsed={setSidebarCollapsed}
             setMobileSidebarOpen={setMobileSidebarOpen}
-            agents={agents}
-            currentAgent={currentAgent}
-            agentsLoading={agentsLoading}
-            onSelectAgent={onSelectAgent}
             currentProjectId={currentProjectId}
             projectManager={projectManager}
             onNewSession={onNewSession}
             onShowProfile={onShowProfile}
+            availableModels={availableModels}
+            currentModel={currentModel}
+            onSelectModel={onSelectModel}
           />
 
           {children}
@@ -132,7 +129,8 @@ function ChatAppContent({
   onShowProfile: () => void;
 }) {
   const { t, i18n } = useTranslation();
-  const { enableSkills, settings } = useSettingsContext();
+  const { enableSkills, settings, availableModels, defaultModel } =
+    useSettingsContext();
   const { hasPermission, isAuthenticated } = useAuth();
 
   const { isPageDragging, pageDragAttachments, setPageDragAttachments } =
@@ -179,12 +177,12 @@ function ChatAppContent({
     isLoading,
     agents,
     currentAgent,
-    agentsLoading,
     newlyCreatedSession,
     sendMessage,
     stopGeneration,
     clearMessages,
-    selectAgent,
+    selectAgent: _selectAgent,
+    switchAgent,
     loadHistory,
     setPendingProjectId,
     autoExpandProjectId,
@@ -245,6 +243,21 @@ function ChatAppContent({
   } = useSessionConfig({
     getDefaultAgentOptions: () => agentOptionValues,
   });
+
+  // Model selection state (after useSessionConfig so setSessionAgentOption is available)
+  const [currentModel, setCurrentModel] = useState<string>(defaultModel);
+
+  useEffect(() => {
+    setCurrentModel(defaultModel);
+  }, [defaultModel]);
+
+  const handleSelectModel = useCallback(
+    (modelValue: string) => {
+      setCurrentModel(modelValue);
+      setSessionAgentOption("model", modelValue);
+    },
+    [setSessionAgentOption],
+  );
 
   // 同步 sessionConfig 到 ref，供 useAgent 使用
   useEffect(() => {
@@ -438,6 +451,14 @@ function ChatAppContent({
       // 恢复 agent options 到 useAgentOptions
       if (config.agent_options) {
         restoreAgentOptions(config.agent_options);
+
+        // Restore model selection if present
+        if (
+          config.agent_options.model &&
+          typeof config.agent_options.model === "string"
+        ) {
+          setCurrentModel(config.agent_options.model);
+        }
       }
     },
     [restoreSessionConfig, restoreAgentOptions],
@@ -482,14 +503,13 @@ function ChatAppContent({
       sidebarCollapsed={sidebarCollapsed}
       setSidebarCollapsed={setSidebarCollapsed}
       setMobileSidebarOpen={setMobileSidebarOpen}
-      agents={agents}
-      currentAgent={currentAgent}
-      agentsLoading={agentsLoading}
-      onSelectAgent={selectAgent}
       currentProjectId={currentProjectId}
       projectManager={projectManager}
       onNewSession={handleNewSessionWithReset}
       onShowProfile={onShowProfile}
+      availableModels={availableModels}
+      currentModel={currentModel}
+      onSelectModel={handleSelectModel}
       sidebar={
         <SessionSidebar
           currentSessionId={sessionId}
@@ -558,6 +578,9 @@ function ChatAppContent({
           agentOptions={currentAgentOptions}
           agentOptionValues={sessionConfig.agentOptions}
           onToggleAgentOption={effectiveToggleAgentOption}
+          agents={agents}
+          currentAgent={currentAgent}
+          onSelectAgent={switchAgent}
           approvals={approvals}
           onRespondApproval={respondToApproval}
           approvalLoading={approvalLoading}
@@ -601,10 +624,6 @@ function NonChatAppContent({
       sidebarCollapsed={sidebarCollapsed}
       setSidebarCollapsed={setSidebarCollapsed}
       setMobileSidebarOpen={setMobileSidebarOpen}
-      agents={[]}
-      currentAgent=""
-      agentsLoading={false}
-      onSelectAgent={() => {}}
       currentProjectId={null}
       projectManager={{ projects: [] }}
       onNewSession={() => {}}

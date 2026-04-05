@@ -72,6 +72,7 @@ class Settings(BaseSettings):
     LLM_API_KEY: str = ""
     LLM_API_BASE: Optional[str] = None
     LLM_MODEL: str = "anthropic/claude-3-5-sonnet-20241022"
+    LLM_AVAILABLE_MODELS: list = []  # Available models for user selection
     LLM_TEMPERATURE: float = 0.7
     LLM_MAX_TOKENS: int = 4096
     LLM_MAX_RETRIES: int = 3

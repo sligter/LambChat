@@ -187,6 +187,7 @@ export interface UseAgentReturn {
   stopGeneration: () => Promise<void>;
   clearMessages: () => void;
   selectAgent: (agentId: string) => void;
+  switchAgent: (agentId: string) => void;
   refreshAgents: () => Promise<void>;
   loadHistory: (
     targetSessionId: string,

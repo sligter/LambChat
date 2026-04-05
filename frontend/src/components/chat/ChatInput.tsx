@@ -9,6 +9,8 @@ import {
   Zap,
   Settings,
   ChevronDown,
+  Check,
+  Bot,
   type LucideIcon,
 } from "lucide-react";
 import TurndownService from "turndown";
@@ -203,6 +205,10 @@ interface ChatInputProps {
   agentOptions?: Record<string, AgentOption>;
   agentOptionValues?: Record<string, boolean | string | number>;
   onToggleAgentOption?: (key: string, value: boolean | string | number) => void;
+  // Agent mode selector
+  agents?: { id: string; name: string; description: string }[];
+  currentAgent?: string;
+  onSelectAgent?: (id: string) => void;
   // External attachments (for page-level drag and drop)
   attachments?: MessageAttachment[];
   onAttachmentsChange?: (
@@ -341,6 +347,145 @@ const AgentOptionButton = memo(function AgentOptionButton({
   );
 });
 
+// Agent mode modal selector
+interface AgentModeSelectorProps {
+  agents: { id: string; name: string; description: string }[];
+  currentAgent: string;
+  onSelectAgent?: (id: string) => void;
+}
+
+function AgentModeSelector({
+  agents,
+  currentAgent,
+  onSelectAgent,
+}: AgentModeSelectorProps) {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+
+  const current = agents.find((a) => a.id === currentAgent);
+
+  // 锁定滚动
+  useEffect(() => {
+    if (open) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [open]);
+
+  if (agents.length <= 1 || !onSelectAgent) return null;
+
+  return (
+    <div className="relative" onClick={(e) => e.stopPropagation()}>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.preventDefault();
+          setOpen(true);
+        }}
+        className="flex items-center justify-center rounded-full p-2 border transition-all duration-300 border-stone-200 dark:border-stone-700 bg-transparent hover:bg-stone-100 dark:hover:bg-stone-700 text-stone-500 dark:text-stone-300 dark:hover:bg-stone-800 dark:hover:text-amber-300"
+        title={current ? t(current.name) : ""}
+      >
+        <Bot size={18} />
+      </button>
+
+      {open && (
+        <div
+          className="fixed inset-0 z-50 bg-black/50 animate-fade-in flex items-end sm:items-center sm:justify-center sm:p-4"
+          onClick={() => setOpen(false)}
+        >
+          <div
+            className="bg-white dark:bg-stone-800 sm:rounded-2xl rounded-t-2xl shadow-2xl w-full sm:w-auto sm:min-w-[320px] max-h-[60vh] flex flex-col overflow-hidden animate-slide-up sm:animate-scale-in"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between px-4 sm:px-5 py-3 sm:py-4 border-b border-stone-200 dark:border-stone-700">
+              <div className="absolute left-1/2 -translate-x-1/2 top-2 w-10 h-1 rounded-full bg-stone-300 dark:bg-stone-600 sm:hidden" />
+              <div className="flex items-center gap-3 mt-2 sm:mt-0">
+                <div className="size-9 sm:size-10 rounded-xl bg-gradient-to-br from-stone-100 to-stone-200 dark:from-stone-700/60 dark:to-stone-600/40 flex items-center justify-center">
+                  <Bot
+                    size={16}
+                    className="text-stone-500 dark:text-amber-400 sm:w-[18px] sm:h-[18px]"
+                  />
+                </div>
+                <div>
+                  <h2 className="text-sm sm:text-base font-semibold text-stone-900 dark:text-stone-100">
+                    {t("agent.selectMode", "选择模式")}
+                  </h2>
+                  <p className="text-xs text-stone-500 dark:text-stone-400">
+                    {t("agent.selectModeDesc", "切换智能体模式")}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Agent list */}
+            <div className="flex-1 overflow-y-auto p-2.5 sm:p-3 space-y-1 mb-2">
+              {agents.map((agent) => (
+                <button
+                  key={agent.id}
+                  type="button"
+                  onClick={() => {
+                    onSelectAgent(agent.id);
+                    setOpen(false);
+                  }}
+                  className={`w-full px-3 sm:px-4 py-3 sm:py-3.5 text-left rounded-xl transition-all duration-200 flex items-center gap-3 ${
+                    agent.id === currentAgent
+                      ? "bg-stone-100 dark:bg-stone-700/40 border border-stone-200 dark:border-stone-600/50"
+                      : "hover:bg-stone-50 dark:hover:bg-stone-700/30 border border-transparent"
+                  }`}
+                >
+                  <div
+                    className={`size-9 sm:size-10 rounded-xl flex items-center justify-center shrink-0 ${
+                      agent.id === currentAgent
+                        ? "bg-stone-200 dark:bg-stone-600/60"
+                        : "bg-stone-100 dark:bg-stone-700/60"
+                    }`}
+                  >
+                    <Bot
+                      size={18}
+                      className={
+                        agent.id === currentAgent
+                          ? "text-stone-700 dark:text-amber-400"
+                          : "text-stone-500 dark:text-stone-400"
+                      }
+                    />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div
+                      className={`text-sm font-medium truncate font-serif ${
+                        agent.id === currentAgent
+                          ? "text-stone-800 dark:text-amber-400"
+                          : "text-stone-700 dark:text-stone-200"
+                      }`}
+                    >
+                      {t(agent.name)}
+                    </div>
+                    {agent.description && (
+                      <div className="text-xs text-stone-400 dark:text-stone-500 truncate mt-0.5">
+                        {t(agent.description)}
+                      </div>
+                    )}
+                  </div>
+                  {agent.id === currentAgent && (
+                    <Check
+                      size={18}
+                      className="flex-shrink-0 text-stone-500 dark:text-amber-400"
+                    />
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export const ChatInput = memo(function ChatInput({
   onSend,
   onStop,
@@ -369,6 +514,10 @@ export const ChatInput = memo(function ChatInput({
   agentOptions,
   agentOptionValues = {},
   onToggleAgentOption,
+  // Agent mode selector
+  agents = [],
+  currentAgent,
+  onSelectAgent,
   attachments: externalAttachments,
   onAttachmentsChange: externalOnAttachmentsChange,
 }: ChatInputProps) {
@@ -621,6 +770,12 @@ export const ChatInput = memo(function ChatInput({
                       totalCount={totalSkillsCount}
                     />
                   )}
+                {/* Agent mode selector */}
+                <AgentModeSelector
+                  agents={agents}
+                  currentAgent={currentAgent || ""}
+                  onSelectAgent={onSelectAgent}
+                />
                 {/* Agent options - Multiple options support */}
                 {agentOptions &&
                   onToggleAgentOption &&

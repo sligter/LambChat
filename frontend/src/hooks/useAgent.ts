@@ -717,6 +717,11 @@ export function useAgent(options?: UseAgentOptions): UseAgentReturn {
     [clearMessages],
   );
 
+  // Switch agent without clearing messages (for mode toggling)
+  const switchAgent = useCallback((agentId: string) => {
+    setCurrentAgent(agentId);
+  }, []);
+
   // Reconnect function
   const handleReconnectSSE = useCallback(async () => {
     const ctx = {
@@ -792,6 +797,7 @@ export function useAgent(options?: UseAgentOptions): UseAgentReturn {
     stopGeneration,
     clearMessages,
     selectAgent,
+    switchAgent,
     refreshAgents: fetchAgents,
     loadHistory,
     reconnectSSE: handleReconnectSSE,

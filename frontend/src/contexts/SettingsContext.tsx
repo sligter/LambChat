@@ -1,6 +1,11 @@
-import { createContext, useContext, ReactNode } from "react";
+import { createContext, useContext, ReactNode, useMemo } from "react";
 import { useSettings } from "../hooks/useSettings";
 import type { SettingsResponse } from "../types";
+
+export interface AvailableModel {
+  value: string;
+  label: string;
+}
 
 interface SettingsContextValue {
   settings: SettingsResponse | null;
@@ -8,6 +13,8 @@ interface SettingsContextValue {
   isLoading: boolean;
   error: string | null;
   savingKeys: Set<string>;
+  availableModels: AvailableModel[] | null;
+  defaultModel: string;
   updateSetting: (
     key: string,
     value: string | number | boolean | object,
@@ -32,6 +39,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     error,
     savingKeys,
     getBooleanSetting,
+    getSettingValue,
     updateSetting,
     resetSetting,
     resetAllSettings,
@@ -40,9 +48,26 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     importSettings,
   } = useSettings();
 
+  const availableModels = useMemo(() => {
+    const raw = getSettingValue("LLM_AVAILABLE_MODELS");
+    if (Array.isArray(raw) && raw.length > 0) {
+      return raw as AvailableModel[];
+    }
+    return null; // null = model selection disabled
+  }, [getSettingValue]);
+
+  const defaultModel = useMemo(() => {
+    return (
+      (getSettingValue("LLM_MODEL") as string) ||
+      "anthropic/claude-3-5-sonnet-20241022"
+    );
+  }, [getSettingValue]);
+
   const value: SettingsContextValue = {
     settings,
     enableSkills: getBooleanSetting("ENABLE_SKILLS"),
+    availableModels,
+    defaultModel,
     isLoading,
     error,
     savingKeys,

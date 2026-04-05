@@ -49,6 +49,10 @@ interface ChatViewProps {
   agentOptions: Record<string, AgentOption>;
   agentOptionValues: Record<string, boolean | string | number>;
   onToggleAgentOption: (key: string, value: boolean | string | number) => void;
+  // Agent mode selector
+  agents: { id: string; name: string; description: string }[];
+  currentAgent: string;
+  onSelectAgent: (id: string) => void;
   approvals: PendingApproval[];
   onRespondApproval: (
     id: string,
@@ -95,6 +99,9 @@ export function ChatView({
   agentOptions,
   agentOptionValues,
   onToggleAgentOption,
+  agents,
+  currentAgent,
+  onSelectAgent,
   approvals,
   onRespondApproval,
   approvalLoading,
@@ -367,6 +374,9 @@ export function ChatView({
         agentOptions={agentOptions}
         agentOptionValues={agentOptionValues}
         onToggleAgentOption={onToggleAgentOption}
+        agents={agents}
+        currentAgent={currentAgent}
+        onSelectAgent={onSelectAgent}
         attachments={attachments}
         onAttachmentsChange={onAttachmentsChange}
       />

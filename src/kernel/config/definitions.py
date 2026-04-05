@@ -87,6 +87,13 @@ SETTING_DEFINITIONS: dict[str, dict] = {
         "description": "LLM model identifier (e.g., anthropic/claude-3-5-sonnet)",
         "default": "anthropic/claude-3-5-sonnet-20241022",
     },
+    "LLM_AVAILABLE_MODELS": {
+        "type": SettingType.JSON,
+        "category": SettingCategory.LLM,
+        "description": "Available LLM models for user selection (JSON array of {value, label} objects). Empty array disables model selection.",
+        "default": [],
+        "frontend_visible": True,
+    },
     "LLM_TEMPERATURE": {
         "type": SettingType.NUMBER,
         "category": SettingCategory.LLM,
