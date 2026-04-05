@@ -222,7 +222,7 @@ export function ChatView({
               </h1>
               {/* Subtitle */}
               <p className="text-sm sm:text-base text-stone-500 dark:text-stone-400 font-medium tracking-wide">
-                ✦ {t("chat.welcomeSubtitle") ?? "How can I help you today?"}
+                ✨ {t("chat.welcomeSubtitle") ?? "How can I help you today?"}
               </p>
             </div>
 

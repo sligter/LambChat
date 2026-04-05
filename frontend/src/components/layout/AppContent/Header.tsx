@@ -53,7 +53,7 @@ export function Header({
                   xmlns="http://www.w3.org/2000/svg"
                   fill="none"
                   viewBox="0 0 24 24"
-                  className="w-5 h-5 text-stone-600 dark:text-stone-400"
+                  className="w-5 h-5 text-stone-600 dark:text-stone-300"
                 >
                   <path
                     fillRule="evenodd"
@@ -73,7 +73,7 @@ export function Header({
                 xmlns="http://www.w3.org/2000/svg"
                 fill="none"
                 viewBox="0 0 24 24"
-                className="w-5 h-5 text-stone-600 dark:text-stone-400"
+                className="w-5 h-5 text-stone-600 dark:text-stone-300"
               >
                 <path
                   fillRule="evenodd"

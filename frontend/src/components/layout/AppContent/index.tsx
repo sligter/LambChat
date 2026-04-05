@@ -181,7 +181,6 @@ function ChatAppContent({
     sendMessage,
     stopGeneration,
     clearMessages,
-    selectAgent: _selectAgent,
     switchAgent,
     loadHistory,
     setPendingProjectId,

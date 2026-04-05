@@ -412,7 +412,7 @@ function AgentModeSelector({
                   />
                 </div>
                 <div>
-                  <h2 className="text-sm sm:text-base font-semibold text-stone-900 dark:text-stone-100">
+                  <h2 className="text-sm sm:text-base font-semibold text-stone-900 dark:text-stone-100 font-serif font-serif">
                     {t("agent.selectMode", "选择模式")}
                   </h2>
                   <p className="text-xs text-stone-500 dark:text-stone-400">

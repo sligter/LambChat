@@ -136,7 +136,7 @@ export function ToolSelector({
             />
           </div>
           <div>
-            <h2 className="text-sm sm:text-base font-semibold text-stone-900 dark:text-stone-100">
+            <h2 className="text-sm sm:text-base font-semibold text-stone-900 dark:text-stone-100 font-serif">
               {t("tools.title")}
             </h2>
             <p className="text-xs sm:text-xs text-stone-500 dark:text-stone-400">

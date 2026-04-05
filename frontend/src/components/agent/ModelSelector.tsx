@@ -101,12 +101,12 @@ const ModelSelector = memo(function ModelSelector({
         onClick={toggleSelector}
         className="flex items-center gap-1.5 hover:opacity-70 transition-opacity"
       >
-        <span className="text-sm sm:text-base font-medium sm:font-semibold text-stone-500 dark:text-stone-400">
+        <span className="text-base font-semibold text-stone-600 dark:text-stone-300">
           {currentModelInfo?.label || currentModel}
         </span>
         <ChevronDown
           size={16}
-          className={`text-stone-400 dark:text-stone-500 transition-transform duration-200 ${
+          className={`text-stone-400 dark:text-stone-300 transition-transform duration-200 ${
             showSelector ? "rotate-180" : ""
           }`}
         />
