@@ -94,6 +94,8 @@ export function useSessionSync({
   // Track if navigation was initiated internally (not from URL)
   const isInternalNavRef = useRef(false);
   const isLoadingRef = useRef(false);
+  // Track when a new session is being created to prevent loading stale history
+  const isNewSessionRef = useRef(false);
   const selectSessionRequestIdRef = useRef(0);
   // Track a single sync delay timeout for cleanup on unmount
   const syncTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -162,7 +164,18 @@ export function useSessionSync({
     if (!urlSessionId) return;
 
     // Skip if already loading or if sessionId matches URL (no need to reload)
-    if (isLoadingRef.current || sessionId === urlSessionId) return;
+    if (isLoadingRef.current || sessionId === urlSessionId) {
+      // URL is in sync, safe to reset the new session flag
+      if (isNewSessionRef.current) isNewSessionRef.current = false;
+      return;
+    }
+
+    // Skip if we just created a new session and URL hasn't caught up yet.
+    // This prevents loading stale history from the old urlSessionId.
+    if (isNewSessionRef.current) {
+      isNewSessionRef.current = false;
+      return;
+    }
 
     // Skip if this was an internal navigation (handled by handleSelectSession)
     if (isInternalNavRef.current) {
@@ -266,6 +279,7 @@ export function useSessionSync({
   // sessionId (new) !== urlSessionId (old) and call loadHistory with the
   // OLD session ID — overwriting the new session's messages.
   const handleNewSession = useCallback(() => {
+    isNewSessionRef.current = true;
     isInternalNavRef.current = false;
     clearMessages();
     navigate("/chat", { replace: true });
