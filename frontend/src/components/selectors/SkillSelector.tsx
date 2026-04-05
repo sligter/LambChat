@@ -366,8 +366,8 @@ export function SkillSelector({
                             disabled={isMutating}
                             className={`flex w-full items-center gap-1.5 sm:gap-2 px-2 sm:px-2.5 py-2 sm:py-2 rounded-lg transition-all duration-200 disabled:cursor-not-allowed ${
                               skill.enabled
-                                ? "bg-[var(--theme-primary)]/[0.06] dark:bg-[var(--theme-primary)]/[0.08]"
-                                : "hover:bg-white dark:hover:bg-stone-700/50 active:bg-stone-100 dark:active:bg-stone-600/50"
+                                ? "hover:bg-stone-50 dark:hover:bg-stone-700/30 active:bg-stone-100/80 dark:active:bg-stone-600/40"
+                                : "bg-[var(--theme-primary)]/[0.06] dark:bg-[var(--theme-primary)]/[0.08] hover:bg-[var(--theme-primary)]/[0.12] dark:hover:bg-[var(--theme-primary)]/[0.14] active:bg-[var(--theme-primary)]/[0.18] dark:active:bg-[var(--theme-primary)]/[0.20]"
                             } ${
                               pendingSet.has(skill.name) || isMutating
                                 ? "opacity-70"
@@ -386,8 +386,8 @@ export function SkillSelector({
                                 <span
                                   className={`text-[12px] sm:text-[13px] font-medium truncate ${
                                     skill.enabled
-                                      ? "text-[var(--theme-primary)] dark:text-[var(--theme-primary)]"
-                                      : "text-stone-700 dark:text-stone-200"
+                                      ? "text-stone-700 dark:text-stone-200"
+                                      : "text-[var(--theme-primary)] dark:text-[var(--theme-primary)]"
                                   }`}
                                 >
                                   {skill.name}

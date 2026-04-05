@@ -71,7 +71,7 @@ export function PanelHeader({
       {/* 搜索框 */}
       {onSearchChange !== undefined && (
         <div className="mt-2 flex items-center gap-2 sm:mt-3">
-          <div className="relative flex-1">
+          <div className="relative min-w-0 flex-1">
             <Search
               size={18}
               className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400 dark:text-stone-500"

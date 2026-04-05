@@ -245,7 +245,11 @@ export function ToolSelector({
                           <div key={tool.name} className="group">
                             {/* Tool Row */}
                             <div
-                              className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-2.5 py-2 sm:py-2 rounded-lg hover:bg-white dark:hover:bg-stone-700/50 active:bg-stone-100 dark:active:bg-stone-600/50 cursor-pointer transition-all duration-150"
+                              className={`flex items-center gap-1.5 sm:gap-2 px-2 sm:px-2.5 py-2 sm:py-2 rounded-lg cursor-pointer transition-all duration-150 ${
+                                tool.enabled
+                                  ? "hover:bg-stone-50 dark:hover:bg-stone-700/30 active:bg-stone-100/80 dark:active:bg-stone-600/40"
+                                  : "bg-[var(--theme-primary)]/[0.06] dark:bg-[var(--theme-primary)]/[0.08] hover:bg-[var(--theme-primary)]/[0.12] dark:hover:bg-[var(--theme-primary)]/[0.14] active:bg-[var(--theme-primary)]/[0.18] dark:active:bg-[var(--theme-primary)]/[0.20]"
+                              }`}
                               onClick={() => onToggleTool(tool.name)}
                             >
                               {/* Expand button for tools with params */}
@@ -271,7 +275,13 @@ export function ToolSelector({
 
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
-                                  <span className="text-[12px] sm:text-[13px] font-medium text-stone-700 dark:text-stone-200 truncate">
+                                  <span
+                                    className={`text-[12px] sm:text-[13px] font-medium truncate ${
+                                      tool.enabled
+                                        ? "text-stone-700 dark:text-stone-200"
+                                        : "text-[var(--theme-primary)] dark:text-[var(--theme-primary)]"
+                                    }`}
+                                  >
                                     {tool.name}
                                   </span>
                                   {tool.server && (

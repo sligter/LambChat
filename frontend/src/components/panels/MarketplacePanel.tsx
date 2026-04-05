@@ -279,7 +279,7 @@ export function MarketplacePanel() {
               <button
                 type="button"
                 onClick={() => setIsFilterOpen((prev) => !prev)}
-                className={`btn-secondary min-h-10 px-3 ${
+                className={`btn-secondary h-10 px-3 ${
                   selectedTags.length > 0
                     ? "border-[var(--theme-primary)] text-[var(--theme-text)]"
                     : ""
