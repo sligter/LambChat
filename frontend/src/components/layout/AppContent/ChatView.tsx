@@ -216,6 +216,12 @@ export function ChatView({
         {messages.length === 0 ? (
           <div className="relative flex h-full flex-col items-center justify-center px-4 py-6 sm:py-8 welcome-grain">
             <div className="relative flex flex-col items-center mb-8 sm:mb-10 w-full max-w-[90vw]">
+              {/* App Icon */}
+              <img
+                src="/icons/icon.svg"
+                alt="LambChat"
+                className="size-14 sm:hidden rounded-2xl shadow-sm ring-1 ring-stone-200/60 dark:ring-stone-700/40 mb-4"
+              />
               {/* Greeting */}
               <h1 className="max-w-[90vw] welcome-title text-3xl sm:text-4xl font-bold bg-gradient-to-r from-stone-900 via-stone-600 to-stone-900 dark:from-stone-50 dark:via-stone-200 dark:to-stone-50 bg-clip-text text-transparent font-serif tracking-tight mb-3 sm:mb-4 whitespace-nowrap overflow-hidden text-ellipsis">
                 {greeting}

@@ -24,6 +24,7 @@
     "@codesandbox/sandpack-react": "^2.20.0",
     "@codesandbox/sandpack-themes": "^2.0.21",
     "@excalidraw/excalidraw": "^0.18.0",
+    "@lobehub/icons": "^5.2.0",
     "@microsoft/fetch-event-source": "^2.0.1",
     "@stackblitz/sdk": "^1.11.0",
     "@types/dompurify": "^3.0.5",

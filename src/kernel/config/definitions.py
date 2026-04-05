@@ -90,7 +90,7 @@ SETTING_DEFINITIONS: dict[str, dict] = {
     "LLM_AVAILABLE_MODELS": {
         "type": SettingType.JSON,
         "category": SettingCategory.LLM,
-        "description": "Available LLM models for user selection (JSON array of {value, label} objects). Empty array disables model selection.",
+        "description": "Available LLM models for user selection (JSON array of {value, label, description?} objects). Empty array disables model selection.",
         "default": [],
         "frontend_visible": True,
     },

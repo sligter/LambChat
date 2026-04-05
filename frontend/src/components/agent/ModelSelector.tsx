@@ -1,9 +1,42 @@
 import { memo, useState, useCallback, useEffect, useRef } from "react";
-import { ChevronDown, Check, Zap } from "lucide-react";
+import { ChevronDown, Check, Info } from "lucide-react";
+import { getModelIconUrl, isMonochromeIcon } from "./modelIcon";
+
+function ModelIconImg({ model, size }: { model: string; size: number }) {
+  const url = getModelIconUrl(model);
+  const mono = isMonochromeIcon(model);
+  if (!url) {
+    return (
+      <div
+        className="flex items-center justify-center rounded-full bg-stone-200 dark:bg-stone-600"
+        style={{ width: size, height: size }}
+      >
+        <span className="text-xs font-bold text-stone-600 dark:text-stone-200">
+          {model.charAt(0).toUpperCase()}
+        </span>
+      </div>
+    );
+  }
+  return (
+    <div
+      className="flex items-center justify-center rounded-full bg-white dark:bg-stone-600"
+      style={{ width: size, height: size }}
+    >
+      <img
+        src={url}
+        alt={model}
+        width={size * 0.7}
+        height={size * 0.7}
+        className={mono ? "dark:invert" : ""}
+      />
+    </div>
+  );
+}
 
 export interface ModelOption {
   value: string;
   label: string;
+  description?: string;
 }
 
 interface ModelItemProps {
@@ -17,28 +50,72 @@ const ModelItem = memo(function ModelItem({
   isSelected,
   onSelect,
 }: ModelItemProps) {
+  const [showTip, setShowTip] = useState(false);
+  const tipTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const iconRef = useRef<HTMLSpanElement>(null);
+
+  const show = useCallback(() => {
+    clearTimeout(tipTimer.current);
+    setShowTip(true);
+  }, []);
+
+  const hide = useCallback(() => {
+    tipTimer.current = setTimeout(() => setShowTip(false), 150);
+  }, []);
+
+  const toggle = useCallback((e: React.TouchEvent) => {
+    e.stopPropagation();
+    setShowTip((v) => !v);
+  }, []);
+
+  const tipStyle = (() => {
+    if (!showTip || !iconRef.current) return undefined;
+    const rect = iconRef.current.getBoundingClientRect();
+    return {
+      left: rect.left + rect.width / 2,
+      top: rect.top - 8,
+      transform: "translate(-50%, -100%)",
+    };
+  })();
+
   return (
     <button
       onClick={onSelect}
-      className="w-full px-3 py-3 sm:py-4 text-left hover:bg-stone-100/80 dark:hover:bg-stone-700/50 transition-colors"
+      className="w-full px-3 py-2.5 text-left hover:bg-stone-100/80 dark:hover:bg-stone-700/50 transition-colors"
     >
-      <div className="flex items-center gap-3">
-        <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-stone-100 to-stone-200 dark:from-stone-700/60 dark:to-stone-600/40">
-          <Zap size={18} className="text-stone-600 dark:text-amber-400" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="text-sm font-medium text-stone-700 dark:text-stone-200">
+      <div className="flex items-center gap-2.5">
+        <ModelIconImg model={model.value} size={22} />
+        <div className="flex items-center gap-1 flex-1 min-w-0">
+          <span className="text-sm text-stone-700 dark:text-stone-200 truncate">
             {model.label}
-          </div>
-          <div className="text-xs text-stone-400 dark:text-stone-500 truncate">
-            {model.value}
-          </div>
+          </span>
+          {model.description && (
+            <span
+              ref={iconRef}
+              className="shrink-0 cursor-pointer"
+              onMouseEnter={show}
+              onMouseLeave={hide}
+              onTouchStart={toggle}
+            >
+              <Info
+                size={14}
+                className="text-stone-400 hover:text-stone-600 dark:text-stone-500 dark:hover:text-stone-300 transition-colors"
+              />
+              {showTip && (
+                <span
+                  className="fixed z-[60] max-w-[240px] w-max rounded-lg bg-stone-700 dark:bg-stone-900 px-2.5 py-1.5 text-xs leading-relaxed text-white shadow-lg whitespace-normal"
+                  style={tipStyle}
+                  onTouchStart={(e) => e.stopPropagation()}
+                >
+                  {model.description}
+                  <span className="absolute left-1/2 -translate-x-1/2 top-full border-[5px] border-transparent border-t-stone-700 dark:border-t-stone-900" />
+                </span>
+              )}
+            </span>
+          )}
         </div>
         {isSelected && (
-          <Check
-            size={18}
-            className="flex-shrink-0 text-stone-600 dark:text-stone-400"
-          />
+          <Check size={16} className="text-stone-500 dark:text-stone-400" />
         )}
       </div>
     </button>
