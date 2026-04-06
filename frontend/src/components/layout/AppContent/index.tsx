@@ -488,7 +488,9 @@ function ChatAppContent({
   const handleNewSessionWithReset = useCallback(() => {
     handleNewSession();
     resetToDefaults();
-  }, [handleNewSession, resetToDefaults]);
+    // Re-apply current model so it persists across new sessions
+    setSessionAgentOption("model", currentModel);
+  }, [handleNewSession, resetToDefaults, setSessionAgentOption, currentModel]);
 
   const handleMobileClose = useCallback(
     () => setMobileSidebarOpen(false),
