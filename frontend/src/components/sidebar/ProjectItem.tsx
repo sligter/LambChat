@@ -40,6 +40,7 @@ interface ProjectItemProps {
   onRenameProject: (projectId: string, name: string) => void;
   onDeleteProject: (projectId: string) => void;
   onUpdateIcon?: (projectId: string, icon: string) => void;
+  scrollRoot?: Element | null;
   draggingSessionId?: string | null;
   onNewSessionInProject?: (projectId: string) => void;
   forceExpandProjectId?: string | null;
@@ -60,6 +61,7 @@ export const ProjectItem = forwardRef<ProjectItemHandle, ProjectItemProps>(
       onNewSessionInProject,
       forceExpandProjectId,
       onUpdateIcon,
+      scrollRoot,
     },
     ref,
   ) {
@@ -90,7 +92,7 @@ export const ProjectItem = forwardRef<ProjectItemHandle, ProjectItemProps>(
       prependSession,
       removeSession,
       updateSession,
-    } = useProjectSessionList(project.id);
+    } = useProjectSessionList(project.id, scrollRoot);
 
     // Only fetch when expanded (lazy loading)
     const hasLoadedRef = useRef(false);

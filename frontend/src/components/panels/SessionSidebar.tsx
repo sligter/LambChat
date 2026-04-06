@@ -58,6 +58,7 @@ export function SessionSidebar({
   const [isProjectsCollapsed, setIsProjectsCollapsed] = useState(false);
   const [isChatsCollapsed, setIsChatsCollapsed] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+  const [scrollEl, setScrollEl] = useState<HTMLDivElement | null>(null);
 
   const handleNewSessionInProject = useCallback(
     (projectId: string) => {
@@ -73,7 +74,7 @@ export function SessionSidebar({
   // ─── Hooks ──────────────────────────────────────────────────────
 
   // Uncategorized sessions — independent pagination
-  const uncategorizedList = useProjectSessionList("none");
+  const uncategorizedList = useProjectSessionList("none", scrollEl);
 
   // Project refs for cross-project operations
   const projectRefs = useRef<Map<string, ProjectItemHandle>>(new Map());
@@ -236,10 +237,6 @@ export function SessionSidebar({
     onMobileClose?.();
   };
 
-  // ─── Scroll container ref ──────────────────────────────────────
-
-  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
-
   // ─── JSX ────────────────────────────────────────────────────────
 
   const sessionListContent = (
@@ -326,7 +323,7 @@ export function SessionSidebar({
 
       {/* Session list */}
       <div
-        ref={scrollContainerRef}
+        ref={setScrollEl}
         data-sidebar-scroll
         className="flex-1 overflow-y-auto px-2 scrollbar-thin relative"
         onScroll={(e) => {
@@ -337,7 +334,7 @@ export function SessionSidebar({
         {isScrolled && (
           <button
             onClick={() =>
-              scrollContainerRef.current?.scrollTo({
+              scrollEl?.scrollTo({
                 top: 0,
                 behavior: "smooth",
               })
@@ -405,6 +402,7 @@ export function SessionSidebar({
                     });
                   }}
                   onUpdateIcon={projectManager.handleUpdateIcon}
+                  scrollRoot={scrollEl}
                   draggingSessionId={
                     touchDrag.touchDropTarget === favoritesProject.id
                       ? touchDrag.draggingSessionId
@@ -438,6 +436,7 @@ export function SessionSidebar({
                     });
                   }}
                   onUpdateIcon={projectManager.handleUpdateIcon}
+                  scrollRoot={scrollEl}
                   draggingSessionId={
                     touchDrag.touchDropTarget === project.id
                       ? touchDrag.draggingSessionId
