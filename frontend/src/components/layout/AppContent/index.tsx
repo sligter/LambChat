@@ -248,6 +248,13 @@ function ChatAppContent({
     () => localStorage.getItem("defaultModel") || defaultModel,
   );
 
+  // Sync currentModel → sessionConfig.agentOptions.model so the UI and backend data
+  // always agree.  Covers: init, preference change, defaultModel change, new-session
+  // reset, and session restore — all in one place.
+  useEffect(() => {
+    setSessionAgentOption("model", currentModel);
+  }, [currentModel, setSessionAgentOption]);
+
   useEffect(() => {
     setCurrentModel(localStorage.getItem("defaultModel") || defaultModel);
   }, [defaultModel]);
@@ -266,9 +273,8 @@ function ChatAppContent({
   const handleSelectModel = useCallback(
     (modelValue: string) => {
       setCurrentModel(modelValue);
-      setSessionAgentOption("model", modelValue);
     },
-    [setSessionAgentOption],
+    [],
   );
 
   // 同步 sessionConfig 到 ref，供 useAgent 使用
@@ -404,6 +410,10 @@ function ChatAppContent({
     (key: string, value: boolean | string | number) => {
       handleToggleAgentOption(key, value);
       setSessionAgentOption(key, value);
+      // Keep currentModel in sync when model is changed via agent option toggle
+      if (key === "model" && typeof value === "string") {
+        setCurrentModel(value);
+      }
     },
     [handleToggleAgentOption, setSessionAgentOption],
   );
