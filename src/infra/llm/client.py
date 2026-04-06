@@ -10,6 +10,7 @@ from functools import lru_cache
 from typing import Any, Optional
 
 from langchain_anthropic import ChatAnthropic
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_openai import ChatOpenAI
 from pydantic import SecretStr
@@ -24,6 +25,9 @@ _setting_cache: dict[str, Any] = {}
 
 # 使用 Anthropic 兼容接口的 provider
 _ANTHROPIC_PROVIDERS = {"anthropic", "minimax", "zai"}
+
+# 使用 Google Gemini 兼容接口的 provider
+_GOOGLE_PROVIDERS = {"google", "gemini"}
 
 
 def _load_raw_settings():
@@ -83,7 +87,12 @@ def _parse_provider(model: str) -> tuple[str, str]:
         provider, model_name = model.split("/", 1)
     else:
         model_name = model
-        provider = "anthropic" if model_name.startswith("claude") else "openai"
+        if model_name.startswith("claude"):
+            provider = "anthropic"
+        elif model_name.startswith("gemini"):
+            provider = "gemini"
+        else:
+            provider = "openai"
     return provider, model_name
 
 
@@ -150,6 +159,22 @@ class LLMClient:
                 api_key=SecretStr(api_key) if api_key else None,  # type: ignore[arg-type]
                 thinking=thinking,
                 base_url=api_base or None,
+                profile=profile,
+                max_retries=settings.LLM_MAX_RETRIES,
+                **kwargs,
+            )
+        if provider in _GOOGLE_PROVIDERS:
+            if thinking and thinking.get("type") == "enabled":
+                thinking_level = thinking.get("level", "medium")
+            else:
+                thinking_level = None
+            return ChatGoogleGenerativeAI(
+                model=model_name,
+                temperature=temperature,
+                max_tokens=max_tokens,  # type: ignore[arg-type]
+                google_api_key=SecretStr(api_key) if api_key else None,  # type: ignore[arg-type]
+                base_url=api_base or None,
+                thinking_level=thinking_level,
                 profile=profile,
                 max_retries=settings.LLM_MAX_RETRIES,
                 **kwargs,
