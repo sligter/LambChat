@@ -22,6 +22,7 @@ import { useNavigate } from "react-router-dom";
 import { PanelHeader } from "../common/PanelHeader";
 import { LoadingSpinner } from "../common/LoadingSpinner";
 import { ConfirmDialog } from "../common/ConfirmDialog";
+import { BinaryFilePreview } from "../skill/BinaryFilePreview";
 import { SkillFormModal } from "./SkillsPanel/SkillFormModal";
 import { useMarketplace } from "../../hooks/useMarketplace";
 import { useSkills } from "../../hooks/useSkills";
@@ -56,6 +57,7 @@ export function MarketplacePanel() {
     previewFiles,
     previewLoading,
     previewFileContent,
+    previewBinaryFiles,
     previewFileLoading,
     openPreview,
     readPreviewFile,
@@ -748,6 +750,7 @@ export function MarketplacePanel() {
                     {previewFiles.files.map((filePath) => {
                       const isOpen = Boolean(previewFileContent[filePath]);
                       const isLoadingFile = previewFileLoading === filePath;
+                      const binaryInfo = previewBinaryFiles[filePath];
 
                       return (
                         <div
@@ -799,10 +802,19 @@ export function MarketplacePanel() {
                             )}
                           </button>
                           {isOpen && (
-                            <div className="border-t /92 p-4">
-                              <pre className="max-h-72 overflow-auto rounded-xl border border-[var(--theme-border)] bg-[var(--theme-bg)] p-4 text-xs leading-6 text-[var(--theme-text)] whitespace-pre-wrap break-all font-mono">
-                                {previewFileContent[filePath]}
-                              </pre>
+                            <div className="border-t border-[var(--theme-border)]/60">
+                              {binaryInfo ? (
+                                <BinaryFilePreview
+                                  url={binaryInfo.url}
+                                  mime_type={binaryInfo.mime_type}
+                                  size={binaryInfo.size}
+                                  fileName={filePath}
+                                />
+                              ) : (
+                                <pre className="max-h-72 overflow-auto p-4 text-xs leading-6 text-[var(--theme-text)] whitespace-pre-wrap break-all font-mono">
+                                  {previewFileContent[filePath]}
+                                </pre>
+                              )}
                             </div>
                           )}
                         </div>

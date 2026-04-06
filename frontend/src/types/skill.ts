@@ -144,6 +144,10 @@ export interface MarketplaceSkillFilesResponse {
 // Marketplace skill file content response
 export interface MarketplaceSkillFileResponse {
   content: string;
+  is_binary?: boolean;
+  url?: string;
+  mime_type?: string;
+  size?: number;
 }
 
 // Marketplace install response

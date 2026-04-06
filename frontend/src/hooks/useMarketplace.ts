@@ -6,6 +6,12 @@ import type {
   MarketplaceCreateRequest,
 } from "../types";
 
+interface BinaryFileInfo {
+  url: string;
+  mime_type: string;
+  size: number;
+}
+
 export function useMarketplace() {
   const [skills, setSkills] = useState<MarketplaceSkillResponse[]>([]);
   const [tags, setTags] = useState<string[]>([]);
@@ -31,6 +37,9 @@ export function useMarketplace() {
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewFileContent, setPreviewFileContent] = useState<
     Record<string, string>
+  >({});
+  const [previewBinaryFiles, setPreviewBinaryFiles] = useState<
+    Record<string, BinaryFileInfo>
   >({});
   const [previewFileLoading, setPreviewFileLoading] = useState<string | null>(
     null,
@@ -104,6 +113,7 @@ export function useMarketplace() {
     setPreviewSkill(skill);
     setPreviewFiles(null);
     setPreviewFileContent({});
+    setPreviewBinaryFiles({});
     setPreviewLoading(true);
     try {
       const files = await marketplaceApi.listFiles(skill.skill_name);
@@ -125,6 +135,16 @@ export function useMarketplace() {
           ...prev,
           [filePath]: resp.content,
         }));
+        if (resp.is_binary && resp.url && resp.mime_type && resp.size !== undefined) {
+          setPreviewBinaryFiles((prev) => ({
+            ...prev,
+            [filePath]: {
+              url: resp.url!,
+              mime_type: resp.mime_type!,
+              size: resp.size!,
+            },
+          }));
+        }
       } catch (err) {
         console.error("Failed to fetch file content:", err);
       } finally {
@@ -138,6 +158,7 @@ export function useMarketplace() {
     setPreviewSkill(null);
     setPreviewFiles(null);
     setPreviewFileContent({});
+    setPreviewBinaryFiles({});
   }, []);
 
   // Toggle tag selection
@@ -299,6 +320,7 @@ export function useMarketplace() {
     previewFiles,
     previewLoading,
     previewFileContent,
+    previewBinaryFiles,
     previewFileLoading,
     openPreview,
     readPreviewFile,
