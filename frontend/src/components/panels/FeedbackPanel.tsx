@@ -217,7 +217,7 @@ function FeedbackDetailModal({
                   <button
                     onClick={() => onCopy(feedback.session_id, "session")}
                     className="flex h-9 w-9 items-center justify-center rounded-lg text-stone-400 transition-colors hover:bg-stone-100 hover:text-stone-600 dark:hover:bg-stone-800 dark:hover:text-stone-300"
-                    title="Copy"
+                    title={t("documents.copy")}
                   >
                     {copiedField === "session" ? (
                       <Check size={16} />
@@ -239,7 +239,7 @@ function FeedbackDetailModal({
                   <button
                     onClick={() => onCopy(feedback.run_id, "run")}
                     className="flex h-9 w-9 items-center justify-center rounded-lg text-stone-400 transition-colors hover:bg-stone-100 hover:text-stone-600 dark:hover:bg-stone-800 dark:hover:text-stone-300"
-                    title="Copy"
+                    title={t("documents.copy")}
                   >
                     {copiedField === "run" ? (
                       <Check size={16} />

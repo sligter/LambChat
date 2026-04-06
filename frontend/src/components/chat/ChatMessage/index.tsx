@@ -102,7 +102,7 @@ function TokenDetailsButton({
           "hover:bg-stone-200 dark:hover:bg-stone-700",
           "text-stone-400 dark:text-stone-500 hover:text-stone-600 dark:hover:text-stone-300",
         )}
-        title="Token usage"
+        title={t("chat.message.tokenUsage")}
       >
         <Info size={16} />
       </button>

@@ -247,6 +247,7 @@
       "tokenOutput": "出力",
       "tokenTotal": "合計",
       "toolCalls": "ツール呼び出し",
+      "tokenUsage": "Token使用量",
       "toolEdit": "編集",
       "toolExecute": "実行",
       "toolExitCode": "終了コード {{code}}",
@@ -330,6 +331,7 @@
     "loadFailed": "読み込みに失敗しました",
     "loading": "読み込み中...",
     "masked": "••••••••",
+    "next": "次へ",
     "noPermission": "メッセージを送信する権限がありません",
     "noResults": "結果が見つかりません",
     "readMode": "読み取り専用",
@@ -343,7 +345,9 @@
     "selectAll": "すべて選択",
     "skip": "スキップ",
     "page": "{{page}}ページ",
-    "showing": "{{start}}〜{{end}}件を表示"
+    "previous": "前へ",
+    "showing": "{{start}}〜{{end}}件を表示",
+    "scrollToTop": "一番上にスクロール"
   },
   "documents": {
     "ascending": "昇順",
@@ -647,6 +651,7 @@
     "tablet": "タブレット",
     "taskManagement": "タスク管理",
     "taskManagementDesc": "並行制御タスクキュー、キャンセル、ハートビート監視、pub/sub通知。",
+    "toggleMenu": "メニュー切替",
     "viewOnGitHub": "GitHub で見る",
     "webSearch": "ウェブ検索",
     "webSearchDesc": "ドメインフィルタリング、時間範囲フィルタ、リージョン対応、コンテンツサイズ制御を備えた豊富なウェブ検索。"
@@ -957,6 +962,8 @@
   },
   "settings": {
     "exportSuccess": "設定をエクスポートしました",
+    "exportSettings": "設定をエクスポート",
+    "importSettings": "設定をインポート",
     "importSuccess": "{{count}}件の設定をインポートしました",
     "loading": "設定を読み込み中...",
     "noMatch": "検索条件に一致する設定がありません",
@@ -1015,6 +1022,7 @@
   "sidebar": {
     "addToFavorites": "お気に入りに追加",
     "chats": "チャット",
+    "clickToEditIcon": "クリックしてアイコンを編集",
     "collapseSidebar": "サイドバーを折りたたむ",
     "deleteConfirm": "このセッションを削除しますか？この操作は取り消せません。",
     "deleteFailed": "セッションの削除に失敗しました",

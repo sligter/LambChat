@@ -354,7 +354,7 @@ export function SessionSidebar({
               })
             }
             className="absolute top-16 right-3 z-10 flex items-center justify-center w-8 h-8 rounded-full bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 shadow-md hover:bg-stone-50 dark:hover:bg-stone-700 transition-all"
-            title="Scroll to top"
+            title={t("common.scrollToTop")}
           >
             <ChevronDown size={14} className="rotate-180 text-stone-500" />
           </button>
@@ -670,7 +670,7 @@ export function SessionSidebar({
                 onChange={(e) =>
                   projectManager.setNewProjectIcon(e.target.value)
                 }
-                placeholder="Icon"
+                placeholder={t("sidebar.projectName")}
                 className="w-8 text-sm bg-transparent text-stone-500 dark:text-stone-400 placeholder-stone-400 focus:outline-none"
               />
               <div className="w-px h-5 bg-stone-300 dark:bg-stone-600" />

@@ -215,7 +215,7 @@ export function ProfileInfoTab() {
                 className="w-full rounded-lg border border-stone-300 dark:border-stone-600 bg-stone-50 dark:bg-stone-900 px-3 py-2.5 text-sm text-stone-900 dark:text-stone-100 placeholder-stone-400 focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20"
                 minLength={3}
                 maxLength={50}
-                placeholder="Enter new username"
+                placeholder={t("profile.usernamePlaceholder")}
                 autoFocus
               />
               {usernameError && (

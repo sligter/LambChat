@@ -481,7 +481,7 @@ export function SettingsPanel() {
                     onClick={handleExport}
                     disabled={!settings}
                     className="flex items-center gap-1 rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm font-medium text-stone-600 hover:bg-stone-50 disabled:opacity-50 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-400 dark:hover:bg-stone-700"
-                    title="Export settings"
+                    title={t("settings.exportSettings")}
                   >
                     <Download size={18} />
                     <span className="hidden sm:inline">
@@ -492,7 +492,7 @@ export function SettingsPanel() {
                     onClick={handleImportClick}
                     disabled={!settings || isImporting}
                     className="flex items-center gap-1 rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm font-medium text-stone-600 hover:bg-stone-50 disabled:opacity-50 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-400 dark:hover:bg-stone-700"
-                    title="Import settings"
+                    title={t("settings.importSettings")}
                   >
                     <Upload size={18} />
                     <span className="hidden sm:inline">

@@ -114,7 +114,7 @@ export function BinaryFilePreview({
           type="button"
           onClick={handleDownload}
           className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium text-[var(--theme-text-secondary)] hover:bg-[var(--theme-bg-card)] transition-colors cursor-pointer"
-          title="Download"
+          title={t("documents.download")}
         >
           <Download size={14} />
           <span className="hidden sm:inline">Download</span>

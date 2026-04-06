@@ -288,7 +288,7 @@ export const ProjectItem = forwardRef<ProjectItemHandle, ProjectItemProps>(
             <button
               onClick={handleStartIconEdit}
               className="flex-shrink-0 hover:opacity-70 transition-opacity"
-              title="Click to edit icon"
+              title={t("sidebar.clickToEditIcon")}
             >
               <DynamicIcon
                 name={project.icon}

@@ -404,7 +404,7 @@ export function LandingPage() {
             <button
               className="md:hidden ml-0.5 p-2 rounded-lg text-stone-500 hover:text-stone-700 dark:text-stone-400 dark:hover:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              aria-label="Toggle menu"
+              aria-label={t("landing.toggleMenu")}
             >
               {mobileMenuOpen ? <CloseIcon /> : <MenuIcon />}
             </button>
@@ -897,7 +897,7 @@ export function LandingPage() {
             ? "opacity-100 pointer-events-auto"
             : "opacity-0 pointer-events-none"
         }`}
-        aria-label="Scroll to top"
+        aria-label={t("common.scrollToTop")}
       >
         <ArrowUpIcon />
       </button>
