@@ -693,13 +693,13 @@ export const ChatInput = memo(function ChatInput({
                     e.stopPropagation();
                     setStopConfirmOpen(true);
                   }}
-                  className="flex items-center justify-center rounded-full p-2 transition-all duration-300 hover:scale-105 active:scale-95"
+                  className="chat-tool-btn-active flex items-center justify-center rounded-full p-2 transition-all duration-300 hover:scale-105 active:scale-95"
                   style={{
-                    backgroundColor:
-                      "color-mix(in srgb, var(--theme-primary) 10%, transparent)",
-                    border:
-                      "1px solid color-mix(in srgb, var(--theme-primary) 40%, transparent)",
-                    color: "var(--theme-primary)",
+                    borderColor:
+                      "color-mix(in srgb, #fbbf24 40%, transparent)",
+                    background:
+                      "color-mix(in srgb, #fbbf24 10%, transparent)",
+                    color: "#fbbf24",
                   }}
                   title={t("chat.stop")}
                 >

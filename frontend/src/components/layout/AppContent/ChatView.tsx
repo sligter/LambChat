@@ -9,6 +9,7 @@ import { Virtuoso } from "react-virtuoso";
 import { ApprovalPanel } from "../../panels/ApprovalPanel";
 import { Loading } from "../../common";
 import { useMessageScroll } from "./useMessageScroll";
+import { isSessionRunning } from "./sessionState";
 import type {
   Message,
   PendingApproval,
@@ -115,6 +116,7 @@ export function ChatView({
 }: ChatViewProps) {
   const { t } = useTranslation();
   const { user } = useAuth();
+  const sessionRunning = isSessionRunning(messages, isLoading);
 
   const getGreetingKey = () => {
     const h = new Date().getHours();
@@ -173,7 +175,6 @@ export function ChatView({
   const virtuosoItemContent = useCallback(
     (index: number, message: (typeof messages)[number]) => (
       <ChatMessage
-        key={message.id}
         message={message}
         sessionId={sessionId ?? undefined}
         sessionName={sessionName ?? undefined}
@@ -228,7 +229,7 @@ export function ChatView({
   const chatInputProps = {
     onSend: onSendMessage,
     onStop: onStopGeneration,
-    isLoading,
+    isLoading: sessionRunning,
     canSend: canSendMessage,
     tools,
     onToggleTool,
@@ -294,6 +295,7 @@ export function ChatView({
             ref={virtuosoRef}
             className="dark:divide-stone-800 overflow-x-hidden"
             data={messages}
+            computeItemKey={(_, message) => message.id}
             atBottomStateChange={handleVirtuosoAtBottomChange}
             atBottomThreshold={50}
             followOutput="smooth"
