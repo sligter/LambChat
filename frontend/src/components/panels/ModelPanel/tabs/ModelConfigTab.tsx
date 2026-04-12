@@ -1502,17 +1502,16 @@ export function ModelConfigTab({ models, onReload }: ModelConfigTabProps) {
                       disabled={batchSaving || !importValidation.valid}
                       className="btn-primary disabled:opacity-50"
                     >
-                      {batchSaving ? (
-                        <>
-                          <LoadingSpinner size="sm" />
-                          {t("agentConfig.importing")}
-                        </>
-                      ) : (
-                        <>
-                          <Upload size={16} />
-                          {t("agentConfig.batchImportBtn")}
-                        </>
-                      )}
+                      <span className="inline-flex items-center justify-center gap-2">
+                        <span className="inline-flex h-4 w-4 items-center justify-center">
+                          {batchSaving ? (
+                            <LoadingSpinner size="sm" />
+                          ) : (
+                            <Upload size={16} />
+                          )}
+                        </span>
+                        <span>{t("agentConfig.batchImportBtn")}</span>
+                      </span>
                     </button>
                   )}
                 </div>

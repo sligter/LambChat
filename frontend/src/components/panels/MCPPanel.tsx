@@ -12,6 +12,7 @@ import { useTranslation } from "react-i18next";
 import toast from "react-hot-toast";
 import { PanelHeader } from "../common/PanelHeader";
 import { LoadingSpinner } from "../common/LoadingSpinner";
+import { PanelLoadingState } from "../common/PanelLoadingState";
 import { Pagination } from "../common/Pagination";
 import { MCPServerCard } from "../mcp/MCPServerCard";
 import { MCPServerForm } from "../mcp/MCPServerForm";
@@ -416,10 +417,7 @@ export function MCPPanel() {
       {/* Servers List */}
       <div className="flex-1 overflow-y-auto p-3 sm:p-4">
         {isLoading && servers.length === 0 ? (
-          <div className="flex h-full items-center justify-center text-stone-500 dark:text-stone-400">
-            <LoadingSpinner size="sm" />
-            <span className="ml-2">{t("mcp.loading")}</span>
-          </div>
+          <PanelLoadingState text={t("mcp.loading")} />
         ) : filteredServers.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center text-stone-500 dark:text-stone-400">
             <FolderOpen
@@ -648,17 +646,16 @@ export function MCPPanel() {
                       disabled={isLoading || !importJson.trim()}
                       className="btn-primary disabled:opacity-50"
                     >
-                      {isLoading ? (
-                        <>
-                          <LoadingSpinner size="sm" color="text-white" />
-                          {t("common.importing")}
-                        </>
-                      ) : (
-                        <>
-                          <Upload size={18} />
-                          {t("common.import")}
-                        </>
-                      )}
+                      <span className="inline-flex items-center justify-center gap-2">
+                        <span className="inline-flex h-4 w-4 items-center justify-center">
+                          {isLoading ? (
+                            <LoadingSpinner size="sm" color="text-white" />
+                          ) : (
+                            <Upload size={18} />
+                          )}
+                        </span>
+                        <span>{t("common.import")}</span>
+                      </span>
                     </button>
                   </div>
                 </div>

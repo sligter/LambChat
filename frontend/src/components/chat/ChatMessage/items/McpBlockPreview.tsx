@@ -152,9 +152,8 @@ export function McpBlockPreview({ block }: { block: McpContentBlock }) {
         <img
           src={src}
           alt={t("chat.message.toolOutput")}
-          className={`max-w-full max-h-48 rounded-md border border-stone-200 dark:border-stone-700 cursor-pointer hover:opacity-80 transition-opacity${
-            !loaded ? " hidden" : ""
-          }`}
+          className={`max-w-full max-h-48 rounded-md border border-stone-200 dark:border-stone-700 cursor-pointer hover:opacity-80 transition-opacity${!loaded ? " hidden" : ""
+            }`}
           onClick={() => {
             if (src) openBlockPreview({ type: "image", src });
           }}
@@ -218,7 +217,7 @@ export function ToolResultContent({
     return (
       <div className="space-y-1.5">
         {combinedText && (
-          <div className="text-xs text-stone-600 dark:text-stone-300 max-h-64 overflow-y-auto">
+          <div className="text-xs text-stone-600 dark:text-stone-300 overflow-y-auto">
             {isMarkdownText(combinedText) ? (
               <MarkdownContent content={combinedText} />
             ) : (
@@ -248,7 +247,7 @@ export function ToolResultContent({
       <div className="space-y-1.5">
         {mcp.text &&
           (isMarkdownText(mcp.text) ? (
-            <div className="text-xs text-stone-600 dark:text-stone-300 max-h-64 overflow-y-auto">
+            <div className="text-xs text-stone-600 dark:text-stone-300 overflow-y-auto">
               <MarkdownContent content={mcp.text} />
             </div>
           ) : (
@@ -313,7 +312,7 @@ export function ToolResultContent({
 
   if (textContent) {
     return isMarkdownText(textContent) ? (
-      <div className="text-xs text-stone-600 dark:text-stone-300 max-h-64 overflow-y-auto">
+      <div className="text-xs text-stone-600 dark:text-stone-300 overflow-y-auto">
         <MarkdownContent content={textContent} />
       </div>
     ) : (

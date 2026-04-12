@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Eye, EyeOff, Loader2, Check, AlertCircle } from "lucide-react";
+import { Eye, EyeOff, Check, AlertCircle } from "lucide-react";
 import { authApi } from "../../../services/api";
+import { LoadingSpinner } from "../../common/LoadingSpinner";
 
 export function ProfilePasswordTab() {
   const { t } = useTranslation();
@@ -128,14 +129,10 @@ export function ProfilePasswordTab() {
         disabled={isLoading}
         className="w-full py-2.5 px-4 bg-amber-500 hover:bg-amber-600 disabled:bg-amber-300 dark:disabled:bg-amber-700 text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2 text-sm"
       >
-        {isLoading ? (
-          <>
-            <Loader2 size={16} className="animate-spin" />
-            {t("common.loading")}
-          </>
-        ) : (
-          t("profile.changePassword")
-        )}
+        <span className="inline-flex h-4 w-4 items-center justify-center">
+          {isLoading ? <LoadingSpinner size="sm" color="text-white" /> : null}
+        </span>
+        <span>{t("profile.changePassword")}</span>
       </button>
     </div>
   );

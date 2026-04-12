@@ -144,17 +144,17 @@ export function RegistrationPending() {
               disabled={isResending}
               className="auth-secondary-button mb-4 w-full rounded-xl py-3 text-sm font-medium shadow-sm transition-all disabled:cursor-not-allowed disabled:opacity-50 sm:py-3.5"
             >
-              {isResending ? (
-                <span className="flex items-center justify-center gap-2">
-                  <LoadingSpinner
-                    size="sm"
-                    className="text-stone-700 dark:text-stone-300"
-                  />
-                  {t("auth.sending")}
+              <span className="inline-flex items-center justify-center gap-2">
+                <span className="inline-flex h-4 w-4 items-center justify-center">
+                  {isResending ? (
+                    <LoadingSpinner
+                      size="sm"
+                      className="text-stone-700 dark:text-stone-300"
+                    />
+                  ) : null}
                 </span>
-              ) : (
-                t("auth.resendVerificationEmail")
-              )}
+                <span>{t("auth.resendVerificationEmail")}</span>
+              </span>
             </button>
           )}
 

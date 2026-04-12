@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Bot, Save } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { LoadingSpinner } from "../../../common/LoadingSpinner";
+import { PanelLoadingState } from "../../../common/PanelLoadingState";
 import { ToggleSwitch } from "../shared/ToggleSwitch";
 import type { AgentConfig } from "../../../../types";
 
@@ -43,9 +44,10 @@ export function GlobalAgentTab({
 
   if (isLoading) {
     return (
-      <div className="flex h-40 items-center justify-center">
-        <LoadingSpinner size="lg" />
-      </div>
+      <PanelLoadingState
+        text={t("common.loading")}
+        containerClassName="h-40"
+      />
     );
   }
 
@@ -95,17 +97,10 @@ export function GlobalAgentTab({
             disabled={isSaving}
             className="btn-primary flex items-center gap-2 px-5 py-2.5 text-sm"
           >
-            {isSaving ? (
-              <>
-                <LoadingSpinner size="sm" />
-                {t("common.saving")}
-              </>
-            ) : (
-              <>
-                <Save size={16} />
-                {t("common.save")}
-              </>
-            )}
+            <span className="inline-flex h-4 w-4 items-center justify-center">
+              {isSaving ? <LoadingSpinner size="sm" /> : <Save size={16} />}
+            </span>
+            <span>{t("common.save")}</span>
           </button>
         </div>
       )}

@@ -13,6 +13,8 @@ import {
 } from "lucide-react";
 import { AboutDialog } from "../common/AboutDialog";
 import { ConfirmDialog } from "../common/ConfirmDialog";
+import { LoadingSpinner } from "../common/LoadingSpinner";
+import { PanelLoadingState } from "../common/PanelLoadingState";
 import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 import { useSettingsContext } from "../../contexts/SettingsContext";
@@ -502,9 +504,15 @@ export function SettingsPanel() {
                     className="btn-secondary flex items-center gap-1.5 px-3 h-10"
                     title={t("settings.importSettings")}
                   >
-                    <Upload size={16} />
+                    <span className="inline-flex h-4 w-4 items-center justify-center">
+                      {isImporting ? (
+                        <LoadingSpinner size="sm" />
+                      ) : (
+                        <Upload size={16} />
+                      )}
+                    </span>
                     <span className="hidden sm:inline text-sm">
-                      {isImporting ? t("common.importing") : t("common.import")}
+                      {t("common.import")}
                     </span>
                   </button>
                 </>
@@ -540,12 +548,7 @@ export function SettingsPanel() {
           {/* Settings List */}
           <div className="flex-1 overflow-y-auto p-3 sm:p-6">
             {isLoading && !settings ? (
-              <div className="flex h-full items-center justify-center text-stone-400 dark:text-stone-500">
-                <div className="flex flex-col items-center gap-2">
-                  <Settings size={32} className="opacity-30" />
-                  <p className="text-sm">{t("settings.loading")}</p>
-                </div>
-              </div>
+              <PanelLoadingState text={t("settings.loading")} />
             ) : filteredSettings.length === 0 ? (
               <div className="flex h-full flex-col items-center justify-center text-stone-400 dark:text-stone-500">
                 <Search size={40} className="mb-2 opacity-30" />

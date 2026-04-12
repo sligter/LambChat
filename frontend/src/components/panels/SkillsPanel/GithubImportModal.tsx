@@ -131,11 +131,12 @@ export function GithubImportModal({
                     disabled={githubLoading || !githubUrl.trim()}
                     className="btn-secondary skill-github-import__button"
                   >
-                    {githubLoading ? (
-                      <LoadingSpinner size="sm" />
-                    ) : (
-                      t("skills.preview")
-                    )}
+                    <span className="inline-flex items-center justify-center gap-2">
+                      <span className="inline-flex h-4 w-4 items-center justify-center">
+                        {githubLoading ? <LoadingSpinner size="sm" /> : null}
+                      </span>
+                      <span>{t("skills.preview")}</span>
+                    </span>
                   </button>
                 </div>
               </div>
@@ -224,17 +225,16 @@ export function GithubImportModal({
                   }
                   className="btn-secondary disabled:opacity-50"
                 >
-                  {githubExporting ? (
-                    <>
-                      <LoadingSpinner size="sm" />
-                      {t("skills.exportZip")}
-                    </>
-                  ) : (
-                    <>
-                      <Archive size={18} />
-                      {t("skills.exportZip")}
-                    </>
-                  )}
+                  <span className="inline-flex items-center justify-center gap-2">
+                    <span className="inline-flex h-4 w-4 items-center justify-center">
+                      {githubExporting ? (
+                        <LoadingSpinner size="sm" />
+                      ) : (
+                        <Archive size={18} />
+                      )}
+                    </span>
+                    <span>{t("skills.exportZip")}</span>
+                  </span>
                 </button>
                 <button
                   onClick={onGithubInstall}
@@ -243,19 +243,20 @@ export function GithubImportModal({
                   }
                   className="btn-primary disabled:opacity-50"
                 >
-                  {githubInstalling ? (
-                    <>
-                      <LoadingSpinner size="sm" color="text-white" />
-                      {t("skills.installing")}
-                    </>
-                  ) : (
-                    <>
-                      <Upload size={18} />
+                  <span className="inline-flex items-center justify-center gap-2">
+                    <span className="inline-flex h-4 w-4 items-center justify-center">
+                      {githubInstalling ? (
+                        <LoadingSpinner size="sm" color="text-white" />
+                      ) : (
+                        <Upload size={18} />
+                      )}
+                    </span>
+                    <span>
                       {t("skills.installSelected", {
                         count: selectedGithubSkills.length,
                       })}
-                    </>
-                  )}
+                    </span>
+                  </span>
                 </button>
               </div>
             </div>

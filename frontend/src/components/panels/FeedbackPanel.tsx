@@ -17,7 +17,7 @@ import {
   Check,
 } from "lucide-react";
 import { PanelHeader } from "../common/PanelHeader";
-import { LoadingSpinner } from "../common/LoadingSpinner";
+import { PanelLoadingState } from "../common/PanelLoadingState";
 import { Pagination } from "../common/Pagination";
 import { feedbackApi } from "../../services/api/feedback";
 import { useAuth } from "../../hooks/useAuth";
@@ -447,14 +447,7 @@ export function FeedbackPanel() {
       {/* Feedback List - ChatGPT style */}
       <div className="flex-1 overflow-y-auto p-4 sm:p-6">
         {isLoading && feedbackList.length === 0 ? (
-          <div className="flex h-full items-center justify-center">
-            <div className="text-center">
-              <LoadingSpinner size="lg" className="mx-auto mb-4" />
-              <p className="text-stone-500 dark:text-stone-400">
-                {t("common.loading")}
-              </p>
-            </div>
-          </div>
+          <PanelLoadingState text={t("common.loading")} />
         ) : !isLoading && feedbackList.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center text-center">
             <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-stone-100 dark:bg-stone-800">

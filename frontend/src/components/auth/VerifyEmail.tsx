@@ -177,17 +177,17 @@ export function VerifyEmail() {
                   disabled={isSubmitting}
                   className="auth-secondary-button w-full rounded-xl py-3 text-sm font-medium shadow-sm transition-all disabled:cursor-not-allowed disabled:opacity-50 sm:py-3.5"
                 >
-                  {isSubmitting ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <LoadingSpinner
-                        size="sm"
-                        className="text-stone-700 dark:text-stone-300"
-                      />
-                      {t("auth.sending")}
+                  <span className="inline-flex items-center justify-center gap-2">
+                    <span className="inline-flex h-4 w-4 items-center justify-center">
+                      {isSubmitting ? (
+                        <LoadingSpinner
+                          size="sm"
+                          className="text-stone-700 dark:text-stone-300"
+                        />
+                      ) : null}
                     </span>
-                  ) : (
-                    t("auth.resendVerification")
-                  )}
+                    <span>{t("auth.resendVerification")}</span>
+                  </span>
                 </button>
               )}
               <button

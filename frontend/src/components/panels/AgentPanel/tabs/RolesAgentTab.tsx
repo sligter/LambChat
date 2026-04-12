@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Save } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { LoadingSpinner } from "../../../common/LoadingSpinner";
+import { PanelLoadingState } from "../../../common/PanelLoadingState";
 import { RoleSelector } from "../shared/RoleSelector";
 import type { Role, AgentInfo } from "../../../../types";
 
@@ -41,9 +41,10 @@ export function RolesAgentTab({
 
   if (isLoading) {
     return (
-      <div className="flex h-40 items-center justify-center">
-        <LoadingSpinner size="lg" />
-      </div>
+      <PanelLoadingState
+        text={t("common.loading")}
+        containerClassName="h-40"
+      />
     );
   }
 

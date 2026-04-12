@@ -497,12 +497,14 @@ export function ShareDialog({
               }
               className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-stone-900 hover:bg-stone-800 dark:bg-stone-600 dark:hover:bg-stone-500 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isCreating ? (
-                <Loader2 size={16} className="animate-spin" />
-              ) : (
-                <Share2 size={16} />
-              )}
-              {t("share.createShare")}
+              <span className="inline-flex h-4 w-4 items-center justify-center">
+                {isCreating ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <Share2 size={16} />
+                )}
+              </span>
+              <span>{t("share.createShare")}</span>
             </button>
           </div>
         </div>

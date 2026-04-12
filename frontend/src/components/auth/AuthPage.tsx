@@ -52,6 +52,7 @@ export function AuthPage({ onSuccess, initialMode }: AuthPageProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [turnstileKey, setTurnstileKey] = useState(0); // 用于强制重新渲染 Turnstile
+  const submitLabel = mode === "login" ? t("auth.login") : t("auth.register");
 
   const { theme } = useTheme();
 
@@ -490,19 +491,17 @@ export function AuthPage({ onSuccess, initialMode }: AuthPageProps) {
                 disabled={isSubmitting}
                 className="auth-primary-button w-full rounded-xl py-3 text-sm font-medium transition-all hover:-translate-y-0.5 active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0 sm:py-3.5"
               >
-                {isSubmitting ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <LoadingSpinner
-                      size="sm"
-                      className="text-white dark:text-stone-900"
-                    />
-                    {t("auth.processing")}
+                <span className="inline-flex items-center justify-center gap-2">
+                  <span className="inline-flex h-4 w-4 items-center justify-center">
+                    {isSubmitting ? (
+                      <LoadingSpinner
+                        size="sm"
+                        className="text-white dark:text-stone-900"
+                      />
+                    ) : null}
                   </span>
-                ) : mode === "login" ? (
-                  t("auth.login")
-                ) : (
-                  t("auth.register")
-                )}
+                  <span>{submitLabel}</span>
+                </span>
               </button>
             </form>
 

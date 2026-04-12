@@ -8,6 +8,7 @@ import { useTranslation } from "react-i18next";
 import toast from "react-hot-toast";
 import { PanelHeader } from "../common/PanelHeader";
 import { LoadingSpinner } from "../common/LoadingSpinner";
+import { PanelLoadingState } from "../common/PanelLoadingState";
 import { Pagination } from "../common/Pagination";
 import { roleApi, authApi } from "../../services/api";
 import { useAuth } from "../../hooks/useAuth";
@@ -510,7 +511,12 @@ function RoleFormModal({
                 disabled={isLoading}
                 className="btn-primary flex-1 disabled:opacity-50"
               >
-                {isLoading ? t("roles.saving") : t("common.save")}
+                <span className="inline-flex items-center justify-center gap-2">
+                  <span className="inline-flex h-4 w-4 items-center justify-center">
+                    {isLoading ? <LoadingSpinner size="sm" /> : null}
+                  </span>
+                  <span>{t("common.save")}</span>
+                </span>
               </button>
             </div>
           </form>
@@ -581,7 +587,12 @@ function DeleteConfirmModal({
                 disabled={isLoading}
                 className="flex-1 rounded-lg bg-red-600 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
               >
-                {isLoading ? t("roles.deleting") : t("common.delete")}
+                <span className="inline-flex items-center justify-center gap-2">
+                  <span className="inline-flex h-4 w-4 items-center justify-center">
+                    {isLoading ? <LoadingSpinner size="sm" color="text-white" /> : null}
+                  </span>
+                  <span>{t("common.delete")}</span>
+                </span>
               </button>
             </div>
           </div>
@@ -743,16 +754,7 @@ export function RolesPanel() {
   };
 
   if (isLoading) {
-    return (
-      <div className="flex h-full items-center justify-center">
-        <div className="text-center">
-          <LoadingSpinner size="lg" className="mx-auto mb-4" />
-          <p className="text-stone-500 dark:text-stone-400">
-            {t("common.loading")}
-          </p>
-        </div>
-      </div>
-    );
+    return <PanelLoadingState text={t("common.loading")} />;
   }
 
   return (

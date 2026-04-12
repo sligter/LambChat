@@ -264,17 +264,18 @@ export function ZipUploadModal({
                     disabled={zipUploading || selectedZipSkills.length === 0}
                     className="btn-primary disabled:opacity-50"
                   >
-                    {zipUploading ? (
-                      <>
-                        <LoadingSpinner size="sm" color="text-white" />
-                        {t("skills.installing")}
-                      </>
-                    ) : (
-                      <>
-                        <Upload size={18} />
+                    <span className="inline-flex items-center justify-center gap-2">
+                      <span className="inline-flex h-4 w-4 items-center justify-center">
+                        {zipUploading ? (
+                          <LoadingSpinner size="sm" color="text-white" />
+                        ) : (
+                          <Upload size={18} />
+                        )}
+                      </span>
+                      <span>
                         {t("skills.install")} ({selectedZipSkills.length})
-                      </>
-                    )}
+                      </span>
+                    </span>
                   </button>
                 )}
               </div>

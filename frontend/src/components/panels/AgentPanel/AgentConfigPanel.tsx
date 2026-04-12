@@ -8,7 +8,7 @@ import { Bot, AlertCircle, RefreshCw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import toast from "react-hot-toast";
 import { PanelHeader } from "../../common/PanelHeader";
-import { LoadingSpinner } from "../../common/LoadingSpinner";
+import { PanelLoadingState } from "../../common/PanelLoadingState";
 import { agentConfigApi, roleApi, agentApi } from "../../../services/api";
 import { useAuth } from "../../../hooks/useAuth";
 import { Permission } from "../../../types";
@@ -148,11 +148,7 @@ export function AgentConfigPanel() {
   };
 
   if (isLoading) {
-    return (
-      <div className="flex h-full items-center justify-center">
-        <LoadingSpinner size="lg" />
-      </div>
-    );
+    return <PanelLoadingState text={t("common.loading")} />;
   }
 
   return (

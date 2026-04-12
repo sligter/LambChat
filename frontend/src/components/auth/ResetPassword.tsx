@@ -243,17 +243,17 @@ export function ResetPassword() {
                 disabled={isSubmitting}
                 className="auth-primary-button w-full rounded-xl py-3 text-sm font-medium transition-all hover:-translate-y-0.5 active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0 sm:py-3.5"
               >
-                {isSubmitting ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <LoadingSpinner
-                      size="sm"
-                      className="text-white dark:text-stone-900"
-                    />
-                    {t("auth.processing")}
+                <span className="inline-flex items-center justify-center gap-2">
+                  <span className="inline-flex h-4 w-4 items-center justify-center">
+                    {isSubmitting ? (
+                      <LoadingSpinner
+                        size="sm"
+                        className="text-white dark:text-stone-900"
+                      />
+                    ) : null}
                   </span>
-                ) : (
-                  t("auth.resetPassword")
-                )}
+                  <span>{t("auth.resetPassword")}</span>
+                </span>
               </button>
             </form>
           </div>

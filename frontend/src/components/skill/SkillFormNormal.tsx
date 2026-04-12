@@ -9,6 +9,9 @@ import type { SkillFormActions } from "./SkillForm.types";
 
 export function SkillFormNormal(a: SkillFormActions) {
   const { t } = useTranslation();
+  const submitLabel = a.isEditing
+    ? t("skills.form.saveChanges")
+    : t("skills.form.createSkill");
 
   return (
     <>
@@ -301,8 +304,8 @@ export function SkillFormNormal(a: SkillFormActions) {
           disabled={a.isLoading}
           className="rounded-xl bg-[var(--theme-primary)] px-5 py-2 text-sm font-medium text-white hover:bg-[var(--theme-primary-hover)] disabled:opacity-50 transition-colors duration-150 dark:text-stone-950 inline-flex items-center gap-2"
         >
-          {a.isLoading ? (
-            <>
+          <span className="inline-flex h-4 w-4 items-center justify-center">
+            {a.isLoading ? (
               <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
                 <circle
                   className="opacity-25"
@@ -319,15 +322,9 @@ export function SkillFormNormal(a: SkillFormActions) {
                   d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
                 />
               </svg>
-              <span className="loading-text">
-                {t("common.saving", "Saving...")}
-              </span>
-            </>
-          ) : a.isEditing ? (
-            t("skills.form.saveChanges")
-          ) : (
-            t("skills.form.createSkill")
-          )}
+            ) : null}
+          </span>
+          <span className={a.isLoading ? "loading-text" : ""}>{submitLabel}</span>
         </button>
       </div>
     </>

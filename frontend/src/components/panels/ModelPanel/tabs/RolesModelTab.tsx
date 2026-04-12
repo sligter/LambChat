@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Cpu, Save, Globe, List } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { LoadingSpinner } from "../../../common/LoadingSpinner";
+import { PanelLoadingState } from "../../../common/PanelLoadingState";
 import { RoleSelector } from "../../AgentPanel/shared/RoleSelector";
 import { ModelIconImg } from "../../../agent/modelIcon.tsx";
 import type { ModelOption } from "../../../../services/api/model";
@@ -43,9 +43,10 @@ export function RolesModelTab({
 
   if (isLoading) {
     return (
-      <div className="flex h-40 items-center justify-center">
-        <LoadingSpinner size="lg" />
-      </div>
+      <PanelLoadingState
+        text={t("common.loading")}
+        containerClassName="h-40"
+      />
     );
   }
 

@@ -22,8 +22,9 @@ import toast from "react-hot-toast";
 import { useAuth } from "../../hooks/useAuth";
 import { Permission } from "../../types";
 import { PanelHeader } from "../common/PanelHeader";
-import { LoadingSpinner } from "../common/LoadingSpinner";
 import { ConfirmDialog } from "../common/ConfirmDialog";
+import { LoadingSpinner } from "../common/LoadingSpinner";
+import { PanelLoadingState } from "../common/PanelLoadingState";
 import { ChannelAgentSelect } from "./channel/ChannelAgentSelect";
 import { channelApi } from "../../services/api/channel";
 import type {
@@ -401,12 +402,7 @@ export function ChannelPanel({
   };
 
   if (isLoading) {
-    return (
-      <div className="flex h-full items-center justify-center text-stone-500 dark:text-stone-400">
-        <LoadingSpinner size="sm" />
-        <span className="ml-2">{t("common.loading")}</span>
-      </div>
-    );
+    return <PanelLoadingState text={t("common.loading")} />;
   }
 
   return (
@@ -607,12 +603,14 @@ export function ChannelPanel({
                   disabled={isSaving}
                   className="btn-primary"
                 >
-                  {isSaving ? (
-                    <LoadingSpinner size="sm" color="text-white" />
-                  ) : (
-                    <Save size={16} />
-                  )}
-                  {t("common.save")}
+                  <span className="inline-flex h-4 w-4 items-center justify-center">
+                    {isSaving ? (
+                      <LoadingSpinner size="sm" color="text-white" />
+                    ) : (
+                      <Save size={16} />
+                    )}
+                  </span>
+                  <span>{t("common.save")}</span>
                 </button>
               )}
             </div>
