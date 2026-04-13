@@ -21,6 +21,7 @@ from langchain.agents.middleware.types import (
     ModelResponse,
     ResponseT,
 )
+from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage, SystemMessage, ToolMessage
 
 from src.infra.tool.sandbox_mcp_prompt import build_sandbox_mcp_prompt
@@ -132,6 +133,64 @@ def _is_empty_content(aimessage: AIMessage) -> bool:
             if isinstance(block, dict)
         )
     return False
+
+
+class ModelFallbackMiddleware(AgentMiddleware):
+    """Middleware that falls back to an alternate model when the primary model fails.
+
+    Wraps the inner retry stack. When all retries on the primary model are exhausted
+    (ModelRetryMiddleware gives up via ``on_failure="continue"``) and the inner
+    handler raises a retryable error, this middleware creates a fallback LLM and
+    replays the request once.
+    """
+
+    def __init__(self, *, fallback_model: str, thinking: dict | None = None) -> None:
+        super().__init__()
+        self._fallback_model = fallback_model
+        self._thinking = thinking
+        self._fallback_llm: BaseChatModel | None = None
+
+    async def _get_fallback_llm(self) -> BaseChatModel:
+        """Lazily create the fallback LLM instance."""
+        if self._fallback_llm is None:
+            from src.infra.llm.client import LLMClient
+
+            self._fallback_llm = await LLMClient.get_model(
+                model=self._fallback_model,
+                thinking=self._thinking,
+            )
+            logger.info("[ModelFallback] Created fallback LLM: %s", self._fallback_model)
+        return self._fallback_llm
+
+    async def awrap_model_call(
+        self,
+        request: ModelRequest[ContextT],
+        handler: Callable[[ModelRequest[ContextT]], Awaitable[ModelResponse[ResponseT]]],
+    ) -> ModelResponse[ResponseT]:
+        try:
+            return await handler(request)
+        except Exception as exc:
+            if not _is_retryable_error(exc):
+                raise
+
+            logger.warning(
+                "[ModelFallback] Primary model failed after retries: %s — falling back to %s",
+                exc,
+                self._fallback_model,
+            )
+
+            fallback_llm = await self._get_fallback_llm()
+            # Replay with the fallback model
+            new_request = request.override(model=fallback_llm)
+            try:
+                return await handler(new_request)
+            except Exception as fallback_exc:
+                logger.error(
+                    "[ModelFallback] Fallback model %s also failed: %s",
+                    self._fallback_model,
+                    fallback_exc,
+                )
+                raise
 
 
 class EmptyContentRetryMiddleware(AgentMiddleware):
@@ -292,27 +351,39 @@ class SandboxMCPMiddleware(AgentMiddleware):
         return await handler(request)
 
 
-def create_retry_middleware() -> list[AgentMiddleware]:
+def create_retry_middleware(
+    fallback_model: str | None = None,
+    thinking: dict | None = None,
+) -> list[AgentMiddleware]:
     """Create the retry middleware stack for deep agents.
 
-    Returns [ModelRetryMiddleware, EmptyContentRetryMiddleware]:
-    - Outer layer: retries on 429/5xx/timeout with exponential backoff
+    Returns [ModelFallbackMiddleware?, ModelRetryMiddleware, EmptyContentRetryMiddleware]:
+    - Outer layer (optional): falls back to an alternate model when primary fails
+    - Middle layer: retries on 429/5xx/timeout with exponential backoff
     - Inner layer: retries on empty content responses
     """
-    return [
-        ModelRetryMiddleware(
-            max_retries=settings.LLM_MAX_RETRIES,
-            retry_on=_is_retryable_error,
-            on_failure="continue",
-            backoff_factor=2.0,
-            initial_delay=settings.LLM_RETRY_DELAY,
-            max_delay=60.0,
-            jitter=True,
-        ),
-        EmptyContentRetryMiddleware(
-            max_retries=settings.LLM_MAX_RETRIES, retry_delay=settings.LLM_RETRY_DELAY
-        ),
-    ]
+    stack: list[AgentMiddleware] = []
+
+    if fallback_model:
+        stack.append(ModelFallbackMiddleware(fallback_model=fallback_model, thinking=thinking))
+
+    stack.extend(
+        [
+            ModelRetryMiddleware(
+                max_retries=settings.LLM_MAX_RETRIES,
+                retry_on=_is_retryable_error,
+                on_failure="continue",
+                backoff_factor=2.0,
+                initial_delay=settings.LLM_RETRY_DELAY,
+                max_delay=60.0,
+                jitter=True,
+            ),
+            EmptyContentRetryMiddleware(
+                max_retries=settings.LLM_MAX_RETRIES, retry_delay=settings.LLM_RETRY_DELAY
+            ),
+        ]
+    )
+    return stack
 
 
 # MCP content block types that may carry binary data

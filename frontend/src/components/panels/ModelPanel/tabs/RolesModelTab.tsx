@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Cpu, Save, Globe, List } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ModelPanelSkeleton } from "../../../skeletons";
@@ -40,6 +40,16 @@ export function RolesModelTab({
       setSelectedRole(roles.length > 0 ? roles[0].id : null);
     }
   }, [roles, selectedRole]);
+
+  const hasChanges = useMemo(() => {
+    if (!selectedRole) return false;
+    const local = localRoleModels[selectedRole];
+    const original = roleModelsMap[selectedRole];
+    if (!local && !original) return false;
+    if (!local || !original) return true;
+    if (local.length !== original.length) return true;
+    return local.some((v, i) => v !== original[i]);
+  }, [selectedRole, localRoleModels, roleModelsMap]);
 
   if (isLoading) {
     return <ModelPanelSkeleton />;
@@ -107,10 +117,6 @@ export function RolesModelTab({
   };
 
   const selectedRoleData = roles.find((r) => r.id === selectedRole);
-  const hasChanges = selectedRole
-    ? JSON.stringify(localRoleModels[selectedRole]) !==
-      JSON.stringify(roleModelsMap[selectedRole])
-    : false;
 
   return (
     <div className="space-y-4 sm:space-y-5 animate-glass-enter">
