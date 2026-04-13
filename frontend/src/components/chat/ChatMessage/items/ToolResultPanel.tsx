@@ -106,9 +106,14 @@ export function ToolResultPanel({
   useEffect(() => {
     if (!open) return;
     if (!isMobile) return; // sidebar mode keeps scroll
+    const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
     document.body.style.overflow = "hidden";
+    if (scrollbarWidth > 0) {
+      document.body.style.paddingRight = `${scrollbarWidth}px`;
+    }
     return () => {
       document.body.style.overflow = "";
+      document.body.style.paddingRight = "";
     };
   }, [open, isMobile]);
 
