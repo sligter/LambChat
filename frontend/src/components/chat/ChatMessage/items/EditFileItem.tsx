@@ -96,8 +96,8 @@ const EditFileItem = memo(function EditFileItem({
         expandable={canExpand}
         onPanelOpen={() => {
           if (panelOpen) return;
-          closeCurrentToolPanel();
           setPanelOpen(true);
+          requestAnimationFrame(() => closeCurrentToolPanel());
         }}
       >
         {canExpand && (
