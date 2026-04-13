@@ -113,8 +113,8 @@ const ReadFileItem = memo(function ReadFileItem({
         expandable={hasContent}
         onPanelOpen={() => {
           if (panelOpen) return;
+          closeCurrentToolPanel();
           setPanelOpen(true);
-          requestAnimationFrame(() => closeCurrentToolPanel());
         }}
       >
         {hasContent && (

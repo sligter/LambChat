@@ -132,8 +132,8 @@ const ExecuteItem = memo(function ExecuteItem({
         expandable={canExpand}
         onPanelOpen={() => {
           if (panelOpen) return;
+          closeCurrentToolPanel();
           setPanelOpen(true);
-          requestAnimationFrame(() => closeCurrentToolPanel());
         }}
       >
         {canExpand && (
