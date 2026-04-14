@@ -14,16 +14,16 @@ export function ChatPageSkeleton() {
       <div className="relative flex flex-1 min-w-0 flex-col overflow-hidden">
         {/* Header skeleton */}
         <div
-          className="flex items-center justify-between px-4 py-3 border-b shrink-0"
+          className="flex items-center justify-between px-3 sm:px-4 py-2.5 sm:py-3 border-b shrink-0"
           style={{ borderColor: "var(--theme-border)" }}
         >
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             <div className="skeleton-line size-5 rounded-full shrink-0" />
-            <div className="skeleton-line h-4 w-28 rounded-md" />
+            <div className="skeleton-line h-3.5 sm:h-4 w-20 sm:w-28 rounded-md" />
           </div>
-          <div className="flex items-center gap-2">
-            <div className="skeleton-line size-8 rounded-full" />
-            <div className="skeleton-line size-8 rounded-full" />
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <div className="skeleton-line size-7 sm:size-8 rounded-full" />
+            <div className="skeleton-line size-7 sm:size-8 rounded-full" />
           </div>
         </div>
 
@@ -120,25 +120,53 @@ export function WelcomeSkeleton() {
   return (
     <div className="relative flex h-full flex-col items-center justify-center px-4 overflow-hidden animate-fade-in">
       {/* Greeting skeleton */}
-      <div className="relative flex flex-col items-center mb-8 w-full max-w-[90vw]">
+      <div className="relative flex flex-col items-center mb-6 sm:mb-8 w-full max-w-[90vw]">
         {/* Mobile icon */}
-        <div className="sm:hidden mb-6">
-          <div className="skeleton-line size-14 rounded-2xl" />
+        <div className="sm:hidden mb-4">
+          <div className="skeleton-line size-12 rounded-2xl" />
         </div>
         {/* Greeting line */}
-        <div className="max-w-[90vw] w-full flex items-center justify-center gap-4">
-          <div className="skeleton-line size-12 rounded-full hidden sm:block" />
+        <div className="max-w-[90vw] w-full flex items-center justify-center gap-3 sm:gap-4">
+          <div className="skeleton-line size-10 sm:size-12 rounded-full hidden sm:block" />
           <SkeletonLine
-            width="w-64 sm:w-80"
-            className="!h-8 sm:!h-10 !rounded-lg"
+            width="w-48 sm:w-64 lg:w-80"
+            className="!h-7 sm:!h-8 lg:!h-10 !rounded-lg"
           />
         </div>
         {/* Subtitle */}
-        <SkeletonLine width="w-48" className="!h-4 mt-3 !rounded-lg" />
+        <SkeletonLine
+          width="w-36 sm:w-48"
+          className="!h-3 sm:!h-4 mt-2 sm:mt-3 !rounded-lg"
+        />
+      </div>
+
+      {/* Mobile: ChatInput skeleton */}
+      <div className="w-full max-w-[48rem] sm:hidden mb-4">
+        <div
+          className="rounded-2xl px-1 py-1.5 space-y-1"
+          style={{
+            backgroundColor: "var(--theme-bg-card)",
+            borderColor: "var(--theme-border)",
+            border: "1px solid var(--theme-border)",
+            boxShadow: "0 2px 12px rgba(0,0,0,0.06)",
+          }}
+        >
+          <div className="px-3 py-1.5">
+            <div className="skeleton-line h-3 w-3/5 rounded" />
+          </div>
+          <div className="flex items-center justify-between px-2 pb-1.5">
+            <div className="flex items-center gap-2">
+              <div className="skeleton-line size-7 rounded-full" />
+              <div className="skeleton-line size-7 rounded-full" />
+              <div className="skeleton-line size-7 rounded-full" />
+            </div>
+            <div className="skeleton-line size-7 rounded-full" />
+          </div>
+        </div>
       </div>
 
       {/* Desktop: ChatInput skeleton */}
-      <div className="w-full max-w-[48rem] sm:block hidden">
+      <div className="w-full max-w-[48rem] hidden sm:block">
         <div
           className="rounded-2xl sm:rounded-3xl px-1 py-2 space-y-1"
           style={{
@@ -164,7 +192,7 @@ export function WelcomeSkeleton() {
       </div>
 
       {/* Desktop: Suggestions skeleton */}
-      <div className="w-full max-w-[36rem] px-2 mt-5 sm:block hidden">
+      <div className="w-full max-w-[36rem] px-2 mt-5 hidden sm:block">
         {/* Label + refresh */}
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-1.5">

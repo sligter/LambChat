@@ -90,14 +90,14 @@ export const WelcomePage = memo(function WelcomePage({
         </p>
       </div>
 
-      {/* Desktop: ChatInput centered — the focal point */}
-      <div className="welcome-input w-full max-w-[48rem] sm:block hidden">
+      {/* ChatInput centered — the focal point */}
+      <div className="welcome-input w-full max-w-[48rem]">
         <ChatInput {...chatInputProps} />
       </div>
 
-      {/* Desktop: Suggestions with refresh */}
+      {/* Suggestions with refresh */}
       {suggestions && suggestions.length > 0 && (
-        <div className="welcome-suggestions relative w-full max-w-[36rem] px-2 mt-5 sm:block hidden">
+        <div className="welcome-suggestions relative w-[19rem] sm:max-w-[36rem] sm:w-full px-2 mt-2 sm:mt-5">
           <div className="flex items-center justify-between mb-3">
             <div
               className="flex items-center gap-1 text-sm font-medium"
@@ -123,12 +123,17 @@ export const WelcomePage = memo(function WelcomePage({
               </button>
             )}
           </div>
-          <div key={animKey} className="grid grid-cols-2 gap-2.5">
+          <div
+            key={animKey}
+            className="grid grid-cols-1 sm:grid-cols-2 gap-2.5"
+          >
             {suggestions.map((suggestion, i) => (
               <button
                 key={suggestion.text}
                 onClick={() => handleSuggestionClick(suggestion.text)}
-                className="welcome-card group relative flex items-center gap-3 rounded-xl border px-4 py-3 text-left cursor-pointer transition-all duration-300 overflow-hidden"
+                className={`welcome-card group relative flex items-center gap-2 sm:gap-3 rounded-xl border px-4 py-2 sm:py-3 text-left cursor-pointer transition-all duration-300 overflow-hidden${
+                  i >= 2 ? " hidden sm:flex" : ""
+                }`}
                 style={{
                   backgroundColor: "var(--theme-bg-card)",
                   borderColor: "var(--theme-border)",

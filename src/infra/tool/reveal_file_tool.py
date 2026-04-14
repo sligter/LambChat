@@ -479,19 +479,19 @@ async def reveal_file(
 
             if user_id and trace_id:
                 storage_index = get_revealed_file_storage()
-                await storage_index.upsert_record(
+                await storage_index.upsert_by_name(
                     user_id=user_id,
+                    file_name=filename,
+                    source="reveal_file",
                     file_key=upload_result.key,
                     trace_id=trace_id,
                     data={
-                        "file_name": filename,
                         "file_type": file_category,
                         "mime_type": upload_result.content_type or mime_type,
                         "file_size": upload_result.size,
                         "url": proxy_url,
                         "session_id": session_id,
                         "project_id": session_project_id,
-                        "source": "reveal_file",
                         "description": description or "",
                         "original_path": file_path,
                     },

@@ -1,5 +1,4 @@
 import { useMemo, useCallback, useState, useEffect } from "react";
-import { toast } from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../../../hooks/useAuth";
 import { ChatMessage } from "../../chat/ChatMessage";
@@ -340,41 +339,8 @@ export function ChatView({
         isLoading={approvalLoading}
       />
 
-      {/* Mobile: suggestions pills above ChatInput */}
-      {messages.length === 0 && suggestions && (
-        <div className="sm:hidden px-3 pb-1">
-          <div className="flex gap-2 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-            {suggestions.map((s) => (
-              <button
-                key={s.text}
-                onClick={() => {
-                  if (!canSendMessage) {
-                    toast.error(t("chat.noPermissionHint"));
-                    return;
-                  }
-                  onSendMessage(s.text);
-                }}
-                className="welcome-pill shrink-0 inline-flex items-center gap-2 rounded-full border pl-2 pr-3 py-2 text-[13px] text-left transition-all duration-300"
-                style={{
-                  backgroundColor:
-                    "color-mix(in srgb, var(--theme-bg-card) 85%, transparent)",
-                  borderColor: "var(--theme-border)",
-                  color: "var(--theme-text-secondary)",
-                }}
-              >
-                {s.icon}
-                <span>{s.text}</span>
-              </button>
-            ))}
-            <div className="w-3 shrink-0" aria-hidden="true" />
-          </div>
-        </div>
-      )}
-
-      {/* Mobile: always show ChatInput at bottom */}
-      <div className={messages.length === 0 ? "sm:hidden" : ""}>
-        <ChatInput {...chatInputProps} />
-      </div>
+      {/* ChatInput at bottom (when messages exist, WelcomePage renders its own) */}
+      {messages.length > 0 && <ChatInput {...chatInputProps} />}
     </>
   );
 }
