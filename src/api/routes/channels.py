@@ -113,6 +113,8 @@ async def list_user_channels(
                         config=masked_config,
                         capabilities=meta.get("capabilities", []),
                         agent_id=config.get("agent_id"),
+                        model_id=config.get("model_id"),
+                        project_id=config.get("project_id"),
                         created_at=config.get("created_at"),
                         updated_at=config.get("updated_at"),
                     )
@@ -168,6 +170,8 @@ async def list_channel_instances(
                 config=masked_config,
                 capabilities=metadata.get("capabilities", []),
                 agent_id=config.get("agent_id"),
+                model_id=config.get("model_id"),
+                project_id=config.get("project_id"),
                 created_at=config.get("created_at"),
                 updated_at=config.get("updated_at"),
             )

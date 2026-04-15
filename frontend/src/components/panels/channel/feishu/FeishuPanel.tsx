@@ -228,6 +228,7 @@ export function FeishuPanel({
         setUseCustomEmoji(false);
         setGroupPolicy("mention");
         setAgentId(null);
+        setModelId(null);
       }
 
       setStatus(statusResponse);
