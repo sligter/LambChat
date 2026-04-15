@@ -158,6 +158,34 @@ class ProjectStorage:
 
         return Project(**project_dict)
 
+    async def get_or_create_by_name(
+        self, user_id: str, name: str, project_type: str = "channel", icon: str = "MessageCircle"
+    ) -> Project:
+        """Get or create a project by name for a user.
+
+        Used by channels (e.g. Feishu) to auto-create a project for organizing conversations.
+        """
+        project_dict = await self.collection.find_one(
+            {"user_id": user_id, "name": name, "type": project_type}
+        )
+        if project_dict:
+            project_dict["id"] = str(project_dict.pop("_id"))
+            return Project(**project_dict)
+
+        now = datetime.now()
+        project_dict = {
+            "name": name,
+            "type": project_type,
+            "icon": icon,
+            "sort_order": 100,
+            "user_id": user_id,
+            "created_at": now,
+            "updated_at": now,
+        }
+        result = await self.collection.insert_one(project_dict)
+        project_dict["id"] = str(result.inserted_id)
+        return Project(**project_dict)
+
 
 # Singleton instance
 _project_storage: Optional[ProjectStorage] = None

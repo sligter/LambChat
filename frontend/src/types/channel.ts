@@ -54,6 +54,7 @@ export interface ChannelConfigResponse {
   config: Record<string, unknown>;
   capabilities: ChannelCapability[];
   agent_id?: string | null;
+  model_id?: string | null;
   project_id?: string | null;
   created_at?: string;
   updated_at?: string;
@@ -72,6 +73,7 @@ export interface ChannelConfigCreate {
   name: string;
   config: Record<string, unknown>;
   agent_id?: string | null;
+  model_id?: string | null;
   project_id?: string | null;
 }
 
@@ -79,6 +81,7 @@ export interface ChannelConfigUpdate {
   config: Record<string, unknown>;
   enabled?: boolean;
   agent_id?: string | null;
+  model_id?: string | null;
   project_id?: string | null;
 }
 

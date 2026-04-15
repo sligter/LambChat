@@ -86,6 +86,7 @@ class ChannelConfigCreate(BaseModel):
     name: str = Field(description="User-defined name for this channel instance")
     config: dict[str, Any]  # Channel-specific config as dict
     agent_id: Optional[str] = Field(None, description="Agent ID to use for this channel instance")
+    model_id: Optional[str] = Field(None, description="Model config ID to use for this channel instance")
     project_id: Optional[str] = Field(None, description="Project ID to assign sessions to")
 
 
@@ -97,6 +98,7 @@ class ChannelConfigUpdate(BaseModel):
     config: dict[str, Any]
     enabled: Optional[bool] = None
     agent_id: Optional[str] = Field(None, description="Agent ID to use for this channel instance")
+    model_id: Optional[str] = Field(None, description="Model config ID to use for this channel instance")
     project_id: Optional[str] = Field(None, description="Project ID to assign sessions to")
 
 
@@ -111,6 +113,7 @@ class ChannelConfigResponse(BaseModel):
     config: dict[str, Any]  # Masked config for display
     capabilities: list[ChannelCapability]
     agent_id: Optional[str] = Field(None, description="Agent ID used by this channel instance")
+    model_id: Optional[str] = Field(None, description="Model config ID used by this channel instance")
     project_id: Optional[str] = Field(None, description="Project ID assigned to this channel's sessions")
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None

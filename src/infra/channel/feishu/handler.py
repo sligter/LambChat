@@ -373,9 +373,11 @@ def create_feishu_message_handler(
             chat_type_from_msg = metadata.get("chat_type")
             attachments = metadata.get("attachments")
 
-            # Resolve agent & project: use per-channel config if available
+            # Resolve agent, model & project: use per-channel config if available
             agent_to_use = default_agent
+            model_id: str | None = None
             project_id: str | None = None
+            channel_name: str | None = None
             instance_id = metadata.get("instance_id")
             if instance_id:
                 from src.infra.channel.channel_storage import ChannelStorage
@@ -389,7 +391,25 @@ def create_feishu_message_handler(
                         logger.info(
                             f"[Feishu] Using channel agent: {agent_to_use} for instance {instance_id}"
                         )
+                    model_id = ch_config.get("model_id")
                     project_id = ch_config.get("project_id")
+                    channel_name = ch_config.get("name")
+
+            # Auto-create project by channel name if not manually configured
+            if not project_id and channel_name:
+                try:
+                    from src.infra.folder.storage import get_project_storage
+
+                    proj_storage = get_project_storage()
+                    project = await proj_storage.get_or_create_by_name(user_id, channel_name)
+                    project_id = project.id
+                except Exception as e:
+                    logger.warning(f"[Feishu] Failed to auto-create project: {e}")
+
+            # Build agent_options with model_id if configured
+            feishu_agent_options: dict | None = None
+            if model_id:
+                feishu_agent_options = {"model_id": model_id}
 
             collector = FeishuResponseCollector(
                 manager=manager,
@@ -437,6 +457,7 @@ def create_feishu_message_handler(
                 executor=executor,
                 attachments=attachments,
                 project_id=project_id,
+                agent_options=feishu_agent_options,
                 session_name=session_title,
             )
 
