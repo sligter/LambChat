@@ -293,6 +293,8 @@ async def execute_feishu_agent(
     disabled_tools: list[str] | None = None,
     agent_options: dict | None = None,
     attachments: list[dict] | None = None,
+    disabled_skills: list[str] | None = None,
+    disabled_mcp_tools: list[str] | None = None,
 ) -> AsyncGenerator[dict[str, Any], None]:
     """执行 Agent 并生成事件流"""
     from src.agents.core.base import AgentFactory
@@ -310,6 +312,8 @@ async def execute_feishu_agent(
             disabled_tools=disabled_tools,
             agent_options=agent_options,
             attachments=attachments,
+            disabled_skills=disabled_skills,
+            disabled_mcp_tools=disabled_mcp_tools,
         ):
             yield event
     except (asyncio.CancelledError, TaskInterruptedError):
@@ -401,6 +405,8 @@ def create_feishu_message_handler(
                 disabled_tools=None,
                 agent_options=None,
                 attachments=None,
+                disabled_skills=None,
+                disabled_mcp_tools=None,
             ):
                 async for event in execute_feishu_agent(
                     session_id=session_id,
@@ -411,6 +417,8 @@ def create_feishu_message_handler(
                     disabled_tools=disabled_tools,
                     agent_options=agent_options,
                     attachments=attachments,
+                    disabled_skills=disabled_skills,
+                    disabled_mcp_tools=disabled_mcp_tools,
                 ):
                     yield event
 
