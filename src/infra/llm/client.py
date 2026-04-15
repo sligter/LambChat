@@ -42,7 +42,7 @@ PROVIDER_REGISTRY: dict[str, tuple[str, list[str]]] = {
     "xai": ("openai", ["grok"]),
     "cohere": ("openai", ["command"]),
     "zhipu": ("openai", ["glm", "chatglm"]),
-    "moonshot": ("openai", ["moonshot", "kimi"]),
+    "moonshot": ("openai", ["moonshot"]),
     "ollama": ("openai", []),
     "perplexity": ("openai", ["sonar"]),
     "stepfun": ("openai", ["step"]),
@@ -55,8 +55,8 @@ PROVIDER_REGISTRY: dict[str, tuple[str, list[str]]] = {
     "zeroone": ("openai", ["zero"]),
     # zai coding plan → Claude 协议
     "zai": ("anthropic", []),
-    # Kimi Coding Plan → Claude (Anthropic) 协议
-    "kimi-coding-plan": ("anthropic", []),
+    # Kimi → Claude (Anthropic) 协议
+    "kimi": ("anthropic", []),
 }
 
 

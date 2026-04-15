@@ -30,7 +30,7 @@ const PROVIDER_LABELS: Record<string, string> = {
   zeroone: "01.AI",
   gemini: "Gemini",
   zai: "ZAI",
-  "kimi-coding-plan": "Kimi Coding Plan",
+  kimi: "Kimi",
 };
 
 interface ProviderSelectProps {
