@@ -115,7 +115,10 @@ class BackgroundTaskManager:
         async with self._lock:
             # 确保 session 记录存在
             await self._executor.ensure_session(
-                session_id, agent_id, user_id, project_id=project_id,
+                session_id,
+                agent_id,
+                user_id,
+                project_id=project_id,
                 session_name=session_name,
             )
 
