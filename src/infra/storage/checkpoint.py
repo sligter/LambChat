@@ -106,10 +106,14 @@ async def get_pg_checkpointer():
             await ctx.__aexit__(None, None, None)
             raise
 
-        logger.info("PostgreSQL checkpointer created (AsyncPostgresSaver via from_conn_string)")
-        _pg_checkpointer_ctx = ctx
-        _pg_checkpointer = cp
-        return _pg_checkpointer
+        try:
+            logger.info("PostgreSQL checkpointer created (AsyncPostgresSaver via from_conn_string)")
+            _pg_checkpointer_ctx = ctx
+            _pg_checkpointer = cp
+            return _pg_checkpointer
+        except Exception:
+            await ctx.__aexit__(None, None, None)
+            raise
 
     except ImportError as e:
         logger.warning(f"PostgreSQL checkpointer not available: {e}")
