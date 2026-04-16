@@ -284,6 +284,11 @@ async def lifespan(app: FastAPI):
 
         await close_redis_client()
 
+        # 释放 MongoDB checkpointer 引用（在关闭连接池之前）
+        from src.infra.storage.checkpoint import close_mongo_checkpointer
+
+        close_mongo_checkpointer()
+
         # 关闭 MongoDB 连接池
         from src.infra.storage.mongodb import close_mongo_client
 
