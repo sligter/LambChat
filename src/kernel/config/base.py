@@ -116,6 +116,9 @@ class Settings(BaseSettings):
     POSTGRES_POOL_MIN_SIZE: int = 2
     POSTGRES_POOL_MAX_SIZE: int = 10
 
+    # Checkpoint Backend Settings
+    CHECKPOINT_BACKEND: str = "mongodb"
+
     # Sandbox Settings
     ENABLE_SANDBOX: bool = True
     SANDBOX_PLATFORM: str = "daytona"

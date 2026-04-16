@@ -616,6 +616,17 @@ SETTING_DEFINITIONS: dict[str, dict] = {
         "depends_on": "ENABLE_POSTGRES_STORAGE",
     },
     # ============================================
+    # Checkpoint Backend Settings
+    # ============================================
+    "CHECKPOINT_BACKEND": {
+        "type": SettingType.SELECT,
+        "category": SettingCategory.DATABASE,
+        "description": "Checkpoint storage backend. Use 'postgres' to avoid MongoDB's 16MB document size limit on long conversations.",
+        "default": "mongodb",
+        "options": ["mongodb", "postgres"],
+        "frontend_visible": True,
+    },
+    # ============================================
     # User Management Settings
     # ============================================
     "DEFAULT_USER_ROLE": {
