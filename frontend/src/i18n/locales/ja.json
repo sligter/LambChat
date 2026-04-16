@@ -1183,6 +1183,7 @@
     "noMatchingRoles": "一致するロールが見つかりません",
     "noRoles": "ロールがありません",
     "operationFailed": "操作に失敗しました",
+    "permissionCount": "{{count}} 件の権限",
     "permissions": "権限",
     "roleName": "ロール名",
     "roleNamePlaceholder": "ロール名を入力",

@@ -1182,6 +1182,7 @@
     "noMatchingRoles": "没有找到匹配的角色",
     "noRoles": "暂无角色",
     "operationFailed": "操作失败",
+    "permissionCount": "{{count}} 个权限",
     "permissions": "权限",
     "roleName": "角色名称",
     "roleNamePlaceholder": "请输入角色名称",

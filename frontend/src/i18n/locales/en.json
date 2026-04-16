@@ -1181,6 +1181,7 @@
     "noMatchingRoles": "No matching roles found",
     "noRoles": "No roles yet",
     "operationFailed": "Operation failed",
+    "permissionCount": "{{count}} permissions",
     "permissions": "Permissions",
     "roleName": "Role Name",
     "roleNamePlaceholder": "Enter role name",

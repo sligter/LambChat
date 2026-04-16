@@ -1185,6 +1185,7 @@
     "noMatchingRoles": "Соответствующие роли не найдены",
     "noRoles": "Ролей пока нет",
     "operationFailed": "Операция не удалась",
+    "permissionCount": "{{count}} разрешений",
     "permissions": "Права доступа",
     "roleName": "Название роли",
     "roleNamePlaceholder": "Введите название роли",

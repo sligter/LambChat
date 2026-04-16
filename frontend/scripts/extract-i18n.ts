@@ -204,23 +204,16 @@ async function extractI18nKeys() {
   }
 
   // Find new keys and missing keys for each language
-  // A key is "covered" if it exists in the locale OR if a dynamic prefix pattern matches it
-  const isKeyCovered = (key: string, langKeys: Set<string>): boolean => {
-    if (langKeys.has(key)) return true;
-    for (const prefix of dynamicKeyPrefixes) {
-      if (key === prefix || key.startsWith(`${prefix}.`)) return true;
-    }
-    return false;
-  };
-
-  const newEnKeys = [...extractedKeys].filter(
-    (k) => !isKeyCovered(k, existingKeys.en),
-  );
+  // A key is "covered" if it literally exists in the locale file.
+  // Dynamic prefixes (e.g. "roles" from "roles.${label}") are NOT used
+  // to suppress static keys — they only indicate that some keys under
+  // that prefix may be resolved dynamically at runtime.
+  const newEnKeys = [...extractedKeys].filter((k) => !existingKeys.en.has(k));
   const missingKeysByLang: Record<string, string[]> = {};
   for (const lang of Object.keys(localeFiles)) {
     if (lang !== "en") {
       missingKeysByLang[lang] = [...extractedKeys].filter(
-        (k) => !isKeyCovered(k, existingKeys[lang]),
+        (k) => !existingKeys[lang].has(k),
       );
     }
   }

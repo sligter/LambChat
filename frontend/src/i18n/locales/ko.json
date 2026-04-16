@@ -1183,6 +1183,7 @@
     "noMatchingRoles": "일치하는 역할이 없습니다",
     "noRoles": "역할이 없습니다",
     "operationFailed": "작업 실패",
+    "permissionCount": "{{count}}개 권한",
     "permissions": "권한",
     "roleName": "역할 이름",
     "roleNamePlaceholder": "역할 이름 입력",
