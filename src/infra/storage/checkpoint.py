@@ -90,8 +90,15 @@ async def get_pg_checkpointer():
     try:
         from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 
-        _pg_checkpointer_ctx = AsyncPostgresSaver.from_conn_string(settings.postgres_url)
-        _pg_checkpointer = await _pg_checkpointer_ctx.__aenter__()
+        ctx = AsyncPostgresSaver.from_conn_string(settings.postgres_url)
+        try:
+            cp = await ctx.__aenter__()
+        except Exception:
+            await ctx.__aexit__(None, None, None)
+            raise
+
+        _pg_checkpointer_ctx = ctx
+        _pg_checkpointer = cp
         logger.info("PostgreSQL checkpointer created (AsyncPostgresSaver via from_conn_string)")
         return _pg_checkpointer
 
