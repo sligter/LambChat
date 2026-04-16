@@ -529,7 +529,10 @@ export const ChatInput = memo(function ChatInput({
       className="sm:px-4 pb-3"
       style={{ backgroundColor: "var(--theme-bg)" }}
     >
-      <form onSubmit={handleSubmit} className="mx-auto max-w-3xl xl:max-w-5xl">
+      <form
+        onSubmit={handleSubmit}
+        className="mx-auto max-w-3xl xl:max-w-5xl px-2"
+      >
         {/* ChatGPT-style container */}
         <div
           onDragOver={handleDragOver}
