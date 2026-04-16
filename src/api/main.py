@@ -261,9 +261,11 @@ async def lifespan(app: FastAPI):
         await AgentFactory.close_all()
 
         # 关闭 PostgreSQL 连接池
+        from src.infra.storage.checkpoint import close_pg_checkpointer
         from src.infra.storage.postgres import close_connection_pool
 
         close_connection_pool()
+        await close_pg_checkpointer()
 
         # 关闭 EmailService HTTP 客户端
         from src.infra.email import get_email_service
