@@ -1049,7 +1049,8 @@
     "skills": "Skills",
     "systemSettings": "System Settings",
     "userSettings": "User Management",
-    "users": "Users"
+    "users": "Users",
+    "notifications": "Notifications"
   },
   "navDesc": {
     "agents": "Configure and manage AI agents",
@@ -1059,6 +1060,7 @@
     "marketplace": "Discover and install skills",
     "mcp": "Manage MCP server connections",
     "models": "Manage LLM model configurations",
+    "notifications": "Manage system announcements",
     "roles": "Configure roles and permissions",
     "settings": "Application and system settings",
     "skills": "Manage and configure skills",
@@ -1066,7 +1068,28 @@
   },
   "notification": {
     "taskCompleted": "Task completed",
-    "taskFailed": "Task failed"
+    "taskFailed": "Task failed",
+    "title": "Notifications",
+    "create": "Create Notification",
+    "edit": "Edit Notification",
+    "delete": "Delete Notification",
+    "deleteConfirm": "Are you sure you want to delete this notification?",
+    "active": "Active",
+    "inactive": "Inactive",
+    "scheduled": "Scheduled",
+    "expired": "Expired",
+    "noNotifications": "No notifications yet",
+    "titleLabel": "Title",
+    "contentLabel": "Content",
+    "startTime": "Start Time",
+    "endTime": "End Time",
+    "isActive": "Active",
+    "save": "Save",
+    "cancel": "Cancel",
+    "createdSuccess": "Notification created successfully",
+    "updatedSuccess": "Notification updated successfully",
+    "deletedSuccess": "Notification deleted successfully",
+    "dismissedSuccess": "Notification dismissed"
   },
   "profile": {
     "appearance": "Appearance",

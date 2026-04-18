@@ -1050,7 +1050,8 @@
     "skills": "技能",
     "systemSettings": "系统设置",
     "userSettings": "用户管理",
-    "users": "用户"
+    "users": "用户",
+    "notifications": "通知公告"
   },
   "navDesc": {
     "agents": "配置和管理 AI 助手",
@@ -1060,6 +1061,7 @@
     "marketplace": "发现和安装技能",
     "mcp": "管理 MCP 服务器连接",
     "models": "配置和管理 AI 模型",
+    "notifications": "管理系统公告通知",
     "roles": "配置角色和权限",
     "settings": "应用和系统设置",
     "skills": "管理和配置技能",
@@ -1067,7 +1069,28 @@
   },
   "notification": {
     "taskCompleted": "任务已完成",
-    "taskFailed": "任务失败"
+    "taskFailed": "任务失败",
+    "title": "通知公告",
+    "create": "创建通知",
+    "edit": "编辑通知",
+    "delete": "删除通知",
+    "deleteConfirm": "确定要删除此通知吗？",
+    "active": "已激活",
+    "inactive": "未激活",
+    "scheduled": "已排期",
+    "expired": "已过期",
+    "noNotifications": "暂无通知",
+    "titleLabel": "标题",
+    "contentLabel": "内容",
+    "startTime": "开始时间",
+    "endTime": "结束时间",
+    "isActive": "启用",
+    "save": "保存",
+    "cancel": "取消",
+    "createdSuccess": "通知创建成功",
+    "updatedSuccess": "通知更新成功",
+    "deletedSuccess": "通知删除成功",
+    "dismissedSuccess": "通知已关闭"
   },
   "profile": {
     "appearance": "外观",

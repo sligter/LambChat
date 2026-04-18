@@ -1051,7 +1051,8 @@
     "skills": "스킬",
     "systemSettings": "시스템 설정",
     "userSettings": "사용자 관리",
-    "users": "사용자"
+    "users": "사용자",
+    "notifications": "알림"
   },
   "navDesc": {
     "agents": "AI 에이전트 설정 및 관리",
@@ -1061,6 +1062,7 @@
     "marketplace": "스킬 탐색 및 설치",
     "mcp": "MCP 서버 연결 관리",
     "models": "LLM 모델 구성 관리",
+    "notifications": "시스템 공지 관리",
     "roles": "역할 및 권한 설정",
     "settings": "앱 및 시스템 설정",
     "skills": "스킬 관리 및 설정",
@@ -1068,7 +1070,28 @@
   },
   "notification": {
     "taskCompleted": "작업 완료",
-    "taskFailed": "작업 실패"
+    "taskFailed": "작업 실패",
+    "title": "알림",
+    "create": "알림 만들기",
+    "edit": "알림 수정",
+    "delete": "알림 삭제",
+    "deleteConfirm": "이 알림을 삭제하시겠습니까?",
+    "active": "활성",
+    "inactive": "비활성",
+    "scheduled": "예약됨",
+    "expired": "만료됨",
+    "noNotifications": "알림이 없습니다",
+    "titleLabel": "제목",
+    "contentLabel": "내용",
+    "startTime": "시작 시간",
+    "endTime": "종료 시간",
+    "isActive": "활성화",
+    "save": "저장",
+    "cancel": "취소",
+    "createdSuccess": "알림이 생성되었습니다",
+    "updatedSuccess": "알림이 업데이트되었습니다",
+    "deletedSuccess": "알림이 삭제되었습니다",
+    "dismissedSuccess": "알림이 닫혔습니다"
   },
   "profile": {
     "appearance": "외관",
