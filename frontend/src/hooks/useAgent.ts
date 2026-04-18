@@ -37,6 +37,7 @@ import {
   clearReconnectTimeout,
   type SSEConnectionContext,
 } from "./useAgent/sseConnection";
+import { createOptimisticMessagesForSend } from "./useAgent/optimisticMessages";
 
 export function useAgent(options?: UseAgentOptions): UseAgentReturn {
   const { hasAnyPermission } = useAuth();
@@ -500,27 +501,15 @@ export function useAgent(options?: UseAgentOptions): UseAgentReturn {
       processedEventIdsRef.current.clear();
       lastHistoryTimestampRef.current = null;
 
-      const userMessage: Message = {
-        id: crypto.randomUUID(),
-        role: "user",
-        content: content.trim(),
-        timestamp: new Date(),
-        attachments: attachments,
-      };
+      const { messages: optimisticMessages, assistantMessageId } =
+        createOptimisticMessagesForSend({
+          previousMessages: messagesRef.current,
+          content,
+          attachments,
+        });
 
-      const assistantMessage: Message = {
-        id: crypto.randomUUID(),
-        role: "assistant",
-        content: "",
-        timestamp: new Date(),
-        toolCalls: [],
-        toolResults: [],
-        isStreaming: true,
-      };
-
-      setMessages((prev) => [...prev, userMessage, assistantMessage]);
+      setMessages(optimisticMessages);
       setIsLoading(true);
-      setMessages([]);
       setError(null);
 
       try {
@@ -635,7 +624,7 @@ export function useAgent(options?: UseAgentOptions): UseAgentReturn {
           setCurrentRunId(newRunId);
           setMessages((prev) =>
             prev.map((m) =>
-              m.id === assistantMessage.id ? { ...m, runId: newRunId } : m,
+              m.id === assistantMessageId ? { ...m, runId: newRunId } : m,
             ),
           );
         }
@@ -652,7 +641,7 @@ export function useAgent(options?: UseAgentOptions): UseAgentReturn {
         await connectToSSE(
           streamSessionId,
           streamRunId,
-          assistantMessage.id,
+          assistantMessageId,
           ctx,
         );
       } catch (err) {
@@ -664,7 +653,7 @@ export function useAgent(options?: UseAgentOptions): UseAgentReturn {
         setError(errorMessage);
         setMessages((prev) =>
           prev.map((m) =>
-            m.id === assistantMessage.id
+            m.id === assistantMessageId
               ? {
                   ...m,
                   content: i18n.t("chat.errorPrefix", { error: errorMessage }),

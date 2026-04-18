@@ -28,16 +28,19 @@ export function ArchitectureSection({
           className="blog-arch-card group relative rounded-2xl overflow-hidden cursor-pointer bg-white/80 dark:bg-stone-900/30 transition-all duration-500 hover:-translate-y-1 hover:shadow-2xl"
           onClick={() =>
             onOpenViewer(
-              "/images/best-practice/architecture.png",
+              "/images/best-practice/architecture.webp",
               t("landing.architecture"),
             )
           }
         >
           <img
-            src="/images/best-practice/architecture.png"
+            src="/images/best-practice/architecture.webp"
             alt={t("landing.architecture")}
+            width={1200}
+            height={680}
             className="w-full transition-all duration-700 group-hover:brightness-[0.97]"
             loading="lazy"
+            decoding="async"
           />
         </div>
 

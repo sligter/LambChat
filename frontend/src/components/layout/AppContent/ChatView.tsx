@@ -8,9 +8,15 @@ import { ChatInput } from "../../chat/ChatInput";
 import { WelcomePage } from "../../chat/WelcomePage";
 import { Virtuoso } from "react-virtuoso";
 import { ApprovalPanel } from "../../panels/ApprovalPanel";
-import { ChatSkeleton } from "../../skeletons/ChatSkeletons";
+import {
+  ChatSkeleton,
+  ChatSkeletonMessagesOnly,
+} from "../../skeletons/ChatSkeletons";
 import { useMessageScroll } from "./useMessageScroll";
-import { isSessionRunning } from "./sessionState";
+import {
+  isSessionRunning,
+  shouldShowStreamingFooterSkeleton,
+} from "./sessionState";
 import type {
   Message,
   PendingApproval,
@@ -132,9 +138,16 @@ export function ChatView({
   const { t } = useTranslation();
   const { user } = useAuth();
   const sessionRunning = isSessionRunning(messages, isLoading);
+  const hasVisibleStreamingMessage = messages.some(
+    (message) => message.role === "assistant" && message.isStreaming,
+  );
 
-  const isDisconnected =
-    connectionStatus === "disconnected" || connectionStatus === "reconnecting";
+  const showStreamingFooterSkeleton = shouldShowStreamingFooterSkeleton({
+    connectionStatus,
+    sessionRunning,
+    messageCount: messages.length,
+    hasVisibleStreamingMessage,
+  });
 
   const getGreetingKey = () => {
     const h = new Date().getHours();
@@ -246,9 +259,9 @@ export function ChatView({
       },
       Footer: () => (
         <>
-          {isDisconnected && sessionRunning && messages.length > 0 && (
+          {showStreamingFooterSkeleton && (
             <div className="pb-4">
-              <ChatSkeleton count={1} />
+              <ChatSkeletonMessagesOnly count={1} />
             </div>
           )}
           <div ref={messagesEndRef} className="h-8" />
@@ -256,7 +269,7 @@ export function ChatView({
       ),
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [isDisconnected, sessionRunning, messages.length],
+    [showStreamingFooterSkeleton],
   );
 
   const virtuosoItemContent = useCallback(

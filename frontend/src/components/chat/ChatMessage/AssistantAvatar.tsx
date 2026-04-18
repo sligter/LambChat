@@ -33,5 +33,13 @@ export function AssistantAvatar({ className }: { className?: string }) {
     loadDataUrl().then(setSrc);
   }, []);
 
-  return <img src={src} alt="Assistant" className={className} />;
+  return (
+    <img
+      src={src}
+      alt="Assistant"
+      width={28}
+      height={28}
+      className={className}
+    />
+  );
 }
