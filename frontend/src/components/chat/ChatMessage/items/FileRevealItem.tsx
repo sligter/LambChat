@@ -11,6 +11,7 @@ import {
   shouldAutoOpenFileRevealPreview,
 } from "./fileRevealAutoOpen";
 import type { RevealPreviewRequest } from "./revealPreviewData";
+import type { RevealPreviewOpenSource } from "./revealPreviewState";
 
 function MediaSkeleton({ aspectRatio = "16/9" }: { aspectRatio?: string }) {
   return (
@@ -83,7 +84,10 @@ export function FileRevealItem({
   cancelled?: boolean;
   allowAutoPreview?: boolean;
   activePreview?: RevealPreviewRequest | null;
-  onOpenPreview?: (preview: RevealPreviewRequest) => void;
+  onOpenPreview?: (
+    preview: RevealPreviewRequest,
+    source?: RevealPreviewOpenSource,
+  ) => boolean;
 }) {
   const { t } = useTranslation();
   const [imageViewerSrc, setImageViewerSrc] = useState<string | null>(null);
@@ -165,33 +169,25 @@ export function FileRevealItem({
       allowAutoPreview,
       previewKey: previewAutoOpenKey,
     });
-    console.log("[FileRevealItem] auto-preview check", {
-      filePath,
-      previewAutoOpenKey,
-      success,
-      isImage,
-      showPreview: isPreviewOpen,
-      allowAutoPreview,
-      isDesktop: window.innerWidth >= 640,
-      decision,
-    });
     if (!decision || !previewAutoOpenKey) {
       return;
     }
 
-    markFileRevealPreviewAutoOpened(previewAutoOpenKey);
-    console.log("[FileRevealItem] auto-opening preview", {
-      filePath,
-      previewAutoOpenKey,
-    });
-    onOpenPreview?.({
-      kind: "file",
-      previewKey: previewAutoOpenKey,
-      filePath,
-      s3Key: s3Key || undefined,
-      signedUrl: s3Url || undefined,
-      fileSize,
-    });
+    const opened = onOpenPreview?.(
+      {
+        kind: "file",
+        previewKey: previewAutoOpenKey,
+        filePath,
+        s3Key: s3Key || undefined,
+        signedUrl: s3Url || undefined,
+        fileSize,
+      },
+      "auto",
+    );
+
+    if (opened) {
+      markFileRevealPreviewAutoOpened(previewAutoOpenKey);
+    }
   }, [
     success,
     filePath,
@@ -204,15 +200,6 @@ export function FileRevealItem({
     s3Url,
     fileSize,
   ]);
-
-  useEffect(() => {
-    if (!filePath) return;
-    console.log("[FileRevealItem] preview visibility changed", {
-      filePath,
-      previewAutoOpenKey,
-      showPreview: isPreviewOpen,
-    });
-  }, [filePath, previewAutoOpenKey, isPreviewOpen]);
 
   if (isPending) {
     return (
@@ -346,14 +333,17 @@ export function FileRevealItem({
             onClick={() => {
               if (!isImage) {
                 if (!previewAutoOpenKey) return;
-                onOpenPreview?.({
-                  kind: "file",
-                  previewKey: previewAutoOpenKey,
-                  filePath,
-                  s3Key: s3Key || undefined,
-                  signedUrl: s3Url || undefined,
-                  fileSize,
-                });
+                onOpenPreview?.(
+                  {
+                    kind: "file",
+                    previewKey: previewAutoOpenKey,
+                    filePath,
+                    s3Key: s3Key || undefined,
+                    signedUrl: s3Url || undefined,
+                    fileSize,
+                  },
+                  "manual",
+                );
               }
             }}
           >
@@ -378,14 +368,17 @@ export function FileRevealItem({
               setImageViewerSrc(s3Url);
             } else {
               if (!previewAutoOpenKey) return;
-              onOpenPreview?.({
-                kind: "file",
-                previewKey: previewAutoOpenKey,
-                filePath,
-                s3Key: s3Key || undefined,
-                signedUrl: s3Url || undefined,
-                fileSize,
-              });
+              onOpenPreview?.(
+                {
+                  kind: "file",
+                  previewKey: previewAutoOpenKey,
+                  filePath,
+                  s3Key: s3Key || undefined,
+                  signedUrl: s3Url || undefined,
+                  fileSize,
+                },
+                "manual",
+              );
             }
           }}
           className={clsx(

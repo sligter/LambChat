@@ -42,6 +42,8 @@ interface ToolResultPanelProps {
   panelClass?: string;
   /** Optional external ref to the root panel element */
   panelElementRef?: React.Ref<HTMLDivElement>;
+  /** Called when the user explicitly manipulates the panel UI */
+  onUserInteraction?: () => void;
 }
 
 const statusConfig: Record<
@@ -90,6 +92,7 @@ export function ToolResultPanel({
   overlayClass,
   panelClass,
   panelElementRef,
+  onUserInteraction,
 }: ToolResultPanelProps) {
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 640);
   const panelOwnerRef = useRef(
@@ -114,24 +117,6 @@ export function ToolResultPanel({
   useEffect(() => {
     latestOnCloseRef.current = onClose;
   }, [onClose]);
-
-  useEffect(() => {
-    if (!open) return;
-    console.log("[ToolResultPanel] open", {
-      title,
-      viewMode,
-      isMobile,
-      owner: panelOwnerRef.current.description,
-    });
-    return () => {
-      console.log("[ToolResultPanel] close/unmount", {
-        title,
-        viewMode,
-        isMobile,
-        owner: panelOwnerRef.current.description,
-      });
-    };
-  }, [open, title, viewMode, isMobile]);
 
   useEffect(() => {
     const mq = window.matchMedia("(max-width: 639px)");
@@ -199,14 +184,10 @@ export function ToolResultPanel({
   // Register as the active panel (singleton — closes any previous panel)
   useEffect(() => {
     if (!open) return;
-    console.log("[ToolResultPanel] registering active panel", {
-      title,
-      owner: panelOwnerRef.current.description,
-    });
     return registerToolPanel(panelOwnerRef.current, () =>
       latestOnCloseRef.current(),
     );
-  }, [open, title]);
+  }, [open]);
 
   // Cleanup drag resize resources (used on mouseup and on unmount)
   const cleanupResize = useCallback((indicator: HTMLDivElement | null) => {
@@ -240,6 +221,7 @@ export function ToolResultPanel({
     (e: React.MouseEvent) => {
       e.preventDefault();
       e.stopPropagation();
+      onUserInteraction?.();
       isResizing.current = true;
       const startX = e.clientX;
       const root = document.documentElement;
@@ -283,7 +265,7 @@ export function ToolResultPanel({
       document.body.style.cursor = "col-resize";
       document.body.style.userSelect = "none";
     },
-    [sidebarWidth, cleanupResize],
+    [sidebarWidth, cleanupResize, onUserInteraction],
   );
 
   // Mobile swipe to close
@@ -308,7 +290,7 @@ export function ToolResultPanel({
             ? "overflow-hidden h-full relative"
             : isMobile
               ? "max-h-[92vh] rounded-t-2xl overflow-hidden shadow-[0_-8px_40px_-8px_rgba(0,0,0,0.2)] dark:shadow-[0_-8px_40px_-8px_rgba(0,0,0,0.5)] animate-[slide-up-fullscreen_280ms_cubic-bezier(0.16,1,0.3,1)]"
-              : "h-full sm:rounded-l-2xl relative shadow-[-4px_0_24px_-4px_rgba(0,0,0,0.12)] dark:shadow-[-4px_0_24px_-4px_rgba(0,0,0,0.4)] animate-[slide-in-right_200ms_ease-out]"
+              : "h-full relative shadow-[-4px_0_24px_-4px_rgba(0,0,0,0.12)] dark:shadow-[-4px_0_24px_-4px_rgba(0,0,0,0.4)] animate-[slide-in-right_200ms_ease-out]"
       }`}
       ref={(el) => {
         // Merge refs
@@ -457,7 +439,7 @@ export function ToolResultPanel({
 
   return createPortal(
     <div
-      className={`fixed inset-0 z-[300] flex flex-col ${
+      className={`fixed inset-0 z-[200] flex flex-col ${
         overlayClass
           ? overlayClass
           : isCenter

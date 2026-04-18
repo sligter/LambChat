@@ -7,7 +7,10 @@ export function PanelHeaderSkeleton({
   hasSearch?: boolean;
 }) {
   return (
-    <div className="space-y-3">
+    <div
+      className="panel-header space-y-3"
+      style={{ borderBottomColor: "var(--theme-border)" }}
+    >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
           {/* Icon box — matches real PanelHeader: size-12 rounded-xl gradient + shadow + ring */}

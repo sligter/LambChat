@@ -1,8 +1,9 @@
-import { useMemo, useCallback, useState, useEffect } from "react";
+import { useMemo, useCallback, useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../../../hooks/useAuth";
 import { ChatMessage } from "../../chat/ChatMessage";
 import { RevealPreviewHost } from "../../chat/ChatMessage/items/RevealPreviewHost";
+import { PersistentToolPanelHost } from "../../chat/ChatMessage/items/persistentToolPanelState";
 import { ChatInput } from "../../chat/ChatInput";
 import { WelcomePage } from "../../chat/WelcomePage";
 import { Virtuoso } from "react-virtuoso";
@@ -22,6 +23,16 @@ import type {
   ConnectionStatus,
 } from "../../../types";
 import type { RevealPreviewRequest } from "../../chat/ChatMessage/items/revealPreviewData";
+import { clearFileRevealAutoOpenState } from "../../chat/ChatMessage/items/fileRevealAutoOpen";
+import { clearProjectRevealAutoOpenState } from "../../chat/ChatMessage/items/projectRevealAutoOpen";
+import { getLatestAutoPreviewTarget } from "../../chat/ChatMessage/autoPreviewEligibility";
+import {
+  createActiveRevealPreviewState,
+  markRevealPreviewInteracted,
+  shouldAcceptRevealPreviewOpen,
+  type ActiveRevealPreviewState,
+  type RevealPreviewOpenSource,
+} from "../../chat/ChatMessage/items/revealPreviewState";
 
 interface ChatViewProps {
   messages: Message[];
@@ -123,9 +134,7 @@ export function ChatView({
   const sessionRunning = isSessionRunning(messages, isLoading);
 
   const isDisconnected =
-    connectionStatus === "disconnected" ||
-    connectionStatus === "reconnecting" ||
-    connectionStatus === "connecting";
+    connectionStatus === "disconnected" || connectionStatus === "reconnecting";
 
   const getGreetingKey = () => {
     const h = new Date().getHours();
@@ -150,20 +159,65 @@ export function ChatView({
     scrollToTop,
   } = useMessageScroll(messages, sessionId);
 
-  const [activePreview, setActivePreview] =
-    useState<RevealPreviewRequest | null>(null);
+  const [activePreviewState, setActivePreviewState] =
+    useState<ActiveRevealPreviewState | null>(null);
+  const activePreviewStateRef = useRef<ActiveRevealPreviewState | null>(null);
+  const dismissedPreviewKeysRef = useRef<Set<string>>(new Set());
+  const activePreview = activePreviewState?.request ?? null;
 
-  const handleOpenPreview = useCallback((preview: RevealPreviewRequest) => {
-    setActivePreview(preview);
+  useEffect(() => {
+    activePreviewStateRef.current = activePreviewState;
+  }, [activePreviewState]);
+
+  const handleOpenPreview = useCallback(
+    (
+      preview: RevealPreviewRequest,
+      source: RevealPreviewOpenSource = "manual",
+    ) => {
+      const shouldOpen = shouldAcceptRevealPreviewOpen({
+        activePreview: activePreviewStateRef.current,
+        nextPreview: preview,
+        source,
+        dismissedPreviewKeys: dismissedPreviewKeysRef.current,
+      });
+
+      if (!shouldOpen) {
+        return false;
+      }
+
+      if (source === "manual") {
+        dismissedPreviewKeysRef.current.delete(preview.previewKey);
+      }
+
+      setActivePreviewState(createActiveRevealPreviewState(preview, source));
+      return true;
+    },
+    [],
+  );
+
+  const handleClosePreview = useCallback((dismiss = true) => {
+    const currentPreview = activePreviewStateRef.current;
+    if (dismiss && currentPreview) {
+      dismissedPreviewKeysRef.current.add(currentPreview.request.previewKey);
+    }
+    setActivePreviewState(null);
   }, []);
 
-  const handleClosePreview = useCallback(() => {
-    setActivePreview(null);
+  const handlePreviewInteraction = useCallback(() => {
+    setActivePreviewState((current) => markRevealPreviewInteracted(current));
   }, []);
 
   useEffect(() => {
-    setActivePreview(null);
+    dismissedPreviewKeysRef.current.clear();
+    clearFileRevealAutoOpenState();
+    clearProjectRevealAutoOpenState();
+    setActivePreviewState(null);
   }, [sessionId]);
+
+  const latestAutoPreview = useMemo(
+    () => getLatestAutoPreviewTarget(messages),
+    [messages],
+  );
 
   const virtuosoComponents = useMemo(
     () => ({
@@ -214,6 +268,7 @@ export function ChatView({
         runId={currentRunId ?? undefined}
         isLastMessage={index === messages.length - 1}
         activePreview={activePreview}
+        latestAutoPreview={latestAutoPreview}
         onOpenPreview={handleOpenPreview}
       />
     ),
@@ -223,6 +278,7 @@ export function ChatView({
       currentRunId,
       messages.length,
       activePreview,
+      latestAutoPreview,
       handleOpenPreview,
     ],
   );
@@ -389,7 +445,12 @@ export function ChatView({
         isLoading={approvalLoading}
       />
 
-      <RevealPreviewHost preview={activePreview} onClose={handleClosePreview} />
+      <RevealPreviewHost
+        preview={activePreview}
+        onClose={() => handleClosePreview(true)}
+        onUserInteraction={handlePreviewInteraction}
+      />
+      <PersistentToolPanelHost />
 
       {/* ChatInput at bottom (when messages exist, WelcomePage renders its own) */}
       {messages.length > 0 && <ChatInput {...chatInputProps} />}

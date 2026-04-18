@@ -18,6 +18,7 @@ import {
 import { ThinkingBlock, SubagentBlock, SandboxItem } from "./SubagentBlocks";
 import { TodoBlock } from "./TodoBlock";
 import type { RevealPreviewRequest } from "./items/revealPreviewData";
+import type { RevealPreviewOpenSource } from "./items/revealPreviewState";
 
 // Render single message part (shared by main agent and subagent)
 export function MessagePartRenderer({
@@ -33,7 +34,10 @@ export function MessagePartRenderer({
   isLast: boolean;
   allowAutoPreview?: boolean;
   activePreview?: RevealPreviewRequest | null;
-  onOpenPreview?: (preview: RevealPreviewRequest) => void;
+  onOpenPreview?: (
+    preview: RevealPreviewRequest,
+    source?: RevealPreviewOpenSource,
+  ) => boolean;
 }) {
   const { t } = useTranslation();
 

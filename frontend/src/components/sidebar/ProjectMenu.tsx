@@ -4,7 +4,7 @@
 
 import { useRef, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Edit2, Plus, Trash2, X } from "lucide-react";
+import { Edit2, Trash2, Plus, X } from "lucide-react";
 import type { Project } from "../../types";
 import { useSwipeToClose } from "../../hooks/useSwipeToClose";
 

@@ -1,4 +1,4 @@
-import { memo, useMemo, useState } from "react";
+import { memo, useMemo } from "react";
 import { FileText } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { CollapsiblePill } from "../../../common";
@@ -10,7 +10,7 @@ import {
   type McpContentBlock,
 } from "./toolUtils";
 import { McpBlockPreview } from "./McpBlockPreview";
-import { ToolResultPanel, closeCurrentToolPanel } from "./ToolResultPanel";
+import { openPersistentToolPanel } from "./persistentToolPanelState";
 
 const ReadFileItem = memo(function ReadFileItem({
   args,
@@ -30,7 +30,6 @@ const ReadFileItem = memo(function ReadFileItem({
   const fileName = filePath.split("/").pop() || filePath;
   const offset = args.offset as number | undefined;
   const limit = args.limit as number | undefined;
-  const [panelOpen, setPanelOpen] = useState(false);
 
   const displayContent = useMemo(() => {
     const raw = extractText(result);
@@ -118,9 +117,14 @@ const ReadFileItem = memo(function ReadFileItem({
         variant="tool"
         expandable={hasContent}
         onPanelOpen={() => {
-          if (panelOpen) return;
-          closeCurrentToolPanel();
-          setPanelOpen(true);
+          if (!hasContent) return;
+          openPersistentToolPanel({
+            title: `${t("chat.message.toolRead")} ${fileName || filePath}`,
+            icon: <FileText size={16} />,
+            status,
+            subtitle: filePath,
+            children: detailContent,
+          });
         }}
       >
         {hasContent && (
@@ -163,18 +167,6 @@ const ReadFileItem = memo(function ReadFileItem({
           </div>
         )}
       </CollapsiblePill>
-      {hasContent && (
-        <ToolResultPanel
-          open={panelOpen}
-          onClose={() => setPanelOpen(false)}
-          title={`${t("chat.message.toolRead")} ${fileName || filePath}`}
-          icon={<FileText size={16} />}
-          status={status}
-          subtitle={filePath}
-        >
-          {detailContent}
-        </ToolResultPanel>
-      )}
     </>
   );
 });

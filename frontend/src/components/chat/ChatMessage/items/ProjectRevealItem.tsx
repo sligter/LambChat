@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Code2, FolderTree, Download, Maximize } from "lucide-react";
 import { PreviewHeader } from "../../../common/FileIcon";
 import { useTranslation } from "react-i18next";
@@ -16,6 +16,13 @@ import {
   parseProjectRevealSummary,
   type RevealPreviewRequest,
 } from "./revealPreviewData";
+import {
+  EMPTY_BINARY_FILES,
+  areStringRecordMapsEqual,
+  normalizeProjectRevealBinaryFiles,
+  shouldReplaceProjectRevealFiles,
+} from "./projectRevealState";
+import type { RevealPreviewOpenSource } from "./revealPreviewState";
 
 export function ProjectRevealItem({
   args,
@@ -34,44 +41,71 @@ export function ProjectRevealItem({
   cancelled?: boolean;
   allowAutoPreview?: boolean;
   activePreview?: RevealPreviewRequest | null;
-  onOpenPreview?: (preview: RevealPreviewRequest) => void;
+  onOpenPreview?: (
+    preview: RevealPreviewRequest,
+    source?: RevealPreviewOpenSource,
+  ) => boolean;
 }) {
   const { t } = useTranslation();
   const { projectName, template, error, fileCount, projectPath, parsed } =
-    parseProjectRevealSummary({
-      args,
-      result,
-      parseErrorMessage: t("chat.message.toolParseError"),
-    });
+    useMemo(
+      () =>
+        parseProjectRevealSummary({
+          args,
+          result,
+          parseErrorMessage: t("chat.message.toolParseError"),
+        }),
+      [args, result, t],
+    );
 
-  const projectAutoOpenKey = getProjectRevealAutoOpenKey({
-    projectPath,
-    projectName,
-  });
+  const projectAutoOpenKey = useMemo(
+    () =>
+      getProjectRevealAutoOpenKey({
+        projectPath,
+        projectName,
+      }),
+    [projectName, projectPath],
+  );
   const isPreviewOpen =
     activePreview?.kind === "project" &&
     activePreview.previewKey === projectAutoOpenKey;
   const inlineFiles = parsed?.version === 1 ? parsed.files : null;
-  const cachedProjectFiles =
-    parsed?.version === 2
-      ? getCachedProjectRevealFiles(projectAutoOpenKey)
-      : null;
+  const cachedProjectFiles = useMemo(
+    () =>
+      parsed?.version === 2
+        ? getCachedProjectRevealFiles(projectAutoOpenKey)
+        : null,
+    [parsed, projectAutoOpenKey],
+  );
   const [loadedFiles, setLoadedFiles] = useState<Record<string, string> | null>(
     cachedProjectFiles?.files || inlineFiles,
   );
   const [binaryFiles, setBinaryFiles] = useState<Record<string, string>>(
-    cachedProjectFiles?.binaryFiles || {},
+    normalizeProjectRevealBinaryFiles(cachedProjectFiles?.binaryFiles),
   );
   const [loadingError, setLoadingError] = useState(false);
+  const previewRequest = useMemo(() => {
+    if (!parsed || !projectAutoOpenKey) return null;
 
-  const openPreview = (openInFullscreen = false) => {
-    if (!parsed || !projectAutoOpenKey) return;
-    onOpenPreview?.({
-      kind: "project",
+    return {
+      kind: "project" as const,
       previewKey: projectAutoOpenKey,
       project: parsed,
-      openInFullscreen,
-    });
+    };
+  }, [parsed, projectAutoOpenKey]);
+
+  const openPreview = (
+    openInFullscreen = false,
+    source: RevealPreviewOpenSource = "manual",
+  ) => {
+    if (!previewRequest) return;
+    onOpenPreview?.(
+      {
+        ...previewRequest,
+        openInFullscreen,
+      },
+      source,
+    );
   };
 
   useEffect(() => {
@@ -82,79 +116,78 @@ export function ProjectRevealItem({
       allowAutoPreview,
       previewKey: projectAutoOpenKey,
     });
-    console.log("[ProjectRevealItem] auto-preview check", {
-      projectName,
-      projectPath,
-      projectAutoOpenKey,
-      success,
-      showFullPreview: isPreviewOpen,
-      allowAutoPreview,
-      isDesktop: window.innerWidth >= 640,
-      decision,
-    });
-    if (!decision || !parsed || !projectAutoOpenKey) {
+    if (!decision || !previewRequest || !projectAutoOpenKey) {
       return;
     }
 
-    markProjectRevealPreviewAutoOpened(projectAutoOpenKey);
-    console.log("[ProjectRevealItem] auto-opening preview", {
-      projectName,
-      projectPath,
-      projectAutoOpenKey,
-    });
-    onOpenPreview?.({
-      kind: "project",
-      previewKey: projectAutoOpenKey,
-      project: parsed,
-    });
+    const opened = onOpenPreview?.(previewRequest, "auto");
+
+    if (opened) {
+      markProjectRevealPreviewAutoOpened(projectAutoOpenKey);
+    }
   }, [
     success,
     isPreviewOpen,
     allowAutoPreview,
     projectAutoOpenKey,
-    projectName,
-    projectPath,
-    parsed,
+    previewRequest,
     onOpenPreview,
   ]);
 
   useEffect(() => {
-    if (!projectName && !projectPath) return;
-    console.log("[ProjectRevealItem] preview visibility changed", {
-      projectName,
-      projectPath,
-      projectAutoOpenKey,
-      showFullPreview: isPreviewOpen,
-      viewMode: "sidebar",
-    });
-  }, [projectName, projectPath, projectAutoOpenKey, isPreviewOpen]);
-
-  useEffect(() => {
     if (!parsed || parsed.version !== 2 || !projectAutoOpenKey || !success) {
-      setLoadedFiles(inlineFiles);
-      setBinaryFiles({});
-      setLoadingError(false);
+      setLoadedFiles((current) =>
+        shouldReplaceProjectRevealFiles(current, inlineFiles)
+          ? inlineFiles
+          : current,
+      );
+      setBinaryFiles((current) =>
+        areStringRecordMapsEqual(current, EMPTY_BINARY_FILES)
+          ? current
+          : EMPTY_BINARY_FILES,
+      );
+      setLoadingError((current) => (current ? false : current));
       return;
     }
 
     const cached = getCachedProjectRevealFiles(projectAutoOpenKey);
-    setLoadedFiles(cached?.files || null);
-    setBinaryFiles(cached?.binaryFiles || {});
-    setLoadingError(false);
+    const nextLoadedFiles = cached?.files || null;
+    const nextBinaryFiles = normalizeProjectRevealBinaryFiles(
+      cached?.binaryFiles,
+    );
+    setLoadedFiles((current) =>
+      shouldReplaceProjectRevealFiles(current, nextLoadedFiles)
+        ? nextLoadedFiles
+        : current,
+    );
+    setBinaryFiles((current) =>
+      areStringRecordMapsEqual(current, nextBinaryFiles)
+        ? current
+        : nextBinaryFiles,
+    );
+    setLoadingError((current) => (current ? false : current));
 
     let cancelled = false;
     void loadProjectRevealFilesCached({
       previewKey: projectAutoOpenKey,
       project: parsed,
     })
-      .then(({ files, binaryFiles: nextBinaryFiles }) => {
+      .then(({ files, binaryFiles: loadedBinaryFiles }) => {
         if (cancelled) return;
-        setLoadedFiles(files);
-        setBinaryFiles(nextBinaryFiles);
+        const nextBinaryFiles =
+          normalizeProjectRevealBinaryFiles(loadedBinaryFiles);
+        setLoadedFiles((current) =>
+          shouldReplaceProjectRevealFiles(current, files) ? files : current,
+        );
+        setBinaryFiles((current) =>
+          areStringRecordMapsEqual(current, nextBinaryFiles)
+            ? current
+            : nextBinaryFiles,
+        );
       })
       .catch(() => {
         if (!cancelled) {
-          setLoadingError(true);
+          setLoadingError((current) => (current ? current : true));
         }
       });
 

@@ -23,10 +23,11 @@ import { ModelIconImg } from "../../agent/modelIcon.tsx";
 import { shouldCloseTokenDetailsPopover } from "./tokenDetailsPopoverGuards";
 import { resolveTokenUsageModelDetails } from "./tokenUsageModel";
 import {
-  getLastAutoPreviewPartIndex,
   shouldAllowAutoPreviewForPart,
+  type AutoPreviewTarget,
 } from "./autoPreviewEligibility";
 import type { RevealPreviewRequest } from "./items/revealPreviewData";
+import type { RevealPreviewOpenSource } from "./items/revealPreviewState";
 
 // Skeleton-style loading animation component - refined thin lines
 function ThinkingIndicator() {
@@ -66,7 +67,11 @@ interface ChatMessageProps {
   isLastMessage?: boolean;
   onStop?: () => void;
   activePreview?: RevealPreviewRequest | null;
-  onOpenPreview?: (preview: RevealPreviewRequest) => void;
+  latestAutoPreview?: AutoPreviewTarget | null;
+  onOpenPreview?: (
+    preview: RevealPreviewRequest,
+    source?: RevealPreviewOpenSource,
+  ) => boolean;
 }
 
 // Token usage statistics button component - ChatGPT style
@@ -239,6 +244,7 @@ export const ChatMessage = memo(function ChatMessage({
   runId,
   isLastMessage,
   activePreview,
+  latestAutoPreview,
   onOpenPreview,
 }: ChatMessageProps) {
   const { t } = useTranslation();
@@ -253,27 +259,6 @@ export const ChatMessage = memo(function ChatMessage({
 
   // If there are parts, render in order; otherwise fall back to old rendering method
   const hasParts = message.parts && message.parts.length > 0;
-  const lastAutoPreviewPartIndex = getLastAutoPreviewPartIndex(message.parts);
-
-  useEffect(() => {
-    if (!isLastMessage || !hasParts || lastAutoPreviewPartIndex < 0) return;
-    console.log("[ChatMessage] latest message auto-preview context", {
-      messageId: message.id,
-      isStreaming: message.isStreaming,
-      lastAutoPreviewPartIndex,
-      partNames: message.parts?.map((part) =>
-        part.type === "tool" ? part.name : part.type,
-      ),
-    });
-  }, [
-    hasParts,
-    isLastMessage,
-    lastAutoPreviewPartIndex,
-    message.id,
-    message.isStreaming,
-    message.parts,
-  ]);
-
   // User message: bubble style, right aligned
   if (isUser) {
     return (
@@ -344,10 +329,9 @@ export const ChatMessage = memo(function ChatMessage({
                   activePreview={activePreview}
                   onOpenPreview={onOpenPreview}
                   allowAutoPreview={shouldAllowAutoPreviewForPart({
-                    isLastMessage,
-                    isMessageStreaming: message.isStreaming,
+                    messageId: message.id,
                     partIndex: index,
-                    lastAutoPreviewPartIndex,
+                    latestAutoPreview: latestAutoPreview ?? null,
                   })}
                 />
               ))}

@@ -27,7 +27,7 @@ import type { SharedContentResponse } from "../../types";
 import { ChatMessage } from "../chat/ChatMessage";
 import { reconstructMessagesFromEvents } from "../../hooks/useAgent/historyLoader";
 import { APP_NAME, GITHUB_URL } from "../../constants";
-import { getModelIconUrl, isMonochromeIcon } from "../agent/modelIcon";
+import { getModelIconUrl } from "../agent/modelIcon";
 import { ScrollButtons } from "../landing/components/ScrollButtons";
 
 const LANGUAGES = [
@@ -569,15 +569,7 @@ export function SharedPage() {
                         <img
                           src={iconUrl}
                           alt=""
-                          className={`w-3.5 h-3.5 ${
-                            isMonochromeIcon(
-                              data.session.model,
-                              (data.session as Record<string, unknown>)
-                                .provider as string | undefined,
-                            )
-                              ? "dark:invert"
-                              : ""
-                          }`}
+                          className="w-3.5 h-3.5 dark:invert"
                         />
                       ) : null;
                     })()}

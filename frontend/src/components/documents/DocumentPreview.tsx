@@ -89,6 +89,7 @@ interface DocumentPreviewProps {
   imageUrl?: string; // Direct image URL for previewing image attachments
   initialLine?: number; // Scroll to and highlight this line in code files
   onClose: () => void;
+  onUserInteraction?: () => void;
 }
 
 export default function DocumentPreview({
@@ -100,6 +101,7 @@ export default function DocumentPreview({
   imageUrl: externalImageUrl,
   initialLine,
   onClose,
+  onUserInteraction,
 }: DocumentPreviewProps) {
   const { t } = useTranslation();
   const [data, setData] = useState<{ content: string; path: string } | null>(
@@ -424,6 +426,7 @@ export default function DocumentPreview({
         isSidebar ? undefined : "sm:items-center sm:justify-center bg-black/70"
       }
       panelClass={isSidebar ? undefined : centerPanelClass}
+      onUserInteraction={onUserInteraction}
       footer={
         <div className="px-3 sm:px-5 py-2 sm:py-3 border-t border-stone-200 dark:border-[#333] bg-stone-50 dark:bg-[#252526]">
           <div className="flex items-center justify-between text-xs sm:text-xs text-stone-400 dark:text-stone-500">
@@ -496,6 +499,7 @@ export default function DocumentPreview({
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
+                onUserInteraction?.();
                 setViewMode(isSidebar ? "center" : "sidebar");
               }}
               className="flex items-center justify-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-2 sm:py-2 rounded-xl text-xs sm:text-sm font-medium text-stone-600 dark:text-stone-300 hover:bg-stone-200/80 dark:hover:bg-stone-700/60 active:bg-stone-200 dark:active:bg-stone-600/60 transition-all duration-200 active:scale-95 cursor-pointer"
@@ -519,6 +523,7 @@ export default function DocumentPreview({
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
+                  onUserInteraction?.();
                   setIsFullscreen(!isFullscreen);
                 }}
                 className="hidden sm:flex items-center justify-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-2 sm:py-2 rounded-xl text-xs sm:text-sm font-medium text-stone-600 dark:text-stone-300 hover:bg-stone-200/80 dark:hover:bg-stone-700/60 active:bg-stone-200 dark:active:bg-stone-600/60 transition-all duration-200 active:scale-95 cursor-pointer"

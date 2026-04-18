@@ -520,6 +520,7 @@ export function useAgent(options?: UseAgentOptions): UseAgentReturn {
 
       setMessages((prev) => [...prev, userMessage, assistantMessage]);
       setIsLoading(true);
+      setMessages([]);
       setError(null);
 
       try {

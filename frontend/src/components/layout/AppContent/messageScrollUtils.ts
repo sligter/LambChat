@@ -20,6 +20,9 @@ interface StartVirtuosoScrollToBottomOptions {
   footer?: FooterLike | null;
   intervalMs?: number;
   maxAttempts?: number;
+  shouldAbort?: () => boolean;
+  onAutoScroll?: () => void;
+  onComplete?: (reason: "settled" | "aborted" | "max-attempts") => void;
 }
 
 interface ScrollMessageLike {
@@ -47,15 +50,29 @@ export function startVirtuosoScrollToBottom({
   scroller,
   footer,
   intervalMs = 30,
-  maxAttempts = 20,
+  maxAttempts = 40,
+  shouldAbort,
+  onAutoScroll,
+  onComplete,
 }: StartVirtuosoScrollToBottomOptions): () => void {
   if (!virtuoso || !scroller) {
     footer?.scrollIntoView({ behavior: "auto" });
+    onComplete?.("settled");
     return () => undefined;
   }
 
   let attempts = 0;
+  let lastKnownScrollHeight = scroller.scrollHeight;
+  let lastHeightChangeAt = Date.now();
+  let finished = false;
+  const finish = (reason: "settled" | "aborted" | "max-attempts") => {
+    if (finished) return;
+    finished = true;
+    clearInterval(timer);
+    onComplete?.(reason);
+  };
   const scroll = () => {
+    onAutoScroll?.();
     virtuoso.scrollTo({
       top: Number.MAX_SAFE_INTEGER,
       behavior: "auto",
@@ -69,23 +86,39 @@ export function startVirtuosoScrollToBottom({
   // still being refined as it measures item heights.  Forcing a few
   // extra scrollTo calls gives it time to settle at the true bottom.
   const minAttemptsBeforeSettling = 5;
+  const settleWindowMs = Math.max(intervalMs * 4, 120);
 
   const timer = setInterval(() => {
     attempts += 1;
 
+    if (shouldAbort?.()) {
+      finish("aborted");
+      return;
+    }
+
+    if (scroller.scrollHeight !== lastKnownScrollHeight) {
+      lastKnownScrollHeight = scroller.scrollHeight;
+      lastHeightChangeAt = Date.now();
+    }
+
     const isAtBottom =
       scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 1;
+    const hasStableHeight = Date.now() - lastHeightChangeAt >= settleWindowMs;
 
     if (
-      (isAtBottom && attempts >= minAttemptsBeforeSettling) ||
+      (isAtBottom &&
+        hasStableHeight &&
+        attempts >= minAttemptsBeforeSettling) ||
       attempts >= maxAttempts
     ) {
-      clearInterval(timer);
+      finish(attempts >= maxAttempts ? "max-attempts" : "settled");
       return;
     }
 
     scroll();
   }, intervalMs);
 
-  return () => clearInterval(timer);
+  return () => {
+    finish("aborted");
+  };
 }

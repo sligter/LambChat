@@ -33,6 +33,8 @@ export function useMessageScroll(
   const previousMessagesRef = useRef(messages);
 
   const userScrolledUpRef = useRef(false);
+  const autoScrollActiveRef = useRef(false);
+  const ignoreProgrammaticScrollUntilRef = useRef(0);
 
   const handleVirtuosoAtBottomChange = useCallback((atBottom: boolean) => {
     cancelAnimationFrame(rafRef.current);
@@ -41,6 +43,7 @@ export function useMessageScroll(
       if (atBottom) {
         setShowScrollTop(false);
         userScrolledUpRef.current = false;
+        autoScrollActiveRef.current = false;
       }
     });
   }, []);
@@ -48,16 +51,25 @@ export function useMessageScroll(
   // Scroll the Footer sentinel into view — it's always in the DOM (not virtualized)
   const scrollToBottom = useCallback(() => {
     userScrolledUpRef.current = false;
+    autoScrollActiveRef.current = true;
     scrollCleanupRef.current?.();
     scrollCleanupRef.current = startVirtuosoScrollToBottom({
       virtuoso: virtuosoRef.current,
       scroller: virtuosoScrollerRef.current,
       footer: messagesEndRef.current,
+      shouldAbort: () => userScrolledUpRef.current,
+      onAutoScroll: () => {
+        ignoreProgrammaticScrollUntilRef.current = Date.now() + 80;
+      },
+      onComplete: () => {
+        autoScrollActiveRef.current = false;
+      },
     });
   }, []);
 
   const scrollToTop = useCallback(() => {
     userScrolledUpRef.current = true;
+    autoScrollActiveRef.current = false;
     virtuosoRef.current?.scrollTo({
       top: 0,
       behavior: "auto",
@@ -79,10 +91,26 @@ export function useMessageScroll(
       const scrollTop = scroller.scrollTop;
       const dt = now - lastScrollTime.value;
       const dScroll = lastScrollTop.value - scrollTop;
+      const programmaticScroll =
+        now <= ignoreProgrammaticScrollUntilRef.current;
+      const movedUp = scrollTop < lastScrollTop.value - 2;
+      const isAwayFromBottom =
+        scrollTop + scroller.clientHeight < scroller.scrollHeight - 50;
+
+      if (
+        autoScrollActiveRef.current &&
+        !programmaticScroll &&
+        movedUp &&
+        isAwayFromBottom
+      ) {
+        userScrolledUpRef.current = true;
+        autoScrollActiveRef.current = false;
+      }
 
       if (dt < 300 && dScroll > 30 && scrollTop > 200) {
         setShowScrollTop(true);
         userScrolledUpRef.current = true;
+        autoScrollActiveRef.current = false;
         if (timer) clearTimeout(timer);
         timer = setTimeout(() => setShowScrollTop(false), 3000);
       } else if (scrollTop < 200) {

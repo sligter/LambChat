@@ -1,5 +1,5 @@
 import React, { useMemo } from "react";
-import { getModelIconUrl, isMonochromeIcon } from "./modelIcon";
+import { getModelIconUrl } from "./modelIcon";
 
 export const ModelIconImg = React.memo(function ModelIconImg({
   model,
@@ -12,10 +12,6 @@ export const ModelIconImg = React.memo(function ModelIconImg({
 }) {
   const url = useMemo(
     () => getModelIconUrl(model, provider),
-    [model, provider],
-  );
-  const mono = useMemo(
-    () => isMonochromeIcon(model, provider),
     [model, provider],
   );
   if (!url) {
@@ -40,7 +36,7 @@ export const ModelIconImg = React.memo(function ModelIconImg({
         alt={model}
         width={size * 0.7}
         height={size * 0.7}
-        className={mono ? "dark:invert" : ""}
+        className="dark:invert"
       />
     </div>
   );

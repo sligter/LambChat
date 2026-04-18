@@ -1,10 +1,10 @@
-import { memo, useState } from "react";
+import { memo } from "react";
 import { Pencil } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { CollapsiblePill } from "../../../common";
 import { CodeMirrorViewer } from "../../../common/CodeMirrorViewer";
 import { extractText } from "./toolUtils";
-import { ToolResultPanel, closeCurrentToolPanel } from "./ToolResultPanel";
+import { openPersistentToolPanel } from "./persistentToolPanelState";
 
 const EditFileItem = memo(function EditFileItem({
   args,
@@ -24,7 +24,6 @@ const EditFileItem = memo(function EditFileItem({
   const fileName = filePath.split("/").pop() || filePath;
   const oldString = (args.old_string as string) || "";
   const newString = (args.new_string as string) || "";
-  const [panelOpen, setPanelOpen] = useState(false);
 
   const canExpand = !!oldString || !!newString || !!result;
   const status = isPending
@@ -95,9 +94,14 @@ const EditFileItem = memo(function EditFileItem({
         variant="tool"
         expandable={canExpand}
         onPanelOpen={() => {
-          if (panelOpen) return;
-          closeCurrentToolPanel();
-          setPanelOpen(true);
+          if (!canExpand) return;
+          openPersistentToolPanel({
+            title: `${t("chat.message.toolEdit")} ${fileName || filePath}`,
+            icon: <Pencil size={16} />,
+            status,
+            subtitle: filePath,
+            children: detailContent,
+          });
         }}
       >
         {canExpand && (
@@ -151,18 +155,6 @@ const EditFileItem = memo(function EditFileItem({
           </div>
         )}
       </CollapsiblePill>
-      {canExpand && (
-        <ToolResultPanel
-          open={panelOpen}
-          onClose={() => setPanelOpen(false)}
-          title={`${t("chat.message.toolEdit")} ${fileName || filePath}`}
-          icon={<Pencil size={16} />}
-          status={status}
-          subtitle={filePath}
-        >
-          {detailContent}
-        </ToolResultPanel>
-      )}
     </>
   );
 });

@@ -1,13 +1,9 @@
-import { useState } from "react";
 import { Wrench, Globe } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { CollapsiblePill, LoadingSpinner } from "../../common";
 import type { CollapsibleStatus } from "../../common";
 import { ToolResultContent } from "./items/McpBlockPreview";
-import {
-  ToolResultPanel,
-  closeCurrentToolPanel,
-} from "./items/ToolResultPanel";
+import { openPersistentToolPanel } from "./items/persistentToolPanelState";
 
 // Re-export all sub-components
 export { ReadFileItem } from "./items/ReadFileItem";
@@ -37,7 +33,6 @@ export function ToolCallItem({
   cancelled?: boolean;
 }) {
   const { t } = useTranslation();
-  const [panelOpen, setPanelOpen] = useState(false);
   const hasResult = result !== undefined;
 
   // Parse MCP server name from tool name (format: "server_name:tool_name")
@@ -129,8 +124,14 @@ export function ToolCallItem({
         variant="tool"
         expandable={canExpand}
         onPanelOpen={() => {
-          closeCurrentToolPanel();
-          setPanelOpen(true);
+          if (!canExpand) return;
+          openPersistentToolPanel({
+            title: formattedToolName,
+            icon: isMcpTool ? <Globe size={16} /> : <Wrench size={16} />,
+            status,
+            subtitle: serverName || undefined,
+            children: panelContent,
+          });
         }}
       >
         {canExpand && (
@@ -164,18 +165,6 @@ export function ToolCallItem({
           </div>
         )}
       </CollapsiblePill>
-      {canExpand && (
-        <ToolResultPanel
-          open={panelOpen}
-          onClose={() => setPanelOpen(false)}
-          title={formattedToolName}
-          icon={isMcpTool ? <Globe size={16} /> : <Wrench size={16} />}
-          status={status}
-          subtitle={serverName || undefined}
-        >
-          {panelContent}
-        </ToolResultPanel>
-      )}
     </>
   );
 }

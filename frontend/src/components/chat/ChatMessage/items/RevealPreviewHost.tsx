@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Code2, Download, Maximize, Minimize } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import DocumentPreview from "../../../documents/DocumentPreview";
@@ -20,30 +20,43 @@ import {
   getCachedProjectRevealFiles,
   loadProjectRevealFilesCached,
 } from "./revealPreviewData";
+import {
+  EMPTY_BINARY_FILES,
+  areStringRecordMapsEqual,
+  normalizeProjectRevealBinaryFiles,
+  shouldReplaceProjectRevealFiles,
+} from "./projectRevealState";
 
 function ProjectRevealPreviewPanel({
   project,
   openInFullscreen = false,
   onClose,
+  onUserInteraction,
 }: {
   project: ParsedProjectRevealData;
   openInFullscreen?: boolean;
   onClose: () => void;
+  onUserInteraction?: () => void;
 }) {
   const { t } = useTranslation();
   const [viewMode, setViewMode] = useState<"center" | "sidebar">("sidebar");
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 640);
   const [isBrowserFullscreen, setIsBrowserFullscreen] = useState(false);
   const panelElementRef = useRef<HTMLDivElement | null>(null);
-  const cached =
-    project.version === 2
-      ? getCachedProjectRevealFiles(project.path || project.name)
-      : null;
+  const cacheKey = useMemo(
+    () => project.path || project.name,
+    [project.name, project.path],
+  );
+  const cached = useMemo(
+    () =>
+      project.version === 2 ? getCachedProjectRevealFiles(cacheKey) : null,
+    [cacheKey, project.version],
+  );
   const [loadedFiles, setLoadedFiles] = useState<Record<string, string> | null>(
     project.version === 1 ? project.files : cached?.files || null,
   );
   const [binaryFiles, setBinaryFiles] = useState<Record<string, string>>(
-    cached?.binaryFiles || {},
+    normalizeProjectRevealBinaryFiles(cached?.binaryFiles),
   );
   const [loadingError, setLoadingError] = useState(false);
 
@@ -57,7 +70,7 @@ function ProjectRevealPreviewPanel({
 
   useEffect(() => {
     setViewMode("sidebar");
-  }, [project]);
+  }, [cacheKey]);
 
   useEffect(() => {
     const syncFullscreenState = () => {
@@ -75,17 +88,41 @@ function ProjectRevealPreviewPanel({
   }, []);
 
   useEffect(() => {
-    if (project.version !== 2) return;
+    if (project.version !== 2) {
+      setLoadedFiles((current) =>
+        shouldReplaceProjectRevealFiles(current, project.files)
+          ? project.files
+          : current,
+      );
+      setBinaryFiles((current) =>
+        areStringRecordMapsEqual(current, EMPTY_BINARY_FILES)
+          ? current
+          : EMPTY_BINARY_FILES,
+      );
+      setLoadingError((current) => (current ? false : current));
+      return;
+    }
 
     let cancelled = false;
-    const cacheKey = project.path || project.name;
     const nextCached = getCachedProjectRevealFiles(cacheKey);
-    setLoadedFiles(nextCached?.files || null);
-    setBinaryFiles(nextCached?.binaryFiles || {});
-    setLoadingError(false);
+    const nextLoadedFiles = nextCached?.files || null;
+    const nextBinaryFiles = normalizeProjectRevealBinaryFiles(
+      nextCached?.binaryFiles,
+    );
+    setLoadedFiles((current) =>
+      shouldReplaceProjectRevealFiles(current, nextLoadedFiles)
+        ? nextLoadedFiles
+        : current,
+    );
+    setBinaryFiles((current) =>
+      areStringRecordMapsEqual(current, nextBinaryFiles)
+        ? current
+        : nextBinaryFiles,
+    );
+    setLoadingError((current) => (current ? false : current));
 
     if (!cacheKey) {
-      setLoadingError(true);
+      setLoadingError((current) => (current ? current : true));
       return;
     }
 
@@ -93,35 +130,43 @@ function ProjectRevealPreviewPanel({
       previewKey: cacheKey,
       project,
     })
-      .then(({ files, binaryFiles: nextBinaryFiles, failed }) => {
+      .then(({ files, binaryFiles: loadedBinaryFiles, failed }) => {
         if (cancelled) return;
-        setBinaryFiles(nextBinaryFiles);
-        setLoadedFiles(files);
+        const nextBinaryFiles =
+          normalizeProjectRevealBinaryFiles(loadedBinaryFiles);
+        setBinaryFiles((current) =>
+          areStringRecordMapsEqual(current, nextBinaryFiles)
+            ? current
+            : nextBinaryFiles,
+        );
+        setLoadedFiles((current) =>
+          shouldReplaceProjectRevealFiles(current, files) ? files : current,
+        );
         if (failed.length > 0) {
           console.warn(
             `[reveal_project] ${failed.length} files failed to load:`,
             failed,
           );
         }
-        if (
+        const nextLoadingError =
           Object.keys(files).length === 0 &&
-          Object.keys(project.files).length
-        ) {
-          setLoadingError(true);
-        }
+          Object.keys(project.files).length > 0;
+        setLoadingError((current) =>
+          current === nextLoadingError ? current : nextLoadingError,
+        );
       })
       .catch(() => {
         if (!cancelled) {
-          setLoadingError(true);
+          setLoadingError((current) => (current ? current : true));
         }
       });
 
     return () => {
       cancelled = true;
     };
-  }, [project]);
+  }, [cacheKey, project]);
 
-  const enterBrowserFullscreen = async () => {
+  const enterBrowserFullscreen = useCallback(async () => {
     const fullscreenEntered = await requestProjectPreviewFullscreen({
       element: panelElementRef.current,
     });
@@ -133,16 +178,16 @@ function ProjectRevealPreviewPanel({
     }
 
     return fullscreenEntered;
-  };
+  }, [isMobile]);
 
-  const exitBrowserFullscreen = async () => {
+  const exitBrowserFullscreen = useCallback(async () => {
     await exitProjectPreviewFullscreen();
-  };
+  }, []);
 
   useEffect(() => {
     if (!openInFullscreen) return;
     void enterBrowserFullscreen();
-  }, [openInFullscreen, project]);
+  }, [openInFullscreen, cacheKey, enterBrowserFullscreen]);
 
   const filesForPreview = loadedFiles || {};
 
@@ -160,10 +205,12 @@ function ProjectRevealPreviewPanel({
       })}`}
       viewMode={isMobile ? "center" : viewMode}
       panelElementRef={panelElementRef}
+      onUserInteraction={onUserInteraction}
       headerActions={
         <>
           <button
             onClick={() => {
+              onUserInteraction?.();
               if (isBrowserFullscreen) {
                 void exitBrowserFullscreen();
                 return;
@@ -236,9 +283,11 @@ function ProjectRevealPreviewPanel({
 export function RevealPreviewHost({
   preview,
   onClose,
+  onUserInteraction,
 }: {
   preview: RevealPreviewRequest | null;
   onClose: () => void;
+  onUserInteraction?: () => void;
 }) {
   if (!preview) {
     return null;
@@ -252,6 +301,7 @@ export function RevealPreviewHost({
         signedUrl={preview.signedUrl}
         fileSize={preview.fileSize}
         onClose={onClose}
+        onUserInteraction={onUserInteraction}
       />
     );
   }
@@ -261,6 +311,7 @@ export function RevealPreviewHost({
       project={preview.project}
       openInFullscreen={preview.openInFullscreen}
       onClose={onClose}
+      onUserInteraction={onUserInteraction}
     />
   );
 }
