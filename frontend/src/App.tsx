@@ -3,10 +3,9 @@ import { Routes, Route, useParams, useNavigate } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 import { ProtectedRoute } from "./components/auth/ProtectedRoute";
-import { FilesPageSkeleton } from "./components/skeletons";
+import { ChatPageSkeleton, FilesPageSkeleton } from "./components/skeletons";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { ErrorBoundary } from "./components/common/ErrorBoundary";
-import { RouteLoadingShell } from "./components/common/RouteLoadingShell";
 import { usePageTitle } from "./hooks/usePageTitle";
 import { Permission } from "./types";
 import { sessionApi } from "./services/api";
@@ -214,7 +213,7 @@ function App() {
             },
           }}
         />
-        <Suspense fallback={<RouteLoadingShell />}>
+        <Suspense fallback={<ChatPageSkeleton />}>
           <Routes>
             <Route path="/" element={<LandingPage />} />
             {/* Auth routes */}
