@@ -196,6 +196,8 @@ class Settings(BaseSettings):
     )
     DEFAULT_USER_ROLE: str = "user"
     ENABLE_REGISTRATION: bool = True
+    ADMIN_CONTACT_EMAIL: str = ""
+    ADMIN_CONTACT_URL: str = ""
 
     # OAuth Settings
     OAUTH_GOOGLE_ENABLED: bool = False

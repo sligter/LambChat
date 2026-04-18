@@ -11,7 +11,9 @@
     "upToDate": "You're up to date!",
     "updateAvailable": "New version available!",
     "viewOnGitHub": "View on GitHub",
-    "viewUpdate": "Update"
+    "viewUpdate": "Update",
+    "contactTitle": "Contact Administrator",
+    "contactSupport": "Support Page"
   },
   "adminMarketplace": {
     "confirmDelete": "Delete Skill \"{{name}}\"?",
@@ -1081,6 +1083,7 @@
     "deleteConfirm": "Are you sure you want to delete this notification?",
     "deletedSuccess": "Notification deleted successfully",
     "dismissedSuccess": "Notification dismissed",
+    "dismiss": "Dismiss",
     "edit": "Edit Notification",
     "endTime": "End Time",
     "expired": "Expired",

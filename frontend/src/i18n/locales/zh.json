@@ -11,7 +11,9 @@
     "upToDate": "已是最新版本！",
     "updateAvailable": "发现新版本！",
     "viewOnGitHub": "在 GitHub 上查看",
-    "viewUpdate": "更新"
+    "viewUpdate": "更新",
+    "contactTitle": "联系管理员",
+    "contactSupport": "支持页面"
   },
   "adminMarketplace": {
     "confirmDelete": "删除技能「{{name}}」？",
@@ -1082,6 +1084,7 @@
     "deleteConfirm": "确定要删除此通知吗？",
     "deletedSuccess": "通知删除成功",
     "dismissedSuccess": "通知已关闭",
+    "dismiss": "关闭",
     "edit": "编辑通知",
     "endTime": "结束时间",
     "expired": "已过期",

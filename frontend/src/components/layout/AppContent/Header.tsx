@@ -1,14 +1,27 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { createPortal } from "react-dom";
-import { Share2, MoreHorizontal, Plus } from "lucide-react";
+import {
+  Share2,
+  MoreHorizontal,
+  Plus,
+  Bell,
+  Languages,
+  Sun,
+  Moon,
+  Check,
+} from "lucide-react";
 import { ModelSelector } from "../../agent/ModelSelector";
 import { LanguageToggle } from "../../common/LanguageToggle";
 import { ThemeToggle } from "../../common/ThemeToggle";
 import { UserMenu } from "../UserMenu";
 import { ShareDialog } from "../../share/ShareDialog";
 import { useAuth } from "../../../hooks/useAuth";
+import { useTheme } from "../../../contexts/ThemeContext";
+import { authApi } from "../../../services/api";
+import { notificationApi } from "../../../services/api/notification";
+import { NotificationDialog } from "../../notification/NotificationDialog";
 import { Permission } from "../../../types";
 import type { TabType } from "./types";
 import type { Project } from "../../../types";
@@ -52,11 +65,25 @@ export function Header({
   sessionId,
   sessionName,
 }: HeaderProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [langMenuOpen, setLangMenuOpen] = useState(false);
+  const [notifDialogOpen, setNotifDialogOpen] = useState(false);
+  const [activeNotifCount, setActiveNotifCount] = useState(0);
+
+  const refreshNotifCount = useCallback(() => {
+    notificationApi
+      .getActive()
+      .then((items) => setActiveNotifCount(items.length));
+  }, []);
+
+  useEffect(() => {
+    refreshNotifCount();
+  }, [refreshNotifCount]);
   const mobileMenuBtnRef = useRef<HTMLButtonElement>(null);
   const mobileMenuPanelRef = useRef<HTMLDivElement>(null);
 
@@ -204,7 +231,7 @@ export function Header({
         <div className="flex-1" />
 
         {/* Right */}
-        <div className="flex items-center gap-1.5 flex-shrink-0">
+        <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
           {activeTab === "chat" && sidebarCollapsed && (
             <button
               onClick={onNewSession}
@@ -224,68 +251,155 @@ export function Header({
             </button>
           )}
 
-          {/* Mobile overflow menu — only show when there are items */}
-          {(activeTab === "chat" && sidebarCollapsed) || showShareButton ? (
-            <div className="relative sm:hidden">
-              <button
-                ref={mobileMenuBtnRef}
-                onClick={() => setMobileMenuOpen((v) => !v)}
-                className="flex h-8 w-8 items-center justify-center rounded-lg text-stone-600 hover:bg-stone-100 dark:text-stone-300 dark:hover:bg-stone-800 transition-colors"
-                title={t("common.menu")}
-              >
-                <MoreHorizontal size={18} />
-              </button>
-              {mobileMenuOpen &&
-                createPortal(
-                  <>
-                    <div
-                      className="fixed inset-0 z-[300] bg-black/50 animate-fade-in"
-                      onClick={() => setMobileMenuOpen(false)}
-                    />
-                    <div
-                      ref={mobileMenuPanelRef}
-                      className="fixed z-[301] right-3 top-[52px] w-44 rounded-xl shadow-xl border overflow-hidden animate-scale-in"
-                      style={{
-                        backgroundColor: "var(--theme-bg-card)",
-                        borderColor: "var(--theme-border)",
+          {/* Mobile overflow menu */}
+          <div className="relative sm:hidden">
+            <button
+              ref={mobileMenuBtnRef}
+              onClick={() => setMobileMenuOpen((v) => !v)}
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-stone-600 hover:bg-stone-100 dark:text-stone-300 dark:hover:bg-stone-800 transition-colors"
+              title={t("common.menu")}
+            >
+              <MoreHorizontal size={18} />
+            </button>
+            {mobileMenuOpen &&
+              createPortal(
+                <div
+                  ref={mobileMenuPanelRef}
+                  className="fixed z-[301] right-3 top-[52px] w-56 rounded-xl shadow-xl border overflow-hidden animate-scale-in"
+                  style={{
+                    backgroundColor: "var(--theme-bg-card)",
+                    borderColor: "var(--theme-border)",
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="py-1">
+                    {activeTab === "chat" && (
+                      <button
+                        onClick={() => {
+                          onNewSession();
+                          setMobileMenuOpen(false);
+                        }}
+                        className="flex w-full items-center gap-3 px-3 py-2.5 text-left text-sm transition-colors text-[var(--theme-text-secondary)] hover:text-[var(--theme-text)] hover:bg-[var(--theme-primary-light)]"
+                      >
+                        <Plus size={16} className="shrink-0" />
+                        <span className="truncate">{t("sidebar.newChat")}</span>
+                      </button>
+                    )}
+                    {showShareButton && (
+                      <button
+                        onClick={() => {
+                          setShareDialogOpen(true);
+                          setMobileMenuOpen(false);
+                        }}
+                        className="flex w-full items-center gap-3 px-3 py-2.5 text-left text-sm transition-colors text-[var(--theme-text-secondary)] hover:text-[var(--theme-text)] hover:bg-[var(--theme-primary-light)]"
+                      >
+                        <Share2
+                          size={16}
+                          strokeWidth={1.8}
+                          className="shrink-0"
+                        />
+                        <span className="truncate">{t("share.title")}</span>
+                      </button>
+                    )}
+                    <button
+                      onClick={() => {
+                        setNotifDialogOpen(true);
+                        setMobileMenuOpen(false);
                       }}
-                      onClick={(e) => e.stopPropagation()}
+                      className="flex w-full items-center gap-3 px-3 py-2.5 text-left text-sm transition-colors text-[var(--theme-text-secondary)] hover:text-[var(--theme-text)] hover:bg-[var(--theme-primary-light)]"
                     >
-                      <div className="py-1">
-                        {activeTab === "chat" && (
+                      <Bell size={16} className="shrink-0" />
+                      <span className="truncate">{t("nav.notifications")}</span>
+                      {activeNotifCount > 0 && (
+                        <span className="ml-auto flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white leading-none">
+                          {activeNotifCount > 99 ? "99+" : activeNotifCount}
+                        </span>
+                      )}
+                    </button>
+                    <button
+                      onClick={() => {
+                        toggleTheme();
+                        setMobileMenuOpen(false);
+                      }}
+                      className="flex w-full items-center gap-3 px-3 py-2.5 text-left text-sm transition-colors text-[var(--theme-text-secondary)] hover:text-[var(--theme-text)] hover:bg-[var(--theme-primary-light)]"
+                    >
+                      {theme === "light" ? (
+                        <>
+                          <Moon size={16} className="shrink-0" />
+                          <span className="truncate">
+                            {t("theme.switchToDark")}
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <Sun size={16} className="shrink-0" />
+                          <span className="truncate">
+                            {t("theme.switchToLight")}
+                          </span>
+                        </>
+                      )}
+                    </button>
+                    <button
+                      onClick={() => setLangMenuOpen((v) => !v)}
+                      className="flex w-full items-center gap-3 px-3 py-2.5 text-left text-sm transition-colors text-[var(--theme-text-secondary)] hover:text-[var(--theme-text)] hover:bg-[var(--theme-primary-light)]"
+                    >
+                      <Languages size={16} className="shrink-0" />
+                      <span className="truncate">{t("common.language")}</span>
+                    </button>
+                    {langMenuOpen && (
+                      <div className="px-2 pb-1 space-y-0.5">
+                        {[
+                          { code: "en", name: "English" },
+                          { code: "zh", name: "中文" },
+                          { code: "ja", name: "日本語" },
+                          { code: "ko", name: "한국어" },
+                          { code: "ru", name: "Русский" },
+                        ].map((lang) => (
                           <button
+                            key={lang.code}
                             onClick={() => {
-                              onNewSession();
+                              i18n.changeLanguage(lang.code);
+                              localStorage.setItem("language", lang.code);
+                              authApi
+                                .updateMetadata({ language: lang.code })
+                                .catch(() => {});
+                              setLangMenuOpen(false);
                               setMobileMenuOpen(false);
                             }}
-                            className="flex w-full items-center gap-3 px-3 py-2.5 text-left text-sm transition-colors text-[var(--theme-text-secondary)] hover:text-[var(--theme-text)] hover:bg-[var(--theme-primary-light)]"
+                            className={`flex w-full items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
+                              i18n.language === lang.code
+                                ? "text-[var(--theme-text)] bg-[var(--theme-primary-light)]"
+                                : "text-[var(--theme-text-secondary)] hover:text-[var(--theme-text)] hover:bg-[var(--theme-primary-light)]"
+                            }`}
                           >
-                            <Plus size={16} />
-                            <span>{t("sidebar.newChat")}</span>
+                            <span>{lang.name}</span>
+                            {i18n.language === lang.code && (
+                              <Check size={14} className="ml-auto" />
+                            )}
                           </button>
-                        )}
-                        {showShareButton && (
-                          <button
-                            onClick={() => {
-                              setShareDialogOpen(true);
-                              setMobileMenuOpen(false);
-                            }}
-                            className="flex w-full items-center gap-3 px-3 py-2.5 text-left text-sm transition-colors text-[var(--theme-text-secondary)] hover:text-[var(--theme-text)] hover:bg-[var(--theme-primary-light)]"
-                          >
-                            <Share2 size={16} strokeWidth={1.8} />
-                            <span>{t("share.title")}</span>
-                          </button>
-                        )}
+                        ))}
                       </div>
-                    </div>
-                  </>,
-                  document.body,
-                )}
-            </div>
-          ) : null}
+                    )}
+                  </div>
+                </div>,
+                document.body,
+              )}
+          </div>
 
-          <LanguageToggle />
-          <ThemeToggle />
+          <LanguageToggle className="hidden sm:flex h-8 w-8 items-center justify-center rounded-lg text-stone-600 hover:bg-stone-100 dark:text-stone-300 dark:hover:bg-stone-800 transition-colors" />
+          <ThemeToggle className="hidden sm:flex h-8 w-8 items-center justify-center rounded-lg text-stone-600 hover:bg-stone-100 dark:text-stone-300 dark:hover:bg-stone-800 transition-colors" />
+          <button
+            onClick={() => setNotifDialogOpen(true)}
+            className="relative hidden sm:flex h-8 w-8 items-center justify-center rounded-lg text-stone-600 hover:bg-stone-100 dark:text-stone-300 dark:hover:bg-stone-800 transition-colors"
+            title={t("nav.notifications")}
+          >
+            <Bell size={18} />
+            {activeNotifCount > 0 && (
+              <span className="absolute -top-1 -right-1 flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white leading-none">
+                {activeNotifCount > 99 ? "99+" : activeNotifCount}
+              </span>
+            )}
+          </button>
           <UserMenu onShowProfile={onShowProfile} />
         </div>
       </header>
@@ -298,6 +412,12 @@ export function Header({
           sessionName={sessionName || t("sidebar.newChat")}
         />
       )}
+
+      <NotificationDialog
+        isOpen={notifDialogOpen}
+        onClose={() => setNotifDialogOpen(false)}
+        onDismissed={refreshNotifCount}
+      />
     </>
   );
 }

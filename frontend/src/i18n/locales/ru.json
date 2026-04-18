@@ -11,7 +11,9 @@
     "upToDate": "У вас последняя версия!",
     "updateAvailable": "Доступна новая версия!",
     "viewOnGitHub": "Смотреть на GitHub",
-    "viewUpdate": "Обновить"
+    "viewUpdate": "Обновить",
+    "contactTitle": "Связаться с администратором",
+    "contactSupport": "Страница поддержки"
   },
   "adminMarketplace": {
     "confirmDelete": "Удалить навык \"{{name}}\"?",
@@ -1085,6 +1087,7 @@
     "deleteConfirm": "Вы уверены, что хотите удалить это уведомление?",
     "deletedSuccess": "Уведомление удалено",
     "dismissedSuccess": "Уведомление закрыто",
+    "dismiss": "Закрыть",
     "edit": "Редактировать уведомление",
     "endTime": "Время окончания",
     "expired": "Истекло",

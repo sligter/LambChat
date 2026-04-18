@@ -11,7 +11,9 @@
     "upToDate": "최신 버전입니다!",
     "updateAvailable": "새 버전이 사용 가능합니다!",
     "viewOnGitHub": "GitHub에서 보기",
-    "viewUpdate": "업데이트"
+    "viewUpdate": "업데이트",
+    "contactTitle": "관리자에게 문의",
+    "contactSupport": "지원 페이지"
   },
   "adminMarketplace": {
     "confirmDelete": "스킬 \"{{name}}\"을(를) 삭제하시겠습니까?",
@@ -1083,6 +1085,7 @@
     "deleteConfirm": "이 알림을 삭제하시겠습니까?",
     "deletedSuccess": "알림이 삭제되었습니다",
     "dismissedSuccess": "알림이 닫혔습니다",
+    "dismiss": "닫기",
     "edit": "알림 수정",
     "endTime": "종료 시간",
     "expired": "만료됨",

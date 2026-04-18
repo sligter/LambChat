@@ -2,7 +2,6 @@ import { memo, useState, useCallback, useRef } from "react";
 import { toast } from "react-hot-toast";
 import { RefreshCw, Sparkles } from "lucide-react";
 import { ChatInput } from "./ChatInput";
-import { NotificationBanner } from "../notification/NotificationBanner";
 import type { ChatInputProps } from "./ChatInput";
 
 export interface Suggestion {
@@ -82,7 +81,6 @@ export const WelcomePage = memo(function WelcomePage({
           />
           {greeting}
         </h1>
-        <NotificationBanner />
         {/* Subtle subtitle prompt */}
         <p
           className="welcome-subtitle mt-2 sm:mt-3 text-sm sm:text-base text-center"
