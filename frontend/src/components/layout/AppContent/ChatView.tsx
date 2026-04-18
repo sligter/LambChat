@@ -31,6 +31,7 @@ import type {
 import type { RevealPreviewRequest } from "../../chat/ChatMessage/items/revealPreviewData";
 import { clearFileRevealAutoOpenState } from "../../chat/ChatMessage/items/fileRevealAutoOpen";
 import { clearProjectRevealAutoOpenState } from "../../chat/ChatMessage/items/projectRevealAutoOpen";
+import { NotificationBanner } from "../../notification/NotificationBanner";
 import { getLatestAutoPreviewTarget } from "../../chat/ChatMessage/autoPreviewEligibility";
 import {
   createActiveRevealPreviewState,
@@ -376,6 +377,7 @@ export function ChatView({
 
   return (
     <>
+      <NotificationBanner />
       <main
         ref={messagesContainerRef}
         className={`relative flex-1 min-h-0 pt-6 ${
