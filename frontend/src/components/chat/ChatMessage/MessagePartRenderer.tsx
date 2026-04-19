@@ -17,6 +17,7 @@ import {
 } from "./ToolCallItem";
 import { ThinkingBlock, SubagentBlock, SandboxItem } from "./SubagentBlocks";
 import { TodoBlock } from "./TodoBlock";
+import { SummaryItem } from "./SummaryItem";
 import type { RevealPreviewRequest } from "./items/revealPreviewData";
 import type { RevealPreviewOpenSource } from "./items/revealPreviewState";
 
@@ -225,7 +226,20 @@ export function MessagePartRenderer({
     );
   }
 
-  // Cancelled block
+  // Summary block
+  if (part.type === "summary") {
+    const panelKey = `summary:${part.agent_id || "root"}:${part.depth || 0}:${
+      part.summary_id || "default"
+    }`;
+    return (
+      <SummaryItem
+        content={part.content}
+        isStreaming={isStreaming && isLast && part.isStreaming}
+        panelKey={panelKey}
+      />
+    );
+  }
+
   if (part.type === "cancelled") {
     return (
       <div

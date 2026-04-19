@@ -16,6 +16,7 @@ export type EventType =
   | "tool:start"
   | "tool:result"
   | "todo:updated"
+  | "summary"
   | "agent:call"
   | "agent:result"
   | "approval_required"
@@ -95,6 +96,8 @@ export interface EventData {
     status: "pending" | "in_progress" | "completed";
   }>;
   updated_index?: number;
+  // summary event fields
+  summary_id?: string;
 }
 
 export interface UseAgentOptions {

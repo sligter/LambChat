@@ -63,17 +63,17 @@ const statusConfig: Record<
   success: {
     bg: "bg-emerald-100/80 dark:bg-emerald-900/30",
     color: "text-emerald-600 dark:text-emerald-400",
-    icon: <CheckCircle size={14} />,
+    icon: <CheckCircle size={16} />,
   },
   error: {
     bg: "bg-red-100/80 dark:bg-red-900/30",
     color: "text-red-600 dark:text-red-400",
-    icon: <XCircle size={14} />,
+    icon: <XCircle size={16} />,
   },
   cancelled: {
     bg: "bg-amber-100/80 dark:bg-amber-900/30",
     color: "text-amber-600 dark:text-amber-400",
-    icon: <Ban size={14} />,
+    icon: <Ban size={16} />,
   },
 };
 
@@ -393,13 +393,13 @@ export function ToolResultPanel({
             <div className="flex items-center gap-2 sm:gap-3 px-2 sm:px-4 py-2 sm:py-3 border-b border-stone-200 dark:border-stone-700 shrink-0 whitespace-nowrap">
               {/* Status + Icon */}
               <div
-                className={`flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-xl shrink-0 ${cfg.bg}`}
+                className={`flex items-center justify-center size-10 rounded-xl shrink-0 ${cfg.bg}`}
               >
                 {status === "loading" ? (
                   <LoadingSpinner
-                    size="xs"
+                    size="sm"
                     className="shrink-0"
-                    color="text-blue-600 dark:text-blue-400"
+                    color={cfg.color || "text-blue-600 dark:text-blue-400"}
                   />
                 ) : (
                   <span
@@ -437,7 +437,7 @@ export function ToolResultPanel({
                   e.stopPropagation();
                   onClose();
                 }}
-                className="flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-lg hover:bg-stone-100 dark:hover:bg-stone-800 active:bg-stone-200 dark:active:bg-stone-700 text-stone-500 dark:text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 transition-colors duration-150 active:scale-95 cursor-pointer shrink-0"
+                className="flex items-center justify-center size-10 rounded-lg hover:bg-stone-100 dark:hover:bg-stone-800 active:bg-stone-200 dark:active:bg-stone-700 text-stone-500 dark:text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 transition-colors duration-150 active:scale-95 cursor-pointer shrink-0"
                 aria-label="Close"
               >
                 <X size={16} className="sm:w-[18px] sm:h-[18px]" />

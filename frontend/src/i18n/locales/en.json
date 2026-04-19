@@ -370,6 +370,8 @@
       "args": "Args",
       "assistant": "Assistant",
       "cancelled": "Generation cancelled",
+      "summary": "Summary",
+      "openInSidebar": "Open in sidebar",
       "collapse": "Collapse",
       "complete": "complete",
       "copied": "Copied!",

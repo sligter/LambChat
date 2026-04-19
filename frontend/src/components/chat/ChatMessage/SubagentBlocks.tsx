@@ -11,6 +11,7 @@ import {
   Box,
   Clock,
   Loader2,
+  PanelRight,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { LoadingSpinner, CollapsiblePill } from "../../common";
@@ -18,6 +19,7 @@ import type { CollapsibleStatus } from "../../common";
 import type { MessagePart } from "../../../types";
 import { MarkdownContent } from "./MarkdownContent";
 import { MessagePartRenderer } from "./MessagePartRenderer";
+import { openPersistentToolPanel } from "./items/persistentToolPanelState";
 
 /**
  * Calculate elapsed time between start and end (precise to milliseconds)
@@ -190,6 +192,80 @@ export function SubagentBlock({
     }
   }, [isPending]);
 
+  // Map effectiveStatus to CollapsibleStatus for the sidebar panel
+  const panelStatus: CollapsibleStatus =
+    effectiveStatus === "running"
+      ? "loading"
+      : effectiveStatus === "complete"
+        ? "success"
+        : effectiveStatus === "error"
+          ? "error"
+          : effectiveStatus === "cancelled"
+            ? "cancelled"
+            : "idle";
+
+  const handleOpenInPanel = () => {
+    if (!hasContent) return;
+    openPersistentToolPanel({
+      title: formattedAgentName,
+      icon: <Users size={16} />,
+      status: panelStatus,
+      subtitle: elapsed || undefined,
+      children: (
+        <div className="space-y-3 max-h-[80vh] overflow-y-auto p-1">
+          {input && (
+            <div className="p-3 sm:p-4 rounded-lg bg-stone-50 dark:bg-stone-800/50">
+              <div className="text-xs uppercase tracking-wider text-stone-400 dark:text-stone-500 mb-2 font-medium">
+                {t("chat.message.args")}
+              </div>
+              <div className="text-sm text-stone-600 dark:text-stone-300 leading-relaxed">
+                <MarkdownContent content={input} />
+              </div>
+            </div>
+          )}
+          {parts && parts.length > 0 && (
+            <div className="space-y-2 pl-3 border-l-2 border-stone-200 dark:border-stone-700">
+              {parts.map((part, index) => (
+                <MessagePartRenderer
+                  key={index}
+                  part={part}
+                  isStreaming={isPending}
+                  isLast={index === parts.length - 1}
+                />
+              ))}
+            </div>
+          )}
+          {error && effectiveStatus === "error" && (
+            <div className="p-3 sm:p-4 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900/50">
+              <div className="text-xs text-red-600 dark:text-red-400 font-medium mb-1">
+                {t("chat.message.error")}
+              </div>
+              <div className="text-xs text-red-700 dark:text-red-300 leading-relaxed">
+                {error}
+              </div>
+            </div>
+          )}
+          {result && effectiveStatus === "complete" && (
+            <div className="p-3 sm:p-4 rounded-lg bg-stone-50 dark:bg-stone-800/50">
+              <div className="text-xs uppercase tracking-wider text-stone-400 dark:text-stone-500 mb-2 font-medium">
+                {t("chat.message.result")}
+              </div>
+              <div className="text-sm text-stone-700 dark:text-stone-300 leading-relaxed">
+                <MarkdownContent content={result} />
+              </div>
+            </div>
+          )}
+          {isPending && !parts?.length && (
+            <div className="flex items-center gap-2 text-stone-500 dark:text-stone-400">
+              <LoadingSpinner size="sm" />
+              <span className="text-sm">{t("chat.message.executing")}</span>
+            </div>
+          )}
+        </div>
+      ),
+    });
+  };
+
   return (
     <div
       className={clsx(
@@ -263,6 +339,26 @@ export function SubagentBlock({
             <Clock size={12} />
             <span>{elapsed}</span>
           </div>
+        )}
+
+        {/* Sidebar panel button */}
+        {hasContent && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleOpenInPanel();
+            }}
+            className={clsx(
+              "flex items-center justify-center w-7 h-7 rounded-lg",
+              "hover:bg-stone-200 dark:hover:bg-stone-700",
+              "text-stone-400 dark:text-stone-500 hover:text-stone-600 dark:hover:text-stone-300",
+              "transition-colors cursor-pointer",
+            )}
+            title={t("chat.message.openInSidebar")}
+          >
+            <PanelRight size={14} />
+          </button>
         )}
 
         {/* Expand button */}

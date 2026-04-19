@@ -245,7 +245,7 @@ async def fast_agent_node(state: Dict[str, Any], config: RunnableConfig) -> Dict
     ):
         await event_processor.process_event(event)
     # Flush any remaining buffered chunks
-    await event_processor._flush_chunk_buffer()
+    await event_processor.flush()
     logger.info("[FastAgent] astream_events completed")
 
     if settings.ENABLE_MEMORY and settings.MEMORY_PERFORM == "native" and context.user_id:
@@ -282,7 +282,10 @@ async def fast_agent_node(state: Dict[str, Any], config: RunnableConfig) -> Dict
         except Exception:
             pass
 
+    output_text = event_processor.output_text
+    event_processor.clear()
+
     return {
-        "output": event_processor.output_text,
+        "output": output_text,
         "messages": final_messages,
     }

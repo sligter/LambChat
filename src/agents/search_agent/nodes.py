@@ -256,7 +256,7 @@ async def agent_node(state: Dict[str, Any], config: RunnableConfig) -> Dict[str,
     ):
         await event_processor.process_event(event)
     # Flush any remaining buffered chunks
-    await event_processor._flush_chunk_buffer()
+    await event_processor.flush()
 
     if settings.ENABLE_MEMORY and settings.MEMORY_PERFORM == "native" and context.user_id:
         from src.infra.memory.tools import schedule_auto_memory_capture
@@ -289,8 +289,11 @@ async def agent_node(state: Dict[str, Any], config: RunnableConfig) -> Dict[str,
         except Exception:
             pass  # 非关键路径，失败静默
 
+    output_text = event_processor.output_text
+    event_processor.clear()
+
     return {
-        "output": event_processor.output_text,
+        "output": output_text,
         "messages": final_messages,
     }
 

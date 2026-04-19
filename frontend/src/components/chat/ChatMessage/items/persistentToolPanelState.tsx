@@ -9,6 +9,7 @@ export interface PersistentToolPanelState {
   title: string;
   status: CollapsibleStatus;
   children: ReactNode;
+  panelKey?: string;
   icon?: ReactNode;
   subtitle?: string;
   viewMode?: "sidebar" | "center";
@@ -22,6 +23,7 @@ export interface PersistentToolPanelState {
 
 const listeners = new Set<() => void>();
 let currentPanel: PersistentToolPanelState | null = null;
+let panelOpen = false;
 
 function emit() {
   listeners.forEach((listener) => listener());
@@ -31,15 +33,32 @@ export function getPersistentToolPanelState(): PersistentToolPanelState | null {
   return currentPanel;
 }
 
+export function isPersistentToolPanelOpen(panelKey?: string): boolean {
+  if (!panelKey) return panelOpen;
+  return !!currentPanel && currentPanel.panelKey === panelKey;
+}
+
 export function openPersistentToolPanel(panel: PersistentToolPanelState): void {
   closeCurrentToolPanel();
   currentPanel = panel;
+  panelOpen = true;
+  emit();
+}
+
+export function updatePersistentToolPanel(
+  updater: (prev: PersistentToolPanelState) => PersistentToolPanelState,
+  panelKey?: string,
+): void {
+  if (!currentPanel) return;
+  if (panelKey && currentPanel.panelKey !== panelKey) return;
+  currentPanel = updater(currentPanel);
   emit();
 }
 
 export function closePersistentToolPanel(): void {
   if (!currentPanel) return;
   currentPanel = null;
+  panelOpen = false;
   emit();
 }
 

@@ -370,6 +370,8 @@
       "args": "参数",
       "assistant": "Assistant",
       "cancelled": "生成已取消",
+      "summary": "总结",
+      "openInSidebar": "在侧栏中打开",
       "collapse": "收起",
       "complete": "完成",
       "copied": "已复制!",

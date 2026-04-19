@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 _CHARS_PER_TOKEN = 4
 
 # Maximum uncompressed activity log size in tokens
-_DEFAULT_ACTIVITY_TOKEN_LIMIT = 6000
+_DEFAULT_ACTIVITY_TOKEN_LIMIT = 50000
 
 # Keep the most recent N entries as full text during compression
 _DEFAULT_KEEP_RECENT = 5

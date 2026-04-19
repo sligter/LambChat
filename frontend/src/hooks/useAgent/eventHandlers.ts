@@ -187,6 +187,7 @@ export function handleStreamEvent(
     "sandbox:error",
     "token:usage",
     "todo:updated",
+    "summary",
     "error",
   ]);
   if (!MESSAGE_EVENTS.has(eventType)) {

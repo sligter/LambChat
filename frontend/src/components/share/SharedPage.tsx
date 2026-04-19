@@ -25,6 +25,7 @@ import { shareApi } from "../../services/api/share";
 import type { SharedContentResponse } from "../../types";
 import { ChatMessage } from "../chat/ChatMessage";
 import { RevealPreviewHost } from "../chat/ChatMessage/items/RevealPreviewHost";
+import { PersistentToolPanelHost } from "../chat/ChatMessage/items/persistentToolPanelState";
 import type { RevealPreviewRequest } from "../chat/ChatMessage/items/revealPreviewData";
 import { getLatestAutoPreviewTarget } from "../chat/ChatMessage/autoPreviewEligibility";
 import {
@@ -36,7 +37,7 @@ import {
 } from "../chat/ChatMessage/items/revealPreviewState";
 import { reconstructMessagesFromEvents } from "../../hooks/useAgent/historyLoader";
 import { APP_NAME, GITHUB_URL } from "../../constants";
-import { getModelIconUrl } from "../agent/modelIcon";
+import { getModelIconUrl, isMonochromeIcon } from "../agent/modelIcon";
 import { ScrollButtons } from "../landing/components/ScrollButtons";
 
 const LANGUAGES = [
@@ -629,11 +630,17 @@ export function SharedPage() {
                           | string
                           | undefined,
                       );
+                      const mono = isMonochromeIcon(
+                        data.session.model,
+                        (data.session as Record<string, unknown>).provider as
+                          | string
+                          | undefined,
+                      );
                       return iconUrl ? (
                         <img
                           src={iconUrl}
                           alt=""
-                          className="w-3.5 h-3.5 dark:invert"
+                          className={`w-3.5 h-3.5 ${mono ? "dark:invert" : ""}`}
                         />
                       ) : null;
                     })()}
@@ -708,6 +715,9 @@ export function SharedPage() {
                 >
                   <ChatMessage
                     message={message}
+                    sessionId={data.session.id}
+                    sessionName={data.session.name}
+                    runId={data.run_ids?.[0]}
                     isLastMessage={index === messages.length - 1}
                     activePreview={activePreview}
                     latestAutoPreview={latestAutoPreview}
@@ -818,6 +828,7 @@ export function SharedPage() {
         onClose={() => handleClosePreview(true)}
         onUserInteraction={handlePreviewInteraction}
       />
+      <PersistentToolPanelHost />
     </div>
   );
 }

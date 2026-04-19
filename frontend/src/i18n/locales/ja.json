@@ -371,6 +371,8 @@
       "args": "引数",
       "assistant": "アシスタント",
       "cancelled": "生成がキャンセルされました",
+      "summary": "要約",
+      "openInSidebar": "サイドバーで開く",
       "collapse": "折りたたむ",
       "complete": "完了",
       "copied": "コピーしました！",

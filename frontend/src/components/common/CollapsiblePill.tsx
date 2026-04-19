@@ -9,7 +9,7 @@ export type CollapsibleStatus =
   | "success"
   | "error"
   | "cancelled";
-export type CollapsibleVariant = "default" | "tool" | "thinking";
+export type CollapsibleVariant = "default" | "tool" | "thinking" | "summary";
 
 export interface CollapsiblePillProps {
   status?: CollapsibleStatus;
@@ -32,6 +32,9 @@ function getSpinnerColor(variant: CollapsibleVariant): string {
   }
   if (variant === "thinking") {
     return "text-stone-500 dark:text-stone-400";
+  }
+  if (variant === "summary") {
+    return "text-amber-500 dark:text-amber-400";
   }
   // default (sandbox) - use emerald
   return "text-emerald-500 dark:text-emerald-400";
@@ -81,6 +84,37 @@ function getButtonStyles(
   }
 
   if (variant === "tool") {
+    if (status === "loading") {
+      return clsx(
+        "bg-amber-100/80 dark:bg-amber-900/30",
+        "text-amber-700 dark:text-amber-300",
+      );
+    }
+    if (status === "success") {
+      return clsx(
+        "bg-emerald-100/80 dark:bg-emerald-900/30",
+        "text-emerald-700 dark:text-emerald-300",
+      );
+    }
+    if (status === "error") {
+      return clsx(
+        "bg-red-100/80 dark:bg-red-900/30",
+        "text-red-700 dark:text-red-300",
+      );
+    }
+    if (status === "cancelled") {
+      return clsx(
+        "bg-amber-100/80 dark:bg-amber-900/30",
+        "text-amber-700 dark:text-amber-300",
+      );
+    }
+    return clsx(
+      "bg-stone-100 dark:bg-stone-800",
+      "text-stone-600 dark:text-stone-400",
+    );
+  }
+
+  if (variant === "summary") {
     if (status === "loading") {
       return clsx(
         "bg-amber-100/80 dark:bg-amber-900/30",
