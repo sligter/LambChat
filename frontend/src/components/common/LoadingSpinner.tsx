@@ -28,7 +28,9 @@ export function LoadingSpinner({
   return (
     <Loader2
       size={sizeValue}
-      className={`${color} ${isStatic ? "" : "animate-spin"} ${className}`}
+      className={`${color || "text-stone-500 dark:text-stone-300"} ${
+        isStatic ? "" : "animate-spin"
+      } ${className}`}
     />
   );
 }
