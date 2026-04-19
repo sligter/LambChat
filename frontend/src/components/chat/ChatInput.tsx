@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, memo } from "react";
+import { useState, useRef, useEffect, useCallback, memo } from "react";
 import { createPortal } from "react-dom";
 import toast from "react-hot-toast";
 import {
@@ -24,6 +24,11 @@ import { AttachmentCard } from "../common/AttachmentCard";
 import { ImageViewer } from "../common";
 import { ConfirmDialog } from "../common/ConfirmDialog";
 import { useFileUpload } from "../../hooks/useFileUpload";
+import {
+  getKeyboardInsetPx,
+  keepElementVisibleInViewport,
+  resizeTextareaForContent,
+} from "./chatInputViewport";
 import type {
   ToolState,
   ToolCategory,
@@ -460,7 +465,10 @@ export const ChatInput = memo(function ChatInput({
   const [imageViewerSrc, setImageViewerSrc] = useState<string | null>(null);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const [stopConfirmOpen, setStopConfirmOpen] = useState(false);
+  const [keyboardInsetPx, setKeyboardInsetPx] = useState(0);
+  const rootRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const visibilityRafRef = useRef<number>(0);
 
   // Use external attachments if provided, otherwise use internal state
   const attachments = externalAttachments ?? internalAttachments;
@@ -471,17 +479,70 @@ export const ChatInput = memo(function ChatInput({
     onAttachmentsChange: setAttachments,
   });
 
-  const resetTextareaHeight = () => {
+  const keepInputVisible = useCallback(() => {
+    const target = rootRef.current ?? textareaRef.current;
+    if (!target || typeof window === "undefined") return;
+
+    keepElementVisibleInViewport({
+      element: target,
+      viewport: window.visualViewport,
+    });
+  }, []);
+
+  const scheduleInputVisibility = useCallback(() => {
+    if (typeof window === "undefined") return;
+    cancelAnimationFrame(visibilityRafRef.current);
+    visibilityRafRef.current = requestAnimationFrame(keepInputVisible);
+  }, [keepInputVisible]);
+
+  const resetTextareaHeight = useCallback(() => {
     const el = textareaRef.current;
     if (!el) return;
-    el.style.height = "auto";
-    el.style.height = `${Math.min(el.scrollHeight, 250)}px`;
-  };
+    resizeTextareaForContent(el);
+    scheduleInputVisibility();
+  }, [scheduleInputVisibility]);
 
   useEffect(() => {
     // Use rAF to ensure the DOM has updated before measuring scrollHeight
     requestAnimationFrame(resetTextareaHeight);
-  }, [input]);
+  }, [input, resetTextareaHeight]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+
+    const viewport = window.visualViewport;
+    if (!viewport) return undefined;
+
+    const updateKeyboardInset = () => {
+      const nextInset =
+        window.innerWidth < 640
+          ? getKeyboardInsetPx({
+              windowHeight: window.innerHeight,
+              viewport,
+            })
+          : 0;
+
+      setKeyboardInsetPx(nextInset);
+      scheduleInputVisibility();
+    };
+
+    updateKeyboardInset();
+    viewport.addEventListener("resize", updateKeyboardInset);
+    viewport.addEventListener("scroll", updateKeyboardInset);
+    window.addEventListener("orientationchange", updateKeyboardInset);
+
+    return () => {
+      viewport.removeEventListener("resize", updateKeyboardInset);
+      viewport.removeEventListener("scroll", updateKeyboardInset);
+      window.removeEventListener("orientationchange", updateKeyboardInset);
+    };
+  }, [scheduleInputVisibility]);
+
+  useEffect(() => {
+    return () => {
+      cancelAnimationFrame(visibilityRafRef.current);
+    };
+  }, []);
 
   // Handle paste to convert rich text to plain text or upload pasted files
   const handlePaste = (e: React.ClipboardEvent) => {
@@ -523,6 +584,7 @@ export const ChatInput = memo(function ChatInput({
           textarea.selectionStart = textarea.selectionEnd =
             start + markdownText.length;
           textarea.focus();
+          scheduleInputVisibility();
         }, 0);
       }
     }
@@ -595,8 +657,17 @@ export const ChatInput = memo(function ChatInput({
 
   return (
     <div
-      className="sm:px-4 pb-3"
-      style={{ backgroundColor: "var(--theme-bg)" }}
+      ref={rootRef}
+      className="sm:px-4 pb-3 will-change-transform"
+      style={{
+        backgroundColor: "var(--theme-bg)",
+        transform:
+          keyboardInsetPx > 0 ? `translateY(-${keyboardInsetPx}px)` : undefined,
+        transition:
+          keyboardInsetPx > 0
+            ? "transform 120ms cubic-bezier(0.16, 1, 0.3, 1)"
+            : "transform 160ms ease-out",
+      }}
     >
       <form
         onSubmit={handleSubmit}
@@ -670,6 +741,7 @@ export const ChatInput = memo(function ChatInput({
               ref={textareaRef}
               value={input}
               onChange={(e) => setInput(e.target.value)}
+              onFocus={scheduleInputVisibility}
               onKeyDown={handleKeyDown}
               onPaste={handlePaste}
               placeholder={
