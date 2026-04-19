@@ -111,6 +111,84 @@ test("does not settle early just because the scroller is within the breathing ro
   assert.notEqual(completionReason, "settled");
 });
 
+test("waits for the configured stable height window before settling", async () => {
+  let completionReason: "settled" | "aborted" | "max-attempts" | null = null;
+  const virtuoso = {
+    scrollTo: () => undefined,
+  };
+  const scroller = {
+    scrollTop: 400,
+    clientHeight: 100,
+    scrollHeight: 500,
+  };
+
+  startVirtuosoScrollToBottom({
+    virtuoso,
+    scroller,
+    intervalMs: 5,
+    maxDurationMs: 400,
+    settleWindowMs: 220,
+    onComplete: (reason) => {
+      completionReason = reason;
+    },
+  });
+
+  await new Promise((resolve) => setTimeout(resolve, 160));
+  assert.equal(completionReason, null);
+
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  assert.equal(completionReason, "settled");
+});
+
+test("keeps bottom locked when observed layout changes", async () => {
+  let observedTarget: unknown = null;
+  let resizeCallback: () => void = () => {
+    assert.fail("resize observer was not registered");
+  };
+  let disconnected = false;
+  const scroller = {
+    scrollTop: 400,
+    clientHeight: 100,
+    scrollHeight: 500,
+  };
+  const virtuoso = {
+    scrollTo: () => {
+      scroller.scrollTop = scroller.scrollHeight - scroller.clientHeight;
+    },
+  };
+
+  const stop = startVirtuosoScrollToBottom({
+    virtuoso,
+    scroller,
+    intervalMs: 20,
+    maxDurationMs: 400,
+    settleWindowMs: 160,
+    observeLayoutChanges: true,
+    resizeObserverFactory: (callback) => {
+      resizeCallback = callback;
+      return {
+        observe: (target) => {
+          observedTarget = target;
+        },
+        disconnect: () => {
+          disconnected = true;
+        },
+      };
+    },
+  });
+
+  await new Promise((resolve) => setTimeout(resolve, 30));
+  assert.equal(observedTarget, scroller);
+
+  scroller.scrollHeight = 700;
+  resizeCallback();
+
+  assert.equal(scroller.scrollTop, 600);
+
+  stop();
+  assert.equal(disconnected, true);
+});
+
 test("detects when the local send path appends a user message and placeholder reply", () => {
   const hasOutgoingMessage = hasNewOutgoingMessage(
     [{ id: "1", role: "assistant" }],

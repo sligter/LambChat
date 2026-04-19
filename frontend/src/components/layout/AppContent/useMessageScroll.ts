@@ -67,7 +67,12 @@ export function useMessageScroll(
       virtuoso: virtuosoRef.current,
       scroller: virtuosoScrollerRef.current,
       footer: messagesEndRef.current,
-      maxDurationMs: isMobileViewport ? 4000 : 2500,
+      observeLayoutChanges: true,
+      resizeObserverTarget:
+        virtuosoScrollerRef.current?.firstElementChild ??
+        virtuosoScrollerRef.current,
+      maxDurationMs: isMobileViewport ? 6500 : 3000,
+      settleWindowMs: isMobileViewport ? 650 : 180,
       shouldAbort: () => userScrolledUpRef.current,
       onAutoScroll: () => {
         ignoreProgrammaticScrollUntilRef.current = Date.now() + 80;
@@ -233,8 +238,9 @@ export function useMessageScroll(
         settled = true;
         cancelAnimationFrame(raf1);
         cancelAnimationFrame(raf2);
-        scrollCleanupRef.current?.();
-        scrollCleanupRef.current = null;
+        // Do not abort scrollCleanupRef here. History can arrive in chunks,
+        // and each messages update reruns this effect; aborting the active
+        // bottom-lock loop is what leaves mobile users stranded mid-list.
       };
     }
   }, [messages, scrollToBottom]);

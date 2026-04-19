@@ -17,6 +17,11 @@ interface FooterLike {
   }) => void;
 }
 
+interface ResizeObserverLike {
+  observe: (target: unknown) => void;
+  disconnect: () => void;
+}
+
 interface StartVirtuosoScrollToBottomOptions {
   virtuoso?: VirtuosoLike | null;
   scroller?: ScrollerLike | null;
@@ -24,6 +29,10 @@ interface StartVirtuosoScrollToBottomOptions {
   intervalMs?: number;
   maxAttempts?: number;
   maxDurationMs?: number;
+  settleWindowMs?: number;
+  observeLayoutChanges?: boolean;
+  resizeObserverFactory?: (callback: () => void) => ResizeObserverLike;
+  resizeObserverTarget?: unknown;
   // Kept for compatibility with older callers. Settling must still require
   // the physical scroll bottom, otherwise the user can still drag lower.
   bottomOffsetPx?: number;
@@ -59,6 +68,10 @@ export function startVirtuosoScrollToBottom({
   intervalMs = 30,
   maxAttempts = 40,
   maxDurationMs,
+  settleWindowMs,
+  observeLayoutChanges = false,
+  resizeObserverFactory,
+  resizeObserverTarget,
   shouldAbort,
   onAutoScroll,
   onComplete,
@@ -73,10 +86,13 @@ export function startVirtuosoScrollToBottom({
   let lastKnownScrollHeight = scroller.scrollHeight;
   let lastHeightChangeAt = Date.now();
   let finished = false;
+  let resizeObserver: ResizeObserverLike | null = null;
   const finish = (reason: "settled" | "aborted" | "max-attempts") => {
     if (finished) return;
     finished = true;
     clearInterval(timer);
+    resizeObserver?.disconnect();
+    resizeObserver = null;
     onComplete?.(reason);
   };
   const scroll = () => {
@@ -95,9 +111,42 @@ export function startVirtuosoScrollToBottom({
   // still being refined as it measures item heights.  Forcing a few
   // extra scrollTo calls gives it time to settle at the true bottom.
   const minAttemptsBeforeSettling = 5;
-  const settleWindowMs = Math.max(intervalMs * 4, 120);
+  const stableHeightWindowMs = settleWindowMs ?? Math.max(intervalMs * 4, 120);
   const maxScrollWindowMs = maxDurationMs ?? intervalMs * maxAttempts;
   const startedAt = Date.now();
+
+  if (observeLayoutChanges) {
+    const createResizeObserver =
+      resizeObserverFactory ??
+      (typeof ResizeObserver !== "undefined"
+        ? (callback: () => void): ResizeObserverLike => {
+            const observer = new ResizeObserver(() => callback());
+            return {
+              observe: (target) => {
+                if (target instanceof Element) {
+                  observer.observe(target);
+                }
+              },
+              disconnect: () => observer.disconnect(),
+            };
+          }
+        : null);
+
+    if (createResizeObserver) {
+      resizeObserver = createResizeObserver(() => {
+        if (finished) return;
+        if (shouldAbort?.()) {
+          finish("aborted");
+          return;
+        }
+
+        lastKnownScrollHeight = scroller.scrollHeight;
+        lastHeightChangeAt = Date.now();
+        scroll();
+      });
+      resizeObserver.observe(resizeObserverTarget ?? scroller);
+    }
+  }
 
   const timer = setInterval(() => {
     attempts += 1;
@@ -114,7 +163,8 @@ export function startVirtuosoScrollToBottom({
 
     const isAtBottom =
       scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 1;
-    const hasStableHeight = Date.now() - lastHeightChangeAt >= settleWindowMs;
+    const hasStableHeight =
+      Date.now() - lastHeightChangeAt >= stableHeightWindowMs;
     const hasExceededScrollBudget = Date.now() - startedAt >= maxScrollWindowMs;
 
     if (

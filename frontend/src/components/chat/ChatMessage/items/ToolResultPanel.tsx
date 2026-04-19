@@ -95,6 +95,26 @@ export function ToolResultPanel({
   onUserInteraction,
 }: ToolResultPanelProps) {
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 640);
+  const [animateIn, setAnimateIn] = useState(false);
+
+  // Double-rAF: first frame paints the panel off-screen (translate-y-full),
+  // second frame kicks off the slide-in animation.  This guarantees zero
+  // white flash on all browsers — a single rAF can still leak one painted
+  // frame on mobile WebKit.
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    requestAnimationFrame(() => {
+      if (cancelled) return;
+      requestAnimationFrame(() => {
+        if (cancelled) return;
+        setAnimateIn(true);
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
   const panelOwnerRef = useRef(
     Symbol(`tool-result-panel:${title || "untitled"}`),
   );
@@ -289,8 +309,16 @@ export function ToolResultPanel({
           : isCenter
             ? "overflow-hidden h-full relative"
             : isMobile
-              ? "max-h-[92vh] rounded-t-2xl overflow-hidden shadow-[0_-8px_40px_-8px_rgba(0,0,0,0.2)] dark:shadow-[0_-8px_40px_-8px_rgba(0,0,0,0.5)] animate-[slide-up-fullscreen_280ms_cubic-bezier(0.16,1,0.3,1)_backwards]"
-              : "h-full relative shadow-[-4px_0_24px_-4px_rgba(0,0,0,0.12)] dark:shadow-[-4px_0_24px_-4px_rgba(0,0,0,0.4)] animate-[slide-in-right_200ms_ease-out_backwards]"
+              ? `max-h-[92vh] rounded-t-2xl overflow-hidden shadow-[0_-8px_40px_-8px_rgba(0,0,0,0.2)] dark:shadow-[0_-8px_40px_-8px_rgba(0,0,0,0.5)] ${
+                  animateIn
+                    ? "animate-[slide-up-fullscreen_280ms_cubic-bezier(0.16,1,0.3,1)]"
+                    : "translate-y-full opacity-0"
+                }`
+              : `h-full relative shadow-[-4px_0_24px_-4px_rgba(0,0,0,0.12)] dark:shadow-[-4px_0_24px_-4px_rgba(0,0,0,0.4)] ${
+                  animateIn
+                    ? "animate-[slide-in-right_200ms_ease-out]"
+                    : "translate-x-full"
+                }`
       }`}
       ref={(el) => {
         // Merge refs
@@ -445,7 +473,7 @@ export function ToolResultPanel({
           : isCenter
             ? "bg-stone-900"
             : isMobile
-              ? "bg-black/50 items-end justify-end animate-[overlay-fade-in_280ms_cubic-bezier(0.16,1,0.3,1)]"
+              ? "bg-black/50 items-end justify-end animate-[overlay-fade-in_280ms_cubic-bezier(0.16,1,0.3,1)_backwards]"
               : "bg-black/50 sm:bg-transparent sm:pointer-events-none sm:items-end sm:justify-stretch"
       }`}
       onClick={() => {
