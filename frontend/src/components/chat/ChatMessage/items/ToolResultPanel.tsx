@@ -289,8 +289,8 @@ export function ToolResultPanel({
           : isCenter
             ? "overflow-hidden h-full relative"
             : isMobile
-              ? "max-h-[92vh] rounded-t-2xl overflow-hidden shadow-[0_-8px_40px_-8px_rgba(0,0,0,0.2)] dark:shadow-[0_-8px_40px_-8px_rgba(0,0,0,0.5)] animate-[slide-up-fullscreen_280ms_cubic-bezier(0.16,1,0.3,1)]"
-              : "h-full relative shadow-[-4px_0_24px_-4px_rgba(0,0,0,0.12)] dark:shadow-[-4px_0_24px_-4px_rgba(0,0,0,0.4)] animate-[slide-in-right_200ms_ease-out]"
+              ? "max-h-[92vh] rounded-t-2xl overflow-hidden shadow-[0_-8px_40px_-8px_rgba(0,0,0,0.2)] dark:shadow-[0_-8px_40px_-8px_rgba(0,0,0,0.5)] animate-[slide-up-fullscreen_280ms_cubic-bezier(0.16,1,0.3,1)_backwards]"
+              : "h-full relative shadow-[-4px_0_24px_-4px_rgba(0,0,0,0.12)] dark:shadow-[-4px_0_24px_-4px_rgba(0,0,0,0.4)] animate-[slide-in-right_200ms_ease-out_backwards]"
       }`}
       ref={(el) => {
         // Merge refs
