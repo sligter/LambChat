@@ -471,13 +471,16 @@ export const ChatInput = memo(function ChatInput({
     onAttachmentsChange: setAttachments,
   });
 
+  const resetTextareaHeight = () => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 250)}px`;
+  };
+
   useEffect(() => {
-    if (textareaRef.current) {
-      const el = textareaRef.current;
-      const scrollH = el.scrollHeight;
-      el.style.height = "auto";
-      el.style.height = `${Math.min(scrollH, 250)}px`;
-    }
+    // Use rAF to ensure the DOM has updated before measuring scrollHeight
+    requestAnimationFrame(resetTextareaHeight);
   }, [input]);
 
   // Handle paste to convert rich text to plain text or upload pasted files
@@ -531,7 +534,12 @@ export const ChatInput = memo(function ChatInput({
     if (input.trim() && !isLoading && !disabled) {
       onSend(input.trim(), agentOptionValues, attachments);
       setInput("");
-      setAttachments([]); // 发送后清空附件
+      setAttachments([]);
+      requestAnimationFrame(() => {
+        if (textareaRef.current) {
+          textareaRef.current.style.height = "auto";
+        }
+      });
     }
   };
 
