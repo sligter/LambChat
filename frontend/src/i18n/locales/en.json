@@ -302,11 +302,20 @@
   },
   "categories": {
     "agent": "Agent",
-    "database": "Database",
+    "captcha": "CAPTCHA",
+    "checkpoint": "Checkpoint",
+    "email": "Email",
+    "file_upload": "File Upload",
     "frontend": "Frontend",
     "llm": "LLM",
     "long_term_storage": "Long-term Storage",
     "memory": "Memory",
+    "memory_embedding": "Embedding",
+    "memory_search": "Search & Index",
+    "memory_storage": "Storage & Policy",
+    "mongodb": "MongoDB",
+    "oauth": "OAuth",
+    "redis": "Redis",
     "s3": "S3 Storage",
     "sandbox": "Sandbox",
     "security": "Security",
@@ -315,6 +324,38 @@
     "tools": "Tools",
     "tracing": "Tracing",
     "user": "Profile"
+  },
+  "subcategories": {
+    "general": "General",
+    "display": "Display",
+    "contact": "Contact",
+    "retry": "Retry",
+    "cache": "Cache",
+    "title": "Title Generation",
+    "events": "Event Merger",
+    "daytona": "Daytona",
+    "e2b": "E2B",
+    "mcp": "MCP",
+    "deferred": "Deferred Loading",
+    "connection": "Connection",
+    "langsmith": "LangSmith",
+    "jwt": "JWT Tokens",
+    "service": "Email Service",
+    "turnstile": "Turnstile",
+    "bucket": "Bucket",
+    "limits": "Limits",
+    "storage": "Storage",
+    "pool": "Connection Pool",
+    "postgres": "PostgreSQL",
+    "registration": "Registration",
+    "google": "Google",
+    "github": "GitHub",
+    "apple": "Apple",
+    "api": "API",
+    "index": "Index",
+    "rerank": "Rerank",
+    "llm": "LLM",
+    "policy": "Policy"
   },
   "channel": {
     "addFirstInstance": "Add First Instance",
@@ -512,7 +553,8 @@
     "search": "Search",
     "selectAll": "Select all",
     "showing": "Showing {{start}}-{{end}}",
-    "skip": "Skip"
+    "skip": "Skip",
+    "prev": "Previous"
   },
   "documents": {
     "ascending": "Ascending",
@@ -1066,7 +1108,8 @@
     "skills": "Skills",
     "systemSettings": "System Settings",
     "userSettings": "User Management",
-    "users": "Users"
+    "users": "Users",
+    "memory": "Memory Space"
   },
   "navDesc": {
     "agents": "Configure and manage AI agents",
@@ -1080,7 +1123,8 @@
     "roles": "Configure roles and permissions",
     "settings": "Application and system settings",
     "skills": "Manage and configure skills",
-    "users": "Manage user accounts and access"
+    "users": "Manage user accounts and access",
+    "memory": "View and manage AI memory content"
   },
   "notification": {
     "active": "Active",
@@ -1764,6 +1808,36 @@
       "enterPassword": "Please enter password",
       "enterUsername": "Please enter username",
       "passwordMinLength": "Password must be at least 6 characters"
+    }
+  },
+  "memory": {
+    "title": "Memory Space",
+    "subtitle": "{{count}} memories total",
+    "loading": "Loading memories...",
+    "searchPlaceholder": "Search memories...",
+    "empty": "No memories yet. AI will automatically store important information.",
+    "noResults": "No matching memories",
+    "fetchError": "Failed to fetch memories",
+    "deleted": "Memory deleted",
+    "deleteError": "Delete failed",
+    "deleteConfirm": "Delete this memory?",
+    "deleteConfirmMessage": "This action cannot be undone.",
+    "batchDeleteConfirmMessage": "Are you sure you want to delete {{count}} selected memories? This action cannot be undone.",
+    "deleteSelected": "Delete ({{count}})",
+    "batchDeleted": "Deleted {{count}} memories",
+    "selectAll": "Select all",
+    "clearSelection": "Clear selection",
+    "selectHint": "Select a memory to view details",
+    "accesses": "accesses",
+    "allTypes": "All types",
+    "timeAgo": "{{count}}d ago",
+    "timeWeeksAgo": "{{count}}w ago",
+    "timeMonthsAgo": "{{count}}mo ago",
+    "type": {
+      "user": "User",
+      "feedback": "Feedback",
+      "project": "Project",
+      "reference": "Reference"
     }
   }
 }

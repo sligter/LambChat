@@ -15,15 +15,24 @@ export type SettingCategory =
   | "llm"
   | "session"
   | "skills"
-  | "database"
+  | "mongodb"
+  | "redis"
+  | "checkpoint"
   | "long_term_storage"
-  | "memory"
   | "security"
-  | "sandbox"
+  | "email"
+  | "captcha"
   | "s3"
+  | "file_upload"
+  | "sandbox"
   | "tools"
   | "tracing"
-  | "user";
+  | "user"
+  | "oauth"
+  | "memory"
+  | "memory_embedding"
+  | "memory_search"
+  | "memory_storage";
 
 // Setting dependency condition
 export interface SettingDependsOn {
@@ -56,6 +65,7 @@ export interface SettingItem {
   value: string | number | boolean | object;
   type: SettingType;
   category: SettingCategory;
+  subcategory: string;
   description: string;
   default_value: string | number | boolean | object;
   requires_restart: boolean;

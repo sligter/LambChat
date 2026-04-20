@@ -11,4 +11,5 @@ export type TabType =
   | "agents"
   | "models"
   | "files"
-  | "notifications";
+  | "notifications"
+  | "memory";

@@ -61,6 +61,32 @@ export function hasNewOutgoingMessage(
   return appendedMessages[0]?.role === "user";
 }
 
+export function shouldAutoScrollAfterViewportChange({
+  scroller,
+  bottomBreathingRoomPx,
+  userScrolledUp,
+  autoScrollActive,
+  isNearBottom,
+}: {
+  scroller?: ScrollerLike | null;
+  bottomBreathingRoomPx: number;
+  userScrolledUp: boolean;
+  autoScrollActive: boolean;
+  isNearBottom: boolean;
+}): boolean {
+  if (!scroller || userScrolledUp) {
+    return false;
+  }
+
+  const hasScrollableOverflow =
+    scroller.scrollHeight > scroller.clientHeight + bottomBreathingRoomPx;
+  if (!hasScrollableOverflow) {
+    return false;
+  }
+
+  return autoScrollActive || isNearBottom;
+}
+
 export function startVirtuosoScrollToBottom({
   virtuoso,
   scroller,

@@ -27,6 +27,7 @@ from src.api.routes import (
     health,
     human,
     mcp,
+    memory,
     notification,
     project,
     revealed_file,
@@ -362,6 +363,7 @@ def create_app() -> FastAPI:
     app.include_router(marketplace_router, prefix="/api/marketplace", tags=["Marketplace"])
 
     app.include_router(settings_router.router, prefix="/api/settings", tags=["Settings"])
+    app.include_router(memory.router, prefix="/api/memory", tags=["Memory"])
     app.include_router(mcp.router, prefix="/api/mcp", tags=["MCP"])
     app.include_router(mcp.admin_router, prefix="/api/admin/mcp", tags=["MCP Admin"])
     app.include_router(envvar.router, prefix="/api/env-vars", tags=["Environment Variables"])

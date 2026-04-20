@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   hasNewOutgoingMessage,
+  shouldAutoScrollAfterViewportChange,
   startVirtuosoScrollToBottom,
 } from "./messageScrollUtils.ts";
 
@@ -187,6 +188,55 @@ test("keeps bottom locked when observed layout changes", async () => {
 
   stop();
   assert.equal(disconnected, true);
+});
+
+test("does not auto-scroll on viewport changes when the list is not scrollable", () => {
+  assert.equal(
+    shouldAutoScrollAfterViewportChange({
+      scroller: {
+        scrollTop: 0,
+        clientHeight: 520,
+        scrollHeight: 540,
+      },
+      bottomBreathingRoomPx: 96,
+      userScrolledUp: false,
+      autoScrollActive: false,
+      isNearBottom: true,
+    }),
+    false,
+  );
+});
+
+test("auto-scrolls on viewport changes only when a scrollable list is still bottom-anchored", () => {
+  assert.equal(
+    shouldAutoScrollAfterViewportChange({
+      scroller: {
+        scrollTop: 800,
+        clientHeight: 520,
+        scrollHeight: 1600,
+      },
+      bottomBreathingRoomPx: 96,
+      userScrolledUp: false,
+      autoScrollActive: false,
+      isNearBottom: true,
+    }),
+    true,
+  );
+
+  assert.equal(
+    shouldAutoScrollAfterViewportChange({
+      scroller: {
+        scrollTop: 800,
+        clientHeight: 520,
+        scrollHeight: 1600,
+      },
+      bottomBreathingRoomPx: 96,
+      userScrolledUp: true,
+      autoScrollActive: false,
+      isNearBottom: true,
+    }),
+    false,
+  );
 });
 
 test("detects when the local send path appends a user message and placeholder reply", () => {

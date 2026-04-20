@@ -228,16 +228,6 @@ class Settings(BaseSettings):
 
     # Memory Settings (Master Switch)
     ENABLE_MEMORY: bool = False
-    MEMORY_PERFORM: str = "memu"
-
-    # Hindsight Memory Settings
-    HINDSIGHT_BASE_URL: str = ""
-    HINDSIGHT_API_KEY: str = ""
-    HINDSIGHT_MAX_CONCURRENT: int = 64
-
-    # memU Memory Settings
-    MEMU_API_KEY: str = ""
-    MEMU_BASE_URL: str = "https://api.memu.so"
 
     # Native Memory Settings (MongoDB-backed, zero external deps)
     NATIVE_MEMORY_EMBEDDING_API_BASE: str = ""

@@ -169,6 +169,13 @@ function NotificationsPage() {
   return <AppContent key="notifications" activeTab="notifications" />;
 }
 
+function MemoryPage() {
+  usePageTitle("nav.memory", undefined, {
+    description: "navDesc.memory",
+  });
+  return <AppContent key="memory" activeTab="memory" />;
+}
+
 // Auth page wrapper - redirects to /chat after successful login/register
 function AuthPageWrapper({
   initialMode,
@@ -375,6 +382,14 @@ function App() {
                   toastMessage={t("errors.noPermission")}
                 >
                   <NotificationsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/memory"
+              element={
+                <ProtectedRoute>
+                  <MemoryPage />
                 </ProtectedRoute>
               }
             />

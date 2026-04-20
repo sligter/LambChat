@@ -303,11 +303,20 @@
   },
   "categories": {
     "agent": "에이전트",
-    "database": "데이터베이스",
+    "captcha": "CAPTCHA",
+    "checkpoint": "체크포인트",
+    "email": "이메일",
+    "file_upload": "파일 업로드",
     "frontend": "프론트엔드",
     "llm": "LLM",
     "long_term_storage": "장기 스토리지",
     "memory": "메모리",
+    "memory_embedding": "임베딩",
+    "memory_search": "검색 및 인덱스",
+    "memory_storage": "저장 및 정책",
+    "mongodb": "MongoDB",
+    "oauth": "OAuth",
+    "redis": "Redis",
     "s3": "S3 스토리지",
     "sandbox": "샌드박스",
     "security": "보안",
@@ -316,6 +325,38 @@
     "tools": "도구",
     "tracing": "추적",
     "user": "프로필"
+  },
+  "subcategories": {
+    "general": "일반",
+    "display": "표시",
+    "contact": "연락처",
+    "retry": "재시도",
+    "cache": "캐시",
+    "title": "제목 생성",
+    "events": "이벤트 병합",
+    "daytona": "Daytona",
+    "e2b": "E2B",
+    "mcp": "MCP",
+    "deferred": "지연 로딩",
+    "connection": "연결",
+    "langsmith": "LangSmith",
+    "jwt": "JWT 토큰",
+    "service": "이메일 서비스",
+    "turnstile": "Turnstile",
+    "bucket": "버킷",
+    "limits": "제한",
+    "storage": "스토리지",
+    "pool": "연결 풀",
+    "postgres": "PostgreSQL",
+    "registration": "가입",
+    "google": "Google",
+    "github": "GitHub",
+    "apple": "Apple",
+    "api": "API",
+    "index": "인덱스",
+    "rerank": "재순위",
+    "llm": "LLM",
+    "policy": "정책"
   },
   "channel": {
     "addFirstInstance": "첫 번째 인스턴스 추가",
@@ -513,7 +554,8 @@
     "search": "검색",
     "selectAll": "모두 선택",
     "showing": "{{start}}-{{end}} 표시 중",
-    "skip": "건너뛰기"
+    "skip": "건너뛰기",
+    "prev": "이전"
   },
   "documents": {
     "ascending": "오름차순",
@@ -1068,7 +1110,8 @@
     "skills": "스킬",
     "systemSettings": "시스템 설정",
     "userSettings": "사용자 관리",
-    "users": "사용자"
+    "users": "사용자",
+    "memory": "메모리 공간"
   },
   "navDesc": {
     "agents": "AI 에이전트 설정 및 관리",
@@ -1082,7 +1125,8 @@
     "roles": "역할 및 권한 설정",
     "settings": "앱 및 시스템 설정",
     "skills": "스킬 관리 및 설정",
-    "users": "사용자 계정 및 접근 권한 관리"
+    "users": "사용자 계정 및 접근 권한 관리",
+    "memory": "AI 메모리 내용 보기 및 관리"
   },
   "notification": {
     "active": "활성",
@@ -1766,6 +1810,31 @@
       "enterPassword": "비밀번호를 입력해주세요",
       "enterUsername": "사용자 이름을 입력해주세요",
       "passwordMinLength": "비밀번호는 6자 이상이어야 합니다"
+    }
+  },
+  "memory": {
+    "title": "메모리 공간",
+    "subtitle": "총 {{count}}개 메모리",
+    "loading": "메모리 로딩 중...",
+    "searchPlaceholder": "메모리 검색...",
+    "empty": "아직 메모리가 없습니다. AI가 자동으로 중요한 정보를 저장합니다.",
+    "noResults": "일치하는 메모리 없음",
+    "fetchError": "메모리를 불러오지 못했습니다",
+    "deleted": "메모리가 삭제되었습니다",
+    "deleteError": "삭제 실패",
+    "deleteConfirm": "이 메모리를 삭제하시겠습니까?",
+    "deleteConfirmMessage": "이 작업은 되돌릴 수 없습니다.",
+    "selectHint": "메모리를 선택하여 상세 보기",
+    "accesses": "회 접근",
+    "allTypes": "모든 유형",
+    "timeAgo": "{{count}}일 전",
+    "timeWeeksAgo": "{{count}}주 전",
+    "timeMonthsAgo": "{{count}}개월 전",
+    "type": {
+      "user": "사용자",
+      "feedback": "피드백",
+      "project": "프로젝트",
+      "reference": "참조"
     }
   }
 }

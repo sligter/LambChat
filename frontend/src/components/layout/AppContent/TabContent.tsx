@@ -52,6 +52,11 @@ const NotificationPanel = lazy(() =>
     default: m.NotificationPanel,
   })),
 );
+const MemoryPanel = lazy(() =>
+  import("../../panels/MemoryPanel").then((m) => ({
+    default: m.MemoryPanel,
+  })),
+);
 
 const panelMap: Record<
   string,
@@ -69,6 +74,7 @@ const panelMap: Record<
   models: ModelPanel,
   files: RevealedFilesPage,
   notifications: NotificationPanel,
+  memory: MemoryPanel,
 };
 
 function PanelLoader() {

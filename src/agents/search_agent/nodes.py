@@ -116,7 +116,7 @@ async def agent_node(state: Dict[str, Any], config: RunnableConfig) -> Dict[str,
             logger.warning(f"Failed to build skills prompt: {e}")
 
     # 构建记忆系统提示
-    memory_guide = get_memory_guide(settings.MEMORY_PERFORM) if settings.ENABLE_MEMORY else ""
+    memory_guide = get_memory_guide() if settings.ENABLE_MEMORY else ""
 
     # 过滤工具（懒加载 MCP 工具）
     filtered_tools = None
@@ -187,12 +187,7 @@ async def agent_node(state: Dict[str, Any], config: RunnableConfig) -> Dict[str,
     _prompt_sections = [s for s in (skills_prompt, memory_guide) if s]
     if _prompt_sections:
         user_middleware.append(SectionPromptMiddleware(sections=_prompt_sections))
-    if (
-        settings.ENABLE_MEMORY
-        and settings.MEMORY_PERFORM == "native"
-        and settings.NATIVE_MEMORY_INDEX_ENABLED
-        and context.user_id
-    ):
+    if settings.ENABLE_MEMORY and settings.NATIVE_MEMORY_INDEX_ENABLED and context.user_id:
         from src.infra.agent.middleware import MemoryIndexMiddleware
 
         user_middleware.append(MemoryIndexMiddleware(user_id=context.user_id))
@@ -258,7 +253,7 @@ async def agent_node(state: Dict[str, Any], config: RunnableConfig) -> Dict[str,
     # Flush any remaining buffered chunks
     await event_processor.flush()
 
-    if settings.ENABLE_MEMORY and settings.MEMORY_PERFORM == "native" and context.user_id:
+    if settings.ENABLE_MEMORY and context.user_id:
         from src.infra.memory.tools import schedule_auto_memory_capture
 
         schedule_auto_memory_capture(context.user_id, user_input)

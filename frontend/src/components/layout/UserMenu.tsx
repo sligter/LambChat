@@ -17,6 +17,7 @@ import {
   ShoppingBag,
   Cpu,
   Bell,
+  Brain,
 } from "lucide-react";
 import { useAuth } from "../../hooks/useAuth";
 import { useSettingsContext } from "../../contexts/SettingsContext";
@@ -34,7 +35,7 @@ interface UserMenuProps {
 export function UserMenu({ onShowProfile }: UserMenuProps) {
   const { t } = useTranslation();
   const { logout, hasAnyPermission, user } = useAuth();
-  const { enableSkills } = useSettingsContext();
+  const { enableSkills, enableMemory } = useSettingsContext();
   const navigate = useNavigate();
   const [showMenu, setShowMenu] = useState(false);
   const [menuPosition, setMenuPosition] = useState({ top: 0, right: 0 });
@@ -153,6 +154,12 @@ export function UserMenu({ onShowProfile }: UserMenuProps) {
       label: t("nav.channels"),
       icon: MessageCircle,
       show: canReadChannels,
+    },
+    {
+      path: "/memory",
+      label: t("nav.memory"),
+      icon: Brain,
+      show: enableMemory,
     },
   ];
 

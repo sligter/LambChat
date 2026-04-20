@@ -33,16 +33,25 @@ class SettingCategory(str, Enum):
     AGENT = "agent"
     LLM = "llm"
     SESSION = "session"
-    DATABASE = "database"
+    MONGODB = "mongodb"
+    REDIS = "redis"
+    CHECKPOINT = "checkpoint"
     LONG_TERM_STORAGE = "long_term_storage"
     SECURITY = "security"
+    EMAIL = "email"
+    CAPTCHA = "captcha"
     S3 = "s3"
+    FILE_UPLOAD = "file_upload"
     SANDBOX = "sandbox"
     SKILLS = "skills"
     TOOLS = "tools"
     TRACING = "tracing"
     USER = "user"
+    OAUTH = "oauth"
     MEMORY = "memory"
+    MEMORY_EMBEDDING = "memory_embedding"
+    MEMORY_SEARCH = "memory_search"
+    MEMORY_STORAGE = "memory_storage"
 
 
 class JsonSchemaField(BaseModel):
@@ -74,6 +83,7 @@ class SettingItem(BaseModel):
     value: Any
     type: SettingType
     category: SettingCategory
+    subcategory: str = ""
     description: str = ""
     default_value: Any = None
     requires_restart: bool = False

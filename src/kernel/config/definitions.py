@@ -17,6 +17,7 @@ SETTING_DEFINITIONS: dict[str, dict] = {
     "DEFAULT_AGENT": {
         "type": SettingType.STRING,
         "category": SettingCategory.FRONTEND,
+        "subcategory": "display",
         "description": "settingDesc.DEFAULT_AGENT",
         "default": "default",
         "frontend_visible": True,
@@ -24,6 +25,7 @@ SETTING_DEFINITIONS: dict[str, dict] = {
     "WELCOME_SUGGESTIONS": {
         "type": SettingType.JSON,
         "category": SettingCategory.FRONTEND,
+        "subcategory": "display",
         "description": "settingDesc.WELCOME_SUGGESTIONS",
         "default": {
             "en": [
@@ -83,11 +85,12 @@ SETTING_DEFINITIONS: dict[str, dict] = {
         ),
     },
     # ============================================
-    # Resend Email Settings (JSON schema)
+    # Email Service Settings (Resend)
     # ============================================
     "RESEND_ACCOUNTS": {
         "type": SettingType.JSON,
-        "category": SettingCategory.SECURITY,
+        "category": SettingCategory.EMAIL,
+        "subcategory": "service",
         "description": "settingDesc.RESEND_ACCOUNTS",
         "default": [],
         "depends_on": "EMAIL_ENABLED",
@@ -122,6 +125,7 @@ SETTING_DEFINITIONS: dict[str, dict] = {
     "ADMIN_CONTACT_EMAIL": {
         "type": SettingType.STRING,
         "category": SettingCategory.FRONTEND,
+        "subcategory": "contact",
         "description": "settingDesc.ADMIN_CONTACT_EMAIL",
         "default": "",
         "frontend_visible": True,
@@ -129,6 +133,7 @@ SETTING_DEFINITIONS: dict[str, dict] = {
     "ADMIN_CONTACT_URL": {
         "type": SettingType.STRING,
         "category": SettingCategory.FRONTEND,
+        "subcategory": "contact",
         "description": "settingDesc.ADMIN_CONTACT_URL",
         "default": "",
         "frontend_visible": True,
@@ -139,6 +144,7 @@ SETTING_DEFINITIONS: dict[str, dict] = {
     "APP_BASE_URL": {
         "type": SettingType.STRING,
         "category": SettingCategory.AGENT,
+        "subcategory": "general",
         "description": "settingDesc.APP_BASE_URL",
         "default": "",
         "frontend_visible": True,
@@ -146,12 +152,14 @@ SETTING_DEFINITIONS: dict[str, dict] = {
     "DEBUG": {
         "type": SettingType.BOOLEAN,
         "category": SettingCategory.AGENT,
+        "subcategory": "general",
         "description": "settingDesc.DEBUG",
         "default": False,
     },
     "LOG_LEVEL": {
         "type": SettingType.STRING,
         "category": SettingCategory.AGENT,
+        "subcategory": "general",
         "description": "settingDesc.LOG_LEVEL",
         "default": "INFO",
     },
@@ -161,18 +169,21 @@ SETTING_DEFINITIONS: dict[str, dict] = {
     "LLM_MAX_RETRIES": {
         "type": SettingType.NUMBER,
         "category": SettingCategory.LLM,
+        "subcategory": "retry",
         "description": "settingDesc.LLM_MAX_RETRIES",
         "default": 3,
     },
     "LLM_RETRY_DELAY": {
         "type": SettingType.NUMBER,
         "category": SettingCategory.LLM,
+        "subcategory": "retry",
         "description": "settingDesc.LLM_RETRY_DELAY",
         "default": 1.0,
     },
     "LLM_MODEL_CACHE_SIZE": {
         "type": SettingType.NUMBER,
         "category": SettingCategory.LLM,
+        "subcategory": "cache",
         "description": "settingDesc.LLM_MODEL_CACHE_SIZE",
         "default": 50,
     },
@@ -182,36 +193,42 @@ SETTING_DEFINITIONS: dict[str, dict] = {
     "SESSION_MAX_RUNS_PER_SESSION": {
         "type": SettingType.NUMBER,
         "category": SettingCategory.SESSION,
+        "subcategory": "general",
         "description": "settingDesc.SESSION_MAX_RUNS_PER_SESSION",
         "default": 100,
     },
     "ENABLE_MESSAGE_HISTORY": {
         "type": SettingType.BOOLEAN,
         "category": SettingCategory.SESSION,
+        "subcategory": "general",
         "description": "settingDesc.ENABLE_MESSAGE_HISTORY",
         "default": True,
     },
     "SSE_CACHE_TTL": {
         "type": SettingType.NUMBER,
         "category": SettingCategory.SESSION,
+        "subcategory": "general",
         "description": "settingDesc.SSE_CACHE_TTL",
         "default": 3600,
     },
     "SESSION_TITLE_MODEL": {
         "type": SettingType.STRING,
         "category": SettingCategory.SESSION,
+        "subcategory": "title",
         "description": "settingDesc.SESSION_TITLE_MODEL",
         "default": "claude-3-5-haiku-20241022",
     },
     "SESSION_TITLE_API_BASE": {
         "type": SettingType.STRING,
         "category": SettingCategory.SESSION,
+        "subcategory": "title",
         "description": "settingDesc.SESSION_TITLE_API_BASE",
         "default": "",
     },
     "SESSION_TITLE_API_KEY": {
         "type": SettingType.STRING,
         "category": SettingCategory.SESSION,
+        "subcategory": "title",
         "description": "settingDesc.SESSION_TITLE_API_KEY",
         "default": "",
         "is_sensitive": True,
@@ -219,6 +236,7 @@ SETTING_DEFINITIONS: dict[str, dict] = {
     "SESSION_TITLE_PROMPT": {
         "type": SettingType.TEXT,
         "category": SettingCategory.SESSION,
+        "subcategory": "title",
         "description": "settingDesc.SESSION_TITLE_PROMPT",
         "default": "请您用简短的3-5个字的标题加上一个表情符号作为用户对话的提示标题。请您选取适合用于总结的表情符号来增强理解，但请避免使用符号或特殊格式。请您根据提示回复一个提示标题文本。\n\n回复示例：\n\n📉 股市趋势\n\n🍪 完美巧克力曲奇食谱\n\n🎮 视频游戏开发洞察\n\n# 重要\n\n1. 请务必用{lang}回复我\n2. 回复字数控制在3-5个字\n\nPrompt: {message}",
     },
@@ -228,6 +246,7 @@ SETTING_DEFINITIONS: dict[str, dict] = {
     "ENABLE_EVENT_MERGER": {
         "type": SettingType.BOOLEAN,
         "category": SettingCategory.SESSION,
+        "subcategory": "events",
         "description": "settingDesc.ENABLE_EVENT_MERGER",
         "default": True,
         "frontend_visible": True,
@@ -235,6 +254,7 @@ SETTING_DEFINITIONS: dict[str, dict] = {
     "EVENT_MERGE_INTERVAL": {
         "type": SettingType.NUMBER,
         "category": SettingCategory.SESSION,
+        "subcategory": "events",
         "description": "settingDesc.EVENT_MERGE_INTERVAL",
         "default": 300.0,
         "depends_on": "ENABLE_EVENT_MERGER",
@@ -245,6 +265,7 @@ SETTING_DEFINITIONS: dict[str, dict] = {
     "ENABLE_SANDBOX": {
         "type": SettingType.BOOLEAN,
         "category": SettingCategory.SANDBOX,
+        "subcategory": "general",
         "description": "settingDesc.ENABLE_SANDBOX",
         "default": False,
         "frontend_visible": True,
@@ -252,6 +273,7 @@ SETTING_DEFINITIONS: dict[str, dict] = {
     "SANDBOX_PLATFORM": {
         "type": SettingType.SELECT,
         "category": SettingCategory.SANDBOX,
+        "subcategory": "general",
         "description": "settingDesc.SANDBOX_PLATFORM",
         "default": "daytona",
         "depends_on": "ENABLE_SANDBOX",
@@ -260,6 +282,7 @@ SETTING_DEFINITIONS: dict[str, dict] = {
     "DAYTONA_API_KEY": {
         "type": SettingType.STRING,
         "category": SettingCategory.SANDBOX,
+        "subcategory": "daytona",
         "description": "settingDesc.DAYTONA_API_KEY",
         "default": "",
         "is_sensitive": True,
@@ -268,6 +291,7 @@ SETTING_DEFINITIONS: dict[str, dict] = {
     "DAYTONA_SERVER_URL": {
         "type": SettingType.STRING,
         "category": SettingCategory.SANDBOX,
+        "subcategory": "daytona",
         "description": "settingDesc.DAYTONA_SERVER_URL",
         "default": "",
         "depends_on": {"key": "SANDBOX_PLATFORM", "value": "daytona"},
@@ -275,6 +299,7 @@ SETTING_DEFINITIONS: dict[str, dict] = {
     "DAYTONA_TIMEOUT": {
         "type": SettingType.NUMBER,
         "category": SettingCategory.SANDBOX,
+        "subcategory": "daytona",
         "description": "settingDesc.DAYTONA_TIMEOUT",
         "default": 180,
         "depends_on": {"key": "SANDBOX_PLATFORM", "value": "daytona"},
@@ -282,6 +307,7 @@ SETTING_DEFINITIONS: dict[str, dict] = {
     "DAYTONA_IMAGE": {
         "type": SettingType.STRING,
         "category": SettingCategory.SANDBOX,
+        "subcategory": "daytona",
         "description": "settingDesc.DAYTONA_IMAGE",
         "default": "",
         "depends_on": {"key": "SANDBOX_PLATFORM", "value": "daytona"},
@@ -289,6 +315,7 @@ SETTING_DEFINITIONS: dict[str, dict] = {
     "DAYTONA_AUTO_STOP_INTERVAL": {
         "type": SettingType.NUMBER,
         "category": SettingCategory.SANDBOX,
+        "subcategory": "daytona",
         "description": "settingDesc.DAYTONA_AUTO_STOP_INTERVAL",
         "default": 5,
         "depends_on": {"key": "SANDBOX_PLATFORM", "value": "daytona"},
@@ -296,6 +323,7 @@ SETTING_DEFINITIONS: dict[str, dict] = {
     "DAYTONA_AUTO_ARCHIVE_INTERVAL": {
         "type": SettingType.NUMBER,
         "category": SettingCategory.SANDBOX,
+        "subcategory": "daytona",
         "description": "settingDesc.DAYTONA_AUTO_ARCHIVE_INTERVAL",
         "default": 5,
         "depends_on": {"key": "SANDBOX_PLATFORM", "value": "daytona"},
@@ -303,6 +331,7 @@ SETTING_DEFINITIONS: dict[str, dict] = {
     "DAYTONA_AUTO_DELETE_INTERVAL": {
         "type": SettingType.NUMBER,
         "category": SettingCategory.SANDBOX,
+        "subcategory": "daytona",
         "description": "settingDesc.DAYTONA_AUTO_DELETE_INTERVAL",
         "default": 1440,
         "depends_on": {"key": "SANDBOX_PLATFORM", "value": "daytona"},
@@ -310,6 +339,7 @@ SETTING_DEFINITIONS: dict[str, dict] = {
     "E2B_API_KEY": {
         "type": SettingType.STRING,
         "category": SettingCategory.SANDBOX,
+        "subcategory": "e2b",
         "description": "settingDesc.E2B_API_KEY",
         "default": "",
         "is_sensitive": True,
@@ -318,6 +348,7 @@ SETTING_DEFINITIONS: dict[str, dict] = {
     "E2B_TEMPLATE": {
         "type": SettingType.STRING,
         "category": SettingCategory.SANDBOX,
+        "subcategory": "e2b",
         "description": "settingDesc.E2B_TEMPLATE",
         "default": "base",
         "depends_on": {"key": "SANDBOX_PLATFORM", "value": "e2b"},
@@ -325,6 +356,7 @@ SETTING_DEFINITIONS: dict[str, dict] = {
     "E2B_TIMEOUT": {
         "type": SettingType.NUMBER,
         "category": SettingCategory.SANDBOX,
+        "subcategory": "e2b",
         "description": "settingDesc.E2B_TIMEOUT",
         "default": 3600,
         "depends_on": {"key": "SANDBOX_PLATFORM", "value": "e2b"},
@@ -332,6 +364,7 @@ SETTING_DEFINITIONS: dict[str, dict] = {
     "E2B_AUTO_PAUSE": {
         "type": SettingType.BOOLEAN,
         "category": SettingCategory.SANDBOX,
+        "subcategory": "e2b",
         "description": "settingDesc.E2B_AUTO_PAUSE",
         "default": True,
         "depends_on": {"key": "SANDBOX_PLATFORM", "value": "e2b"},
@@ -339,6 +372,7 @@ SETTING_DEFINITIONS: dict[str, dict] = {
     "E2B_AUTO_RESUME": {
         "type": SettingType.BOOLEAN,
         "category": SettingCategory.SANDBOX,
+        "subcategory": "e2b",
         "description": "settingDesc.E2B_AUTO_RESUME",
         "default": True,
         "depends_on": {"key": "SANDBOX_PLATFORM", "value": "e2b"},
@@ -349,6 +383,7 @@ SETTING_DEFINITIONS: dict[str, dict] = {
     "ENABLE_SKILLS": {
         "type": SettingType.BOOLEAN,
         "category": SettingCategory.SKILLS,
+        "subcategory": "general",
         "description": "settingDesc.ENABLE_SKILLS",
         "default": True,
         "frontend_visible": True,
@@ -359,6 +394,7 @@ SETTING_DEFINITIONS: dict[str, dict] = {
     "ENABLE_MCP": {
         "type": SettingType.BOOLEAN,
         "category": SettingCategory.TOOLS,
+        "subcategory": "mcp",
         "description": "settingDesc.ENABLE_MCP",
         "default": True,
         "frontend_visible": True,
@@ -366,6 +402,7 @@ SETTING_DEFINITIONS: dict[str, dict] = {
     "ENABLE_DEFERRED_TOOL_LOADING": {
         "type": SettingType.BOOLEAN,
         "category": SettingCategory.TOOLS,
+        "subcategory": "mcp",
         "description": "settingDesc.ENABLE_DEFERRED_TOOL_LOADING",
         "default": True,
         "depends_on": "ENABLE_MCP",
@@ -374,6 +411,7 @@ SETTING_DEFINITIONS: dict[str, dict] = {
     "DEFERRED_TOOL_THRESHOLD": {
         "type": SettingType.NUMBER,
         "category": SettingCategory.TOOLS,
+        "subcategory": "deferred",
         "description": "settingDesc.DEFERRED_TOOL_THRESHOLD",
         "default": 20,
         "depends_on": "ENABLE_DEFERRED_TOOL_LOADING",
@@ -381,42 +419,48 @@ SETTING_DEFINITIONS: dict[str, dict] = {
     "DEFERRED_TOOL_SEARCH_LIMIT": {
         "type": SettingType.NUMBER,
         "category": SettingCategory.TOOLS,
+        "subcategory": "deferred",
         "description": "settingDesc.DEFERRED_TOOL_SEARCH_LIMIT",
         "default": 25,
         "depends_on": "ENABLE_DEFERRED_TOOL_LOADING",
     },
     # ============================================
-    # Database Settings (MongoDB)
+    # MongoDB Settings
     # ============================================
     "MONGODB_URL": {
         "type": SettingType.STRING,
-        "category": SettingCategory.DATABASE,
+        "category": SettingCategory.MONGODB,
+        "subcategory": "connection",
         "description": "settingDesc.MONGODB_URL",
         "default": "mongodb://localhost:27017",
         "is_sensitive": True,
     },
     "MONGODB_DB": {
         "type": SettingType.STRING,
-        "category": SettingCategory.SESSION,
+        "category": SettingCategory.MONGODB,
+        "subcategory": "connection",
         "description": "settingDesc.MONGODB_DB",
         "default": "agent_state",
     },
     "MONGODB_USERNAME": {
         "type": SettingType.STRING,
-        "category": SettingCategory.DATABASE,
+        "category": SettingCategory.MONGODB,
+        "subcategory": "connection",
         "description": "settingDesc.MONGODB_USERNAME",
         "default": "",
     },
     "MONGODB_PASSWORD": {
         "type": SettingType.STRING,
-        "category": SettingCategory.DATABASE,
+        "category": SettingCategory.MONGODB,
+        "subcategory": "connection",
         "description": "settingDesc.MONGODB_PASSWORD",
         "default": "",
         "is_sensitive": True,
     },
     "MONGODB_AUTH_SOURCE": {
         "type": SettingType.STRING,
-        "category": SettingCategory.DATABASE,
+        "category": SettingCategory.MONGODB,
+        "subcategory": "connection",
         "description": "settingDesc.MONGODB_AUTH_SOURCE",
         "default": "admin",
     },
@@ -425,14 +469,16 @@ SETTING_DEFINITIONS: dict[str, dict] = {
     # ============================================
     "REDIS_URL": {
         "type": SettingType.STRING,
-        "category": SettingCategory.DATABASE,
+        "category": SettingCategory.REDIS,
+        "subcategory": "connection",
         "description": "settingDesc.REDIS_URL",
         "default": "redis://localhost:6379/0",
         "is_sensitive": True,
     },
     "REDIS_PASSWORD": {
         "type": SettingType.STRING,
-        "category": SettingCategory.DATABASE,
+        "category": SettingCategory.REDIS,
+        "subcategory": "connection",
         "description": "settingDesc.REDIS_PASSWORD",
         "default": "",
         "is_sensitive": True,
@@ -443,12 +489,14 @@ SETTING_DEFINITIONS: dict[str, dict] = {
     "LANGSMITH_TRACING": {
         "type": SettingType.BOOLEAN,
         "category": SettingCategory.TRACING,
+        "subcategory": "langsmith",
         "description": "settingDesc.LANGSMITH_TRACING",
         "default": False,
     },
     "LANGSMITH_API_KEY": {
         "type": SettingType.STRING,
         "category": SettingCategory.TRACING,
+        "subcategory": "langsmith",
         "description": "settingDesc.LANGSMITH_API_KEY",
         "default": "",
         "depends_on": "LANGSMITH_TRACING",
@@ -457,6 +505,7 @@ SETTING_DEFINITIONS: dict[str, dict] = {
     "LANGSMITH_PROJECT": {
         "type": SettingType.STRING,
         "category": SettingCategory.TRACING,
+        "subcategory": "langsmith",
         "description": "settingDesc.LANGSMITH_PROJECT",
         "default": "lamb-agent",
         "depends_on": "LANGSMITH_TRACING",
@@ -464,6 +513,7 @@ SETTING_DEFINITIONS: dict[str, dict] = {
     "LANGSMITH_API_URL": {
         "type": SettingType.STRING,
         "category": SettingCategory.TRACING,
+        "subcategory": "langsmith",
         "description": "settingDesc.LANGSMITH_API_URL",
         "default": "https://api.smith.langchain.com",
         "depends_on": "LANGSMITH_TRACING",
@@ -471,6 +521,7 @@ SETTING_DEFINITIONS: dict[str, dict] = {
     "LANGSMITH_SAMPLE_RATE": {
         "type": SettingType.NUMBER,
         "category": SettingCategory.TRACING,
+        "subcategory": "langsmith",
         "description": "settingDesc.LANGSMITH_SAMPLE_RATE",
         "default": 1.0,
         "depends_on": "LANGSMITH_TRACING",

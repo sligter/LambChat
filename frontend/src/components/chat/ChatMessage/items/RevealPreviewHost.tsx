@@ -72,10 +72,9 @@ function ProjectRevealPreviewPanel({
 
   useEffect(() => {
     const syncFullscreenState = () => {
-      const fullscreen =
-        isProjectPreviewFullscreen({
-          element: panelElementRef.current,
-        });
+      const fullscreen = isProjectPreviewFullscreen({
+        element: panelElementRef.current,
+      });
       setIsBrowserFullscreen(fullscreen);
       setViewMode(fullscreen ? "center" : "sidebar");
     };
@@ -171,7 +170,7 @@ function ProjectRevealPreviewPanel({
     });
 
     return fullscreenEntered;
-  }, [isMobile]);
+  }, []);
 
   useEffect(() => {
     if (!openInFullscreen) return;

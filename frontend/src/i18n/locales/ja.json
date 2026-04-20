@@ -303,11 +303,20 @@
   },
   "categories": {
     "agent": "エージェント",
-    "database": "データベース",
+    "captcha": "CAPTCHA",
+    "checkpoint": "チェックポイント",
+    "email": "メール",
+    "file_upload": "ファイルアップロード",
     "frontend": "フロントエンド",
     "llm": "LLM",
     "long_term_storage": "長期ストレージ",
     "memory": "メモリ",
+    "memory_embedding": "埋め込み",
+    "memory_search": "検索とインデックス",
+    "memory_storage": "保存とポリシー",
+    "mongodb": "MongoDB",
+    "oauth": "OAuth",
+    "redis": "Redis",
     "s3": "S3 ストレージ",
     "sandbox": "サンドボックス",
     "security": "セキュリティ",
@@ -316,6 +325,38 @@
     "tools": "ツール",
     "tracing": "トレース",
     "user": "プロフィール"
+  },
+  "subcategories": {
+    "general": "一般",
+    "display": "表示",
+    "contact": "連絡先",
+    "retry": "リトライ",
+    "cache": "キャッシュ",
+    "title": "タイトル生成",
+    "events": "イベント統合",
+    "daytona": "Daytona",
+    "e2b": "E2B",
+    "mcp": "MCP",
+    "deferred": "遅延読み込み",
+    "connection": "接続",
+    "langsmith": "LangSmith",
+    "jwt": "JWT トークン",
+    "service": "メールサービス",
+    "turnstile": "Turnstile",
+    "bucket": "バケット",
+    "limits": "制限",
+    "storage": "ストレージ",
+    "pool": "接続プール",
+    "postgres": "PostgreSQL",
+    "registration": "登録",
+    "google": "Google",
+    "github": "GitHub",
+    "apple": "Apple",
+    "api": "API",
+    "index": "インデックス",
+    "rerank": "再ランク付け",
+    "llm": "LLM",
+    "policy": "ポリシー"
   },
   "channel": {
     "addFirstInstance": "最初のインスタンスを追加",
@@ -513,7 +554,8 @@
     "search": "検索",
     "selectAll": "すべて選択",
     "showing": "{{start}}〜{{end}}件を表示",
-    "skip": "スキップ"
+    "skip": "スキップ",
+    "prev": "前へ"
   },
   "documents": {
     "ascending": "昇順",
@@ -1068,7 +1110,8 @@
     "skills": "スキル",
     "systemSettings": "システム設定",
     "userSettings": "ユーザー管理",
-    "users": "ユーザー"
+    "users": "ユーザー",
+    "memory": "記憶スペース"
   },
   "navDesc": {
     "agents": "AIエージェントの設定と管理",
@@ -1082,7 +1125,8 @@
     "roles": "ロールと権限の設定",
     "settings": "アプリとシステムの設定",
     "skills": "スキルの管理と設定",
-    "users": "ユーザーアカウントとアクセスの管理"
+    "users": "ユーザーアカウントとアクセスの管理",
+    "memory": "AIの記憶内容を表示・管理"
   },
   "notification": {
     "active": "アクティブ",
@@ -1766,6 +1810,31 @@
       "enterPassword": "パスワードを入力してください",
       "enterUsername": "ユーザー名を入力してください",
       "passwordMinLength": "パスワードは6文字以上である必要があります"
+    }
+  },
+  "memory": {
+    "title": "記憶スペース",
+    "subtitle": "合計 {{count}} 件の記憶",
+    "loading": "記憶を読み込み中...",
+    "searchPlaceholder": "記憶を検索...",
+    "empty": "まだ記憶がありません。AIが重要な情報を自動的に保存します。",
+    "noResults": "一致する記憶がありません",
+    "fetchError": "記憶の取得に失敗しました",
+    "deleted": "記憶を削除しました",
+    "deleteError": "削除に失敗しました",
+    "deleteConfirm": "この記憶を削除しますか？",
+    "deleteConfirmMessage": "この操作は元に戻せません。",
+    "selectHint": "記憶を選択して詳細を表示",
+    "accesses": "回アクセス",
+    "allTypes": "すべてのタイプ",
+    "timeAgo": "{{count}}日前",
+    "timeWeeksAgo": "{{count}}週間前",
+    "timeMonthsAgo": "{{count}}ヶ月前",
+    "type": {
+      "user": "ユーザー",
+      "feedback": "フィードバック",
+      "project": "プロジェクト",
+      "reference": "リファレンス"
     }
   }
 }

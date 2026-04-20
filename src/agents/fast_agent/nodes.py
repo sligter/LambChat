@@ -102,7 +102,7 @@ async def fast_agent_node(state: Dict[str, Any], config: RunnableConfig) -> Dict
             logger.warning(f"Failed to build skills prompt: {e}")
 
     # 构建记忆系统提示
-    memory_guide = get_memory_guide(settings.MEMORY_PERFORM) if settings.ENABLE_MEMORY else ""
+    memory_guide = get_memory_guide() if settings.ENABLE_MEMORY else ""
 
     # 构建系统提示（skills/memory_guide 由 SectionPromptMiddleware 在请求时注入）
     system_prompt = FAST_SYSTEM_PROMPT
@@ -178,12 +178,7 @@ async def fast_agent_node(state: Dict[str, Any], config: RunnableConfig) -> Dict
     _prompt_sections = [s for s in (skills_prompt, memory_guide) if s]
     if _prompt_sections:
         user_middleware.append(SectionPromptMiddleware(sections=_prompt_sections))
-    if (
-        settings.ENABLE_MEMORY
-        and settings.MEMORY_PERFORM == "native"
-        and settings.NATIVE_MEMORY_INDEX_ENABLED
-        and context.user_id
-    ):
+    if settings.ENABLE_MEMORY and settings.NATIVE_MEMORY_INDEX_ENABLED and context.user_id:
         from src.infra.agent.middleware import MemoryIndexMiddleware
 
         user_middleware.append(MemoryIndexMiddleware(user_id=context.user_id))
@@ -248,7 +243,7 @@ async def fast_agent_node(state: Dict[str, Any], config: RunnableConfig) -> Dict
     await event_processor.flush()
     logger.info("[FastAgent] astream_events completed")
 
-    if settings.ENABLE_MEMORY and settings.MEMORY_PERFORM == "native" and context.user_id:
+    if settings.ENABLE_MEMORY and context.user_id:
         from src.infra.memory.tools import schedule_auto_memory_capture
 
         schedule_auto_memory_capture(context.user_id, user_input)

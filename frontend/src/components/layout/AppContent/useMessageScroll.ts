@@ -2,6 +2,7 @@ import { useRef, useEffect, useState, useCallback } from "react";
 import type { VirtuosoHandle } from "react-virtuoso";
 import {
   hasNewOutgoingMessage,
+  shouldAutoScrollAfterViewportChange,
   startVirtuosoScrollToBottom,
 } from "./messageScrollUtils";
 
@@ -170,11 +171,15 @@ export function useMessageScroll(
         return;
       }
 
-      if (userScrolledUpRef.current) {
-        return;
-      }
-
-      if (!autoScrollActiveRef.current && !isNearBottomRef.current) {
+      if (
+        !shouldAutoScrollAfterViewportChange({
+          scroller: virtuosoScrollerRef.current,
+          bottomBreathingRoomPx,
+          userScrolledUp: userScrolledUpRef.current,
+          autoScrollActive: autoScrollActiveRef.current,
+          isNearBottom: isNearBottomRef.current,
+        })
+      ) {
         return;
       }
 
@@ -192,7 +197,7 @@ export function useMessageScroll(
       viewport.removeEventListener("scroll", handleViewportChange);
       cancelAnimationFrame(viewportResizeRafRef.current);
     };
-  }, [isMobileViewport, scrollToBottom]);
+  }, [bottomBreathingRoomPx, isMobileViewport, scrollToBottom]);
 
   // Scroll to bottom on session change or initial load (after messages load)
   // Only trigger for session switches and page refresh (not new session creation — sendMessage handles its own scrolling)
