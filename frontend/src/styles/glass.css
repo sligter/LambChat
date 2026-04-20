@@ -183,7 +183,26 @@
     var(--theme-primary) 22%,
     var(--theme-border)
   );
-  color: var(--theme-text);
+  background: color-mix(
+    in srgb,
+    var(--theme-primary) 6%,
+    var(--glass-bg-subtle)
+  );
+  color: color-mix(in srgb, var(--theme-primary) 85%, var(--theme-text));
+}
+
+.dark .glass-tag--accent {
+  background: color-mix(
+    in srgb,
+    var(--theme-primary) 12%,
+    var(--glass-bg-subtle)
+  );
+}
+
+.glass-tag--overflow {
+  border-style: dashed;
+  color: var(--theme-text-secondary);
+  font-weight: 500;
 }
 
 .glass-tag--key {

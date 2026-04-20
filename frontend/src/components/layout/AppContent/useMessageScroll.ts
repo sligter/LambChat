@@ -157,17 +157,12 @@ export function useMessageScroll(
     }
 
     let previousHeight = viewport.height;
-    let previousOffsetTop = viewport.offsetTop;
-
     const handleViewportChange = () => {
       const heightChanged = Math.abs(viewport.height - previousHeight) > 4;
-      const offsetChanged =
-        Math.abs(viewport.offsetTop - previousOffsetTop) > 2;
 
       previousHeight = viewport.height;
-      previousOffsetTop = viewport.offsetTop;
 
-      if (!heightChanged && !offsetChanged) {
+      if (!heightChanged) {
         return;
       }
 
@@ -190,11 +185,9 @@ export function useMessageScroll(
     };
 
     viewport.addEventListener("resize", handleViewportChange);
-    viewport.addEventListener("scroll", handleViewportChange);
 
     return () => {
       viewport.removeEventListener("resize", handleViewportChange);
-      viewport.removeEventListener("scroll", handleViewportChange);
       cancelAnimationFrame(viewportResizeRafRef.current);
     };
   }, [bottomBreathingRoomPx, isMobileViewport, scrollToBottom]);

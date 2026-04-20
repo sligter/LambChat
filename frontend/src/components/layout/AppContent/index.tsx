@@ -40,7 +40,10 @@ import { getRestoredModelSelection } from "./sessionState";
 import { ChatView } from "./ChatView";
 import { Header } from "./Header";
 import { TabContent } from "./TabContent";
-import { getAppViewportHeightCssValue } from "./appViewport";
+import {
+  getAppViewportHeightCssValue,
+  shouldUpdateAppViewportHeight,
+} from "./appViewport";
 
 interface AppContentProps {
   activeTab: TabType;
@@ -102,23 +105,33 @@ function AppShell({
 
     const rootStyle = document.documentElement.style;
     let raf = 0;
+    let viewportHeightValue = "";
 
     const updateViewportHeight = () => {
       cancelAnimationFrame(raf);
       raf = requestAnimationFrame(() => {
-        rootStyle.setProperty(
-          "--app-viewport-height",
-          getAppViewportHeightCssValue({
-            visualViewportHeight: window.visualViewport?.height ?? null,
-            windowInnerHeight: window.innerHeight,
-          }),
-        );
+        const nextViewportHeightValue = getAppViewportHeightCssValue({
+          visualViewportHeight: window.visualViewport?.height ?? null,
+          windowInnerHeight: window.innerHeight,
+        });
+
+        if (
+          shouldUpdateAppViewportHeight(
+            viewportHeightValue,
+            nextViewportHeightValue,
+          )
+        ) {
+          viewportHeightValue = nextViewportHeightValue;
+          rootStyle.setProperty(
+            "--app-viewport-height",
+            nextViewportHeightValue,
+          );
+        }
       });
     };
 
     updateViewportHeight();
     window.visualViewport?.addEventListener("resize", updateViewportHeight);
-    window.visualViewport?.addEventListener("scroll", updateViewportHeight);
     window.addEventListener("resize", updateViewportHeight);
     window.addEventListener("orientationchange", updateViewportHeight);
 
@@ -126,10 +139,6 @@ function AppShell({
       cancelAnimationFrame(raf);
       window.visualViewport?.removeEventListener(
         "resize",
-        updateViewportHeight,
-      );
-      window.visualViewport?.removeEventListener(
-        "scroll",
         updateViewportHeight,
       );
       window.removeEventListener("resize", updateViewportHeight);

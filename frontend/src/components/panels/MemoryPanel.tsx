@@ -13,7 +13,6 @@ import {
   Clock,
   Tag,
   RefreshCw,
-  AlertCircle,
   Filter,
   Eye,
 } from "lucide-react";
@@ -21,6 +20,7 @@ import toast from "react-hot-toast";
 import { PanelHeader } from "../common/PanelHeader";
 import { Pagination } from "../common/Pagination";
 import { Checkbox } from "../common/Checkbox";
+import { ConfirmDialog } from "../common/ConfirmDialog";
 import { BatchActionBar } from "../panels/SkillsPanel/BatchActionBar";
 import { memoryApi, type MemoryItem } from "../../services/api/memory";
 
@@ -217,11 +217,9 @@ function DetailModal({
                 <p className="mt-1 text-xs text-stone-400 dark:text-stone-500 flex items-center gap-1">
                   <Clock size={12} />
                   {new Date(memory.created_at).toLocaleString()}
-                  {memory.access_count > 0 && (
-                    <span className="ml-2">
-                      {memory.access_count} {t("memory.accesses")}
-                    </span>
-                  )}
+                  <span className="ml-2">
+                    {memory.access_count ?? 0} {t("memory.accesses")}
+                  </span>
                 </p>
               )}
             </div>
@@ -319,50 +317,20 @@ function DeleteModal({
   const { t } = useTranslation();
 
   return (
-    <>
-      <div
-        className="modal-bottom-sheet sm:modal-centered-wrapper"
-        onClick={onCancel}
-      />
-      <div className="modal-bottom-sheet sm:modal-centered-wrapper">
-        <div
-          className="modal-bottom-sheet-content sm:modal-centered-content sm:max-w-md"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="bottom-sheet-handle sm:hidden" />
-          <div className="p-6">
-            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30">
-              <AlertCircle
-                className="text-red-600 dark:text-red-400"
-                size={24}
-              />
-            </div>
-            <h3 className="text-lg font-semibold text-[var(--theme-text)] font-serif">
-              {t("memory.deleteConfirm")}
-            </h3>
-            <p className="mt-2 text-sm text-[var(--theme-text-secondary)]">
-              {count > 1
-                ? t("memory.batchDeleteConfirmMessage", { count })
-                : t("memory.deleteConfirmMessage")}
-            </p>
-            <div className="mt-6 flex gap-3">
-              <button
-                onClick={onCancel}
-                className="btn-secondary flex-1 rounded-lg"
-              >
-                {t("common.cancel")}
-              </button>
-              <button
-                onClick={onConfirm}
-                className="btn-danger flex-1 rounded-lg"
-              >
-                {t("common.delete")}
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </>
+    <ConfirmDialog
+      isOpen
+      title={t("memory.deleteConfirm")}
+      message={
+        count > 1
+          ? t("memory.batchDeleteConfirmMessage", { count })
+          : t("memory.deleteConfirmMessage")
+      }
+      confirmText={t("common.delete")}
+      cancelText={t("common.cancel")}
+      onConfirm={onConfirm}
+      onCancel={onCancel}
+      variant="danger"
+    />
   );
 }
 
@@ -594,20 +562,12 @@ export function MemoryPanel() {
                   {memory.tags.length > 0 && (
                     <div className="mt-3 flex flex-wrap gap-1.5">
                       {memory.tags.slice(0, 3).map((tag) => (
-                        <span
-                          key={tag}
-                          className="glass-tag"
-                          style={
-                            {
-                              "--tag-accent": "var(--theme-primary)",
-                            } as React.CSSProperties
-                          }
-                        >
+                        <span key={tag} className="glass-tag glass-tag--accent">
                           {tag}
                         </span>
                       ))}
                       {memory.tags.length > 3 && (
-                        <span className="text-[11px] text-[var(--theme-text-secondary)]">
+                        <span className="glass-tag glass-tag--overflow">
                           +{memory.tags.length - 3}
                         </span>
                       )}
@@ -617,13 +577,8 @@ export function MemoryPanel() {
                   {/* Footer */}
                   <div className="mt-auto flex items-center gap-2 border-t border-[var(--glass-border)] pt-3 mt-3.5">
                     <div className="inline-flex items-center gap-1.5 rounded-full bg-[var(--glass-bg)] px-2 py-0.5 text-[11px] text-[var(--theme-text-secondary)]">
-                      <Clock size={12} />
-                      {memory.access_count > 0 && (
-                        <Eye size={12} className="ml-1" />
-                      )}
-                      {memory.access_count > 0
-                        ? `${memory.access_count} ${t("memory.accesses")}`
-                        : t("memory.accesses", "0")}
+                      <Eye size={12} />
+                      {memory.access_count ?? 0} {t("memory.accesses")}
                     </div>
 
                     <div className="ml-auto" />

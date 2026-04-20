@@ -1,6 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { getAppViewportHeightCssValue } from "./appViewport.ts";
+import {
+  getAppViewportHeightCssValue,
+  shouldUpdateAppViewportHeight,
+} from "./appViewport.ts";
 
 test("uses visual viewport height when available", () => {
   assert.equal(
@@ -30,4 +33,10 @@ test("falls back to dynamic viewport units when no measured height is available"
     }),
     "100dvh",
   );
+});
+
+test("ignores tiny visual viewport height jitter", () => {
+  assert.equal(shouldUpdateAppViewportHeight("512px", "512px"), false);
+  assert.equal(shouldUpdateAppViewportHeight("512px", "513px"), false);
+  assert.equal(shouldUpdateAppViewportHeight("512px", "516px"), true);
 });
