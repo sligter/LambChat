@@ -74,6 +74,7 @@ export function ZipUploadModal({
         <div
           ref={swipeRef as React.RefObject<HTMLDivElement>}
           className="modal-bottom-sheet-content sm:modal-centered-content sm:max-w-[72rem]"
+          onClick={(e) => e.stopPropagation()}
         >
           <div className="bottom-sheet-handle sm:hidden" />
           <div className="skill-modal-header">

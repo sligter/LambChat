@@ -118,7 +118,7 @@ const GrepItem = memo(function GrepItem({
           <CodeMirrorViewer
             value={parsedResult.lines.join("\n")}
             lineNumbers={false}
-            maxHeight="60vh"
+            maxHeight="85vh"
             fontSize="0.8rem"
           />
         </div>

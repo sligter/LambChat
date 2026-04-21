@@ -446,6 +446,8 @@
       "tokenUsage": "Использование токенов",
       "toolCalls": "Вызовы инструментов",
       "toolEdit": "Редактирование",
+      "toolEditAdded": "Добавлено",
+      "toolEditRemoved": "Удалено",
       "toolExecute": "Запуск",
       "toolExitCode": "Код выхода {{code}}",
       "toolFailed": "Команда не удалась",
@@ -1159,7 +1161,9 @@
     "typeMaintenance": "Обслуживание",
     "typeSuccess": "Успех",
     "typeWarning": "Внимание",
-    "updatedSuccess": "Уведомление обновлено"
+    "updatedSuccess": "Уведомление обновлено",
+    "expand": "Показать детали",
+    "collapse": "Скрыть детали"
   },
   "passwordInput": {
     "hidePassword": "Скрыть пароль",

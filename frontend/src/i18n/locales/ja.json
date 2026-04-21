@@ -446,6 +446,8 @@
       "tokenUsage": "Token使用量",
       "toolCalls": "ツール呼び出し",
       "toolEdit": "編集",
+      "toolEditAdded": "追加",
+      "toolEditRemoved": "削除",
       "toolExecute": "実行",
       "toolExitCode": "終了コード {{code}}",
       "toolFailed": "コマンド失敗",
@@ -1157,7 +1159,9 @@
     "typeMaintenance": "メンテナンス",
     "typeSuccess": "成功",
     "typeWarning": "警告",
-    "updatedSuccess": "お知らせを更新しました"
+    "updatedSuccess": "お知らせを更新しました",
+    "expand": "詳細を表示",
+    "collapse": "詳細を隠す"
   },
   "passwordInput": {
     "hidePassword": "パスワードを隠す",

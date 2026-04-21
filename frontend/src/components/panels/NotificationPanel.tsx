@@ -5,7 +5,15 @@
 import { useState, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import toast from "react-hot-toast";
-import { Plus, Pencil, Trash2, Bell, X, AlertCircle } from "lucide-react";
+import {
+  Plus,
+  Pencil,
+  Trash2,
+  Bell,
+  X,
+  AlertCircle,
+  ChevronDown,
+} from "lucide-react";
 import { PanelHeader } from "../common/PanelHeader";
 import { Pagination } from "../common/Pagination";
 import { notificationApi } from "../../services/api/notification";
@@ -526,6 +534,18 @@ export function NotificationPanel() {
     );
   };
 
+  // Get localized content with fallback
+  const getLocalizedContent = (notification: Notification): string => {
+    const locale = (i18n.language || "en").split("-")[0];
+    return (
+      notification.content_i18n[locale as keyof I18nText] ||
+      notification.content_i18n.en ||
+      ""
+    );
+  };
+
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
   // Format schedule info
   const formatSchedule = (notification: Notification): string => {
     if (notification.start_time && notification.end_time) {
@@ -604,18 +624,21 @@ export function NotificationPanel() {
             {notifications.map((notification) => {
               const status = getNotificationStatus(notification);
               const schedule = formatSchedule(notification);
+              const content = getLocalizedContent(notification);
+              const isExpanded = expandedId === notification.id;
+              const hasContent = content.length > 0;
 
               return (
                 <div
                   key={notification.id}
                   className="glass-card rounded-xl p-4 sm:p-5 hover:border-stone-300 dark:hover:border-stone-600 transition-colors"
                 >
-                  <div className="flex items-start justify-between gap-4">
+                  <div className="flex items-start justify-between gap-3 sm:gap-4">
                     {/* Info */}
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-3 mb-2">
+                      <div className="flex items-center gap-2 sm:gap-3 mb-2">
                         <span
-                          className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-semibold uppercase leading-none ${
+                          className={`inline-flex items-center gap-1 shrink-0 rounded px-1.5 py-0.5 text-[11px] font-semibold uppercase leading-none ${
                             notification.type === "info"
                               ? "bg-blue-500/15 text-blue-600 dark:text-blue-300"
                               : notification.type === "success"
@@ -632,9 +655,11 @@ export function NotificationPanel() {
                             }`,
                           )}
                         </span>
-                        <p className="font-medium text-stone-900 dark:text-stone-100 truncate">
+                        <p className="font-medium text-stone-900 dark:text-stone-100 break-words">
                           {getLocalizedTitle(notification)}
                         </p>
+                      </div>
+                      <div className="flex items-center gap-2 mb-2">
                         <StatusBadge status={status} />
                       </div>
                       {schedule && (
@@ -645,10 +670,51 @@ export function NotificationPanel() {
                       <p className="text-xs text-stone-400 dark:text-stone-500">
                         {formatDate(notification.created_at)}
                       </p>
+                      {/* Expandable content */}
+                      {hasContent && (
+                        <div
+                          className={`mt-2 text-xs leading-relaxed text-stone-600 dark:text-stone-400 overflow-hidden transition-all duration-200 ${
+                            isExpanded
+                              ? "max-h-96 opacity-100"
+                              : "max-h-0 opacity-0"
+                          }`}
+                        >
+                          <div
+                            className="pt-2 border-t"
+                            style={{ borderColor: "var(--theme-border)" }}
+                          >
+                            {content}
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     {/* Actions */}
                     <div className="flex items-center gap-1 flex-shrink-0">
+                      {hasContent && (
+                        <button
+                          onClick={() =>
+                            setExpandedId(isExpanded ? null : notification.id)
+                          }
+                          className={`flex h-9 w-9 items-center justify-center rounded-lg transition-all ${
+                            isExpanded
+                              ? "text-stone-600 bg-stone-100 dark:text-stone-300 dark:bg-stone-800"
+                              : "text-stone-400 hover:bg-stone-100 hover:text-stone-600 dark:hover:bg-stone-800 dark:hover:text-stone-300"
+                          }`}
+                          title={
+                            isExpanded
+                              ? t("notification.collapse")
+                              : t("notification.expand")
+                          }
+                        >
+                          <ChevronDown
+                            size={16}
+                            className={`transition-transform duration-200 ${
+                              isExpanded ? "rotate-180" : ""
+                            }`}
+                          />
+                        </button>
+                      )}
                       <button
                         onClick={() => setEditingNotification(notification)}
                         className="flex h-9 w-9 items-center justify-center rounded-lg text-stone-400 transition-all hover:bg-stone-100 hover:text-stone-600 dark:hover:bg-stone-800 dark:hover:text-stone-300"

@@ -445,6 +445,8 @@
       "tokenUsage": "Token 使用",
       "toolCalls": "工具调用",
       "toolEdit": "编辑",
+      "toolEditAdded": "新增",
+      "toolEditRemoved": "删除",
       "toolExecute": "执行",
       "toolExitCode": "退出码 {{code}}",
       "toolFailed": "命令执行失败",
@@ -1156,7 +1158,9 @@
     "typeMaintenance": "维护",
     "typeSuccess": "成功",
     "typeWarning": "警告",
-    "updatedSuccess": "通知更新成功"
+    "updatedSuccess": "通知更新成功",
+    "expand": "展开详情",
+    "collapse": "收起详情"
   },
   "passwordInput": {
     "hidePassword": "隐藏密码",

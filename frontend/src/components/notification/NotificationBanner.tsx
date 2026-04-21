@@ -79,7 +79,7 @@ export function NotificationBanner() {
               {t(config.labelKey)}
             </span>
             <p
-              className="truncate leading-snug"
+              className="leading-snug min-w-0 break-words"
               style={{ color: "var(--theme-text)" }}
             >
               {content ? `${title} — ${content}` : title}

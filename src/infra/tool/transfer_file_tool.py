@@ -351,7 +351,7 @@ def get_transfer_file_tool() -> BaseTool:
 
 
 async def _list_dir_files(backend: Any, dir_path: str) -> list[str]:
-    """列出目录下所有文件路径（通过 ls_info 递归）。
+    """列出目录下所有文件路径（通过 ls 递归）。
 
     Returns:
         文件路径列表（相对/绝对路径，取决于 backend 返回格式）
@@ -367,14 +367,16 @@ async def _list_dir_files(backend: Any, dir_path: str) -> list[str]:
         visited_dirs.add(current_dir)
 
         try:
-            if hasattr(backend, "als_info"):
-                entries = await backend.als_info(current_dir)
-            elif hasattr(backend, "ls_info"):
-                entries = await asyncio.to_thread(backend.ls_info, current_dir)
+            if hasattr(backend, "als"):
+                result = await backend.als(current_dir)
+                entries = result.entries or []
+            elif hasattr(backend, "ls"):
+                result = await asyncio.to_thread(backend.ls, current_dir)
+                entries = result.entries or []
             else:
                 return
         except Exception as e:
-            logger.warning(f"[transfer_path] ls_info failed for {current_dir}: {e}")
+            logger.warning(f"[transfer_path] ls failed for {current_dir}: {e}")
             return
 
         for entry in entries:

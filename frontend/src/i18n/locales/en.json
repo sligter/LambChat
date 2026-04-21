@@ -445,6 +445,8 @@
       "tokenUsage": "Token usage",
       "toolCalls": "Tool Calls",
       "toolEdit": "Edit",
+      "toolEditAdded": "Added",
+      "toolEditRemoved": "Removed",
       "toolExecute": "Run",
       "toolExitCode": "Exit code {{code}}",
       "toolFailed": "Command failed",
@@ -1155,7 +1157,9 @@
     "typeMaintenance": "Maintenance",
     "typeSuccess": "Success",
     "typeWarning": "Warning",
-    "updatedSuccess": "Notification updated successfully"
+    "updatedSuccess": "Notification updated successfully",
+    "expand": "Show details",
+    "collapse": "Hide details"
   },
   "passwordInput": {
     "hidePassword": "Hide password",

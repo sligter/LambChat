@@ -1,15 +1,13 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { clsx } from "clsx";
 import {
   CheckCircle,
   XCircle,
   Ban,
-  ChevronDown,
   ChevronRight,
   Brain,
   Users,
   Box,
-  Clock,
   Loader2,
   PanelRight,
 } from "lucide-react";
@@ -19,7 +17,127 @@ import type { CollapsibleStatus } from "../../common";
 import type { MessagePart } from "../../../types";
 import { MarkdownContent } from "./MarkdownContent";
 import { MessagePartRenderer } from "./MessagePartRenderer";
-import { openPersistentToolPanel } from "./items/persistentToolPanelState";
+import {
+  openPersistentToolPanel,
+  updatePersistentToolPanel,
+  isPersistentToolPanelOpen,
+} from "./items/persistentToolPanelState";
+
+// ==========================================
+// Reactive subagent panel data store
+// ==========================================
+
+interface SubagentPanelData {
+  agentId: string;
+  agentName: string;
+  input: string;
+  result?: string;
+  success?: boolean;
+  error?: string;
+  isPending?: boolean;
+  parts?: MessagePart[];
+  startedAt?: number;
+  completedAt?: number;
+  status?: "pending" | "running" | "complete" | "error" | "cancelled";
+}
+
+const subagentDataStore = new Map<string, SubagentPanelData>();
+const subagentDataListeners = new Set<() => void>();
+
+function emitSubagentDataChange() {
+  subagentDataListeners.forEach((fn) => fn());
+}
+
+function setSubagentPanelData(data: SubagentPanelData) {
+  subagentDataStore.set(data.agentId, data);
+  emitSubagentDataChange();
+}
+
+function useSubagentPanelData(agentId: string): SubagentPanelData | undefined {
+  const [, forceRender] = useState(0);
+
+  useEffect(() => {
+    const listener = () => forceRender((n) => n + 1);
+    subagentDataListeners.add(listener);
+    return () => {
+      subagentDataListeners.delete(listener);
+    };
+  }, []);
+
+  return subagentDataStore.get(agentId);
+}
+
+// ==========================================
+// Subagent panel content (reactive)
+// ==========================================
+
+function SubagentPanelContent({ agentId }: { agentId: string }) {
+  const { t } = useTranslation();
+  const data = useSubagentPanelData(agentId);
+
+  if (!data) return null;
+
+  const effectiveStatus =
+    data.status ||
+    (data.isPending ? "running" : data.success ? "complete" : "error");
+
+  return (
+    <div className="space-y-3 max-h-[80vh] overflow-y-auto p-1">
+      {data.input && (
+        <div className="p-3 sm:p-4 rounded-lg bg-stone-50 dark:bg-stone-800/50">
+          <div className="text-xs uppercase tracking-wider text-stone-400 dark:text-stone-500 mb-2 font-medium">
+            {t("chat.message.args")}
+          </div>
+          <div className="text-sm text-stone-600 dark:text-stone-300 leading-relaxed">
+            <MarkdownContent content={data.input} />
+          </div>
+        </div>
+      )}
+      {data.parts && data.parts.length > 0 && (
+        <div className="space-y-2 pl-3 border-l-2 border-stone-200 dark:border-stone-700">
+          {data.parts.map((part, index) => (
+            <MessagePartRenderer
+              key={index}
+              part={part}
+              isStreaming={data.isPending}
+              isLast={index === data.parts!.length - 1}
+            />
+          ))}
+        </div>
+      )}
+      {data.error && effectiveStatus === "error" && (
+        <div className="p-3 sm:p-4 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900/50">
+          <div className="text-xs text-red-600 dark:text-red-400 font-medium mb-1">
+            {t("chat.message.error")}
+          </div>
+          <div className="text-xs text-red-700 dark:text-red-300 leading-relaxed">
+            {data.error}
+          </div>
+        </div>
+      )}
+      {data.result && effectiveStatus === "complete" && (
+        <div className="p-3 sm:p-4 rounded-lg bg-stone-50 dark:bg-stone-800/50">
+          <div className="text-xs uppercase tracking-wider text-stone-400 dark:text-stone-500 mb-2 font-medium">
+            {t("chat.message.result")}
+          </div>
+          <div className="text-sm text-stone-700 dark:text-stone-300 leading-relaxed">
+            <MarkdownContent content={data.result} />
+          </div>
+        </div>
+      )}
+      {data.isPending && !data.parts?.length && (
+        <div className="flex items-center gap-2 text-stone-500 dark:text-stone-400">
+          <LoadingSpinner size="sm" />
+          <span className="text-sm">{t("chat.message.executing")}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ==========================================
+// Utility
+// ==========================================
 
 /**
  * Calculate elapsed time between start and end (precise to milliseconds)
@@ -120,8 +238,9 @@ export function ThinkingBlock({
   );
 }
 
-// Subagent Block - subagent call display (ChatGPT style minimal design)
+// Subagent Block - compact card, content always in sidebar panel
 export function SubagentBlock({
+  agent_id,
   agent_name,
   input,
   result,
@@ -145,24 +264,17 @@ export function SubagentBlock({
   status?: "pending" | "running" | "complete" | "error" | "cancelled";
   error?: string;
 }) {
-  const { t } = useTranslation();
-  const [isExpanded, setIsExpanded] = useState(false);
-  const hasContent = (parts && parts.length > 0) || result;
-
   // Live elapsed time while running
   const [liveElapsed, setLiveElapsed] = useState<string | null>(null);
 
   useEffect(() => {
     if (!startedAt || completedAt) {
-      // Task not started or already completed - clear live timer
       setLiveElapsed(null);
       return;
     }
 
-    // Update immediately
     setLiveElapsed(getElapsedTime(startedAt, completedAt));
 
-    // Update every second while running
     const interval = setInterval(() => {
       setLiveElapsed(getElapsedTime(startedAt, completedAt));
     }, 1000);
@@ -170,29 +282,18 @@ export function SubagentBlock({
     return () => clearInterval(interval);
   }, [startedAt, completedAt]);
 
-  // Final elapsed time when completed
   const elapsed = completedAt
     ? getElapsedTime(startedAt, completedAt)
     : liveElapsed;
 
-  // Determine effective status
   const effectiveStatus =
     status || (isPending ? "running" : success ? "complete" : "error");
 
-  // Format agent name: capitalize first letter and convert underscores to spaces
   const formattedAgentName = agent_name
     .split("_")
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
     .join(" ");
 
-  // Auto collapse when completed
-  useEffect(() => {
-    if (isPending === false) {
-      setIsExpanded(false);
-    }
-  }, [isPending]);
-
-  // Map effectiveStatus to CollapsibleStatus for the sidebar panel
   const panelStatus: CollapsibleStatus =
     effectiveStatus === "running"
       ? "loading"
@@ -204,235 +305,186 @@ export function SubagentBlock({
             ? "cancelled"
             : "idle";
 
-  const handleOpenInPanel = () => {
-    if (!hasContent) return;
+  const panelKey = `subagent-${agent_id}`;
+
+  // Keep sidebar panel data in sync
+  useEffect(() => {
+    setSubagentPanelData({
+      agentId: agent_id,
+      agentName: agent_name,
+      input,
+      result,
+      success,
+      error,
+      isPending,
+      parts,
+      startedAt,
+      completedAt,
+      status: effectiveStatus as SubagentPanelData["status"],
+    });
+
+    // Auto-open panel on first render when running
+    if (effectiveStatus === "running" && !isPersistentToolPanelOpen(panelKey)) {
+      openPersistentToolPanel({
+        title: formattedAgentName,
+        icon: <Users size={16} />,
+        status: panelStatus,
+        subtitle: elapsed || undefined,
+        panelKey,
+        children: <SubagentPanelContent agentId={agent_id} />,
+      });
+    }
+
+    // Keep panel status/elapsed in sync
+    if (isPersistentToolPanelOpen(panelKey)) {
+      updatePersistentToolPanel(
+        (prev) => ({
+          ...prev,
+          status: panelStatus,
+          subtitle: elapsed || undefined,
+        }),
+        panelKey,
+      );
+    }
+  }, [
+    agent_id,
+    agent_name,
+    input,
+    result,
+    success,
+    error,
+    isPending,
+    parts,
+    startedAt,
+    completedAt,
+    effectiveStatus,
+    panelStatus,
+    elapsed,
+    formattedAgentName,
+    panelKey,
+  ]);
+
+  useEffect(() => {
+    return () => {
+      subagentDataStore.delete(agent_id);
+    };
+  }, [agent_id]);
+
+  const handleOpenInPanel = useCallback(() => {
     openPersistentToolPanel({
       title: formattedAgentName,
       icon: <Users size={16} />,
       status: panelStatus,
       subtitle: elapsed || undefined,
-      children: (
-        <div className="space-y-3 max-h-[80vh] overflow-y-auto p-1">
-          {input && (
-            <div className="p-3 sm:p-4 rounded-lg bg-stone-50 dark:bg-stone-800/50">
-              <div className="text-xs uppercase tracking-wider text-stone-400 dark:text-stone-500 mb-2 font-medium">
-                {t("chat.message.args")}
-              </div>
-              <div className="text-sm text-stone-600 dark:text-stone-300 leading-relaxed">
-                <MarkdownContent content={input} />
-              </div>
-            </div>
-          )}
-          {parts && parts.length > 0 && (
-            <div className="space-y-2 pl-3 border-l-2 border-stone-200 dark:border-stone-700">
-              {parts.map((part, index) => (
-                <MessagePartRenderer
-                  key={index}
-                  part={part}
-                  isStreaming={isPending}
-                  isLast={index === parts.length - 1}
-                />
-              ))}
-            </div>
-          )}
-          {error && effectiveStatus === "error" && (
-            <div className="p-3 sm:p-4 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900/50">
-              <div className="text-xs text-red-600 dark:text-red-400 font-medium mb-1">
-                {t("chat.message.error")}
-              </div>
-              <div className="text-xs text-red-700 dark:text-red-300 leading-relaxed">
-                {error}
-              </div>
-            </div>
-          )}
-          {result && effectiveStatus === "complete" && (
-            <div className="p-3 sm:p-4 rounded-lg bg-stone-50 dark:bg-stone-800/50">
-              <div className="text-xs uppercase tracking-wider text-stone-400 dark:text-stone-500 mb-2 font-medium">
-                {t("chat.message.result")}
-              </div>
-              <div className="text-sm text-stone-700 dark:text-stone-300 leading-relaxed">
-                <MarkdownContent content={result} />
-              </div>
-            </div>
-          )}
-          {isPending && !parts?.length && (
-            <div className="flex items-center gap-2 text-stone-500 dark:text-stone-400">
-              <LoadingSpinner size="sm" />
-              <span className="text-sm">{t("chat.message.executing")}</span>
-            </div>
-          )}
-        </div>
-      ),
+      panelKey,
+      children: <SubagentPanelContent agentId={agent_id} />,
     });
-  };
+  }, [formattedAgentName, panelStatus, elapsed, panelKey, agent_id]);
 
   return (
     <div
       className={clsx(
-        "my-3 rounded-xl overflow-hidden min-w-0 min-h-0",
-        "border border-stone-200 dark:border-stone-700",
-        "bg-white dark:bg-stone-900",
-        effectiveStatus === "error" && "border-red-200 dark:border-red-900/50",
+        "my-1.5 rounded-xl overflow-hidden min-w-0 group",
+        "border transition-all duration-200",
+        effectiveStatus === "running" &&
+          "border-blue-200/60 dark:border-blue-800/40 bg-gradient-to-r from-blue-50/60 to-transparent dark:from-blue-950/20",
+        effectiveStatus === "complete" &&
+          "border-stone-200/60 dark:border-stone-700/40 bg-stone-50/50 dark:bg-stone-800/30",
+        effectiveStatus === "error" &&
+          "border-red-200/60 dark:border-red-900/40 bg-gradient-to-r from-red-50/60 to-transparent dark:from-red-950/20",
         effectiveStatus === "cancelled" &&
-          "border-amber-200 dark:border-amber-900/50",
+          "border-amber-200/60 dark:border-amber-900/40 bg-gradient-to-r from-amber-50/60 to-transparent dark:from-amber-950/20",
+        (!effectiveStatus || effectiveStatus === "pending") &&
+          "border-stone-200/60 dark:border-stone-700/40",
       )}
     >
-      {/* Header - minimal design */}
-      <button
-        onClick={() => hasContent && setIsExpanded(!isExpanded)}
-        className={clsx(
-          "w-full px-4 py-3 flex items-center gap-3 transition-colors",
-          "hover:bg-stone-50 dark:hover:bg-stone-800/50",
-          hasContent && "cursor-pointer",
-        )}
+      <div
+        className="flex items-center gap-3 px-3.5 py-2.5 cursor-pointer transition-colors hover:bg-white/60 dark:hover:bg-white/5"
+        onClick={handleOpenInPanel}
       >
-        {/* Status icon - compact and refined */}
         <div
           className={clsx(
-            "flex h-7 w-7 items-center justify-center rounded-lg",
-            effectiveStatus === "running"
-              ? "bg-blue-100 dark:bg-blue-900/40"
-              : effectiveStatus === "complete"
-                ? "bg-emerald-100 dark:bg-emerald-900/40"
-                : effectiveStatus === "error"
-                  ? "bg-red-100 dark:bg-red-900/40"
-                  : effectiveStatus === "cancelled"
-                    ? "bg-amber-100 dark:bg-amber-900/40"
-                    : "bg-stone-100 dark:bg-stone-800",
+            "flex h-7 w-7 items-center justify-center rounded-lg shrink-0",
+            effectiveStatus === "running" && "bg-blue-500/10",
+            effectiveStatus === "complete" && "bg-emerald-500/10",
+            effectiveStatus === "error" && "bg-red-500/10",
+            effectiveStatus === "cancelled" && "bg-amber-500/10",
+            (!effectiveStatus || effectiveStatus === "pending") &&
+              "bg-stone-500/10",
           )}
         >
           {effectiveStatus === "running" ? (
             <Loader2
-              size={14}
-              className="text-blue-600 dark:text-blue-400 animate-spin"
+              size={13}
+              className="text-blue-500 dark:text-blue-400 animate-spin"
             />
           ) : effectiveStatus === "complete" ? (
             <CheckCircle
-              size={14}
-              className="text-emerald-600 dark:text-emerald-400"
+              size={13}
+              className="text-emerald-500 dark:text-emerald-400"
             />
           ) : effectiveStatus === "error" ? (
-            <XCircle size={14} className="text-red-600 dark:text-red-400" />
+            <XCircle size={13} className="text-red-500 dark:text-red-400" />
           ) : effectiveStatus === "cancelled" ? (
-            <Ban size={14} className="text-amber-600 dark:text-amber-400" />
+            <Ban size={13} className="text-amber-500 dark:text-amber-400" />
           ) : (
-            <Users size={14} className="text-stone-500 dark:text-stone-400" />
+            <ChevronRight
+              size={13}
+              className="text-stone-400 dark:text-stone-500"
+            />
           )}
         </div>
 
-        <div className="flex-1 min-w-0 text-left">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-stone-800 dark:text-stone-200 truncate">
-              {formattedAgentName}
-            </span>
-          </div>
-          {input && !isExpanded && (
-            <p className="text-xs text-stone-500 dark:text-stone-400 truncate mt-0.5 max-w-md whitespace-nowrap">
+        <div className="flex-1 min-w-0">
+          <span
+            className={clsx(
+              "text-[13px] font-medium truncate block",
+              effectiveStatus === "running" &&
+                "text-blue-700 dark:text-blue-300",
+              effectiveStatus === "complete" &&
+                "text-stone-700 dark:text-stone-300",
+              effectiveStatus === "error" && "text-red-700 dark:text-red-300",
+              effectiveStatus === "cancelled" &&
+                "text-amber-700 dark:text-amber-300",
+              (!effectiveStatus || effectiveStatus === "pending") &&
+                "text-stone-600 dark:text-stone-400",
+            )}
+          >
+            {formattedAgentName}
+          </span>
+          {input && (
+            <p className="text-[11px] text-stone-400 dark:text-stone-500 truncate mt-px">
               {input}
             </p>
           )}
         </div>
 
-        {/* Elapsed time */}
         {elapsed && (
-          <div className="flex items-center gap-1 text-xs text-stone-400 dark:text-stone-500">
-            <Clock size={12} />
-            <span>{elapsed}</span>
-          </div>
-        )}
-
-        {/* Sidebar panel button */}
-        {hasContent && (
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleOpenInPanel();
-            }}
+          <span
             className={clsx(
-              "flex items-center justify-center w-7 h-7 rounded-lg",
-              "hover:bg-stone-200 dark:hover:bg-stone-700",
-              "text-stone-400 dark:text-stone-500 hover:text-stone-600 dark:hover:text-stone-300",
-              "transition-colors cursor-pointer",
+              "text-[11px] shrink-0 tabular-nums tracking-tight px-1.5 py-0.5 rounded-md",
+              effectiveStatus === "running" &&
+                "text-blue-400 dark:text-blue-500 bg-blue-500/5",
+              effectiveStatus === "complete" &&
+                "text-stone-400 dark:text-stone-500 bg-stone-500/5",
+              effectiveStatus === "error" &&
+                "text-red-400 dark:text-red-500 bg-red-500/5",
             )}
-            title={t("chat.message.openInSidebar")}
           >
-            <PanelRight size={14} />
-          </button>
+            {elapsed}
+          </span>
         )}
 
-        {/* Expand button */}
-        {hasContent && (
-          <div className="text-stone-400 dark:text-stone-500">
-            {isExpanded ? (
-              <ChevronDown size={18} />
-            ) : (
-              <ChevronRight size={18} />
-            )}
-          </div>
-        )}
-      </button>
-
-      {/* Expanded content */}
-      {isExpanded && (
-        <div className="px-4 pb-4 space-y-3 max-h-[500px] overflow-y-auto">
-          {/* Separator */}
-          <div className="border-t border-stone-100 dark:border-stone-800" />
-
-          {/* Task description */}
-          {input && (
-            <div className="text-sm text-stone-600 dark:text-stone-300 leading-relaxed">
-              <MarkdownContent content={input} />
-            </div>
+        <div
+          className={clsx(
+            "flex items-center justify-center w-6 h-6 rounded-md shrink-0 transition-colors",
+            "text-stone-300 dark:text-stone-600 group-hover:text-stone-500 dark:group-hover:text-stone-400",
+            "group-hover:bg-stone-100 dark:group-hover:bg-stone-700/50",
           )}
-
-          {/* Subagent internal content */}
-          {parts && parts.length > 0 && (
-            <div className="space-y-2 pl-3 border-l-2 border-stone-200 dark:border-stone-700 overflow-y-auto min-w-0">
-              {parts.map((part, index) => (
-                <MessagePartRenderer
-                  key={index}
-                  part={part}
-                  isStreaming={isPending}
-                  isLast={index === parts.length - 1}
-                />
-              ))}
-            </div>
-          )}
-
-          {/* Error message */}
-          {error && effectiveStatus === "error" && (
-            <div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900/50">
-              <div className="text-xs text-red-600 dark:text-red-400 font-medium mb-1">
-                {t("chat.message.error")}
-              </div>
-              <div className="text-xs text-red-700 dark:text-red-300 leading-relaxed">
-                {error}
-              </div>
-            </div>
-          )}
-
-          {/* Result */}
-          {result && effectiveStatus === "complete" && (
-            <div className="p-3 rounded-lg bg-stone-50 dark:bg-stone-800/50 border border-stone-100 dark:border-stone-700">
-              <div className="text-xs text-stone-500 dark:text-stone-400 mb-1.5 font-medium">
-                {t("chat.message.result")}
-              </div>
-              <div className="text-xs text-stone-700 dark:text-stone-300 overflow-y-auto leading-relaxed">
-                <MarkdownContent content={result} />
-              </div>
-            </div>
-          )}
-
-          {/* Waiting state */}
-          {isPending && !parts?.length && (
-            <div className="flex items-center gap-2 py-2 text-stone-500 dark:text-stone-400">
-              <LoadingSpinner size="sm" />
-              <span className="text-sm">{t("chat.message.executing")}</span>
-            </div>
-          )}
+        >
+          <PanelRight size={13} />
         </div>
-      )}
+      </div>
     </div>
   );
 }

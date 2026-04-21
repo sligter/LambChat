@@ -44,7 +44,7 @@ const WriteFileItem = memo(function WriteFileItem({
             value={content}
             filePath={filePath}
             lineNumbers={true}
-            maxHeight="60vh"
+            maxHeight="85vh"
             fontSize="0.8rem"
           />
         </div>

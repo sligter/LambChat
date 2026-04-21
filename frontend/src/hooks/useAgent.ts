@@ -28,6 +28,7 @@ import {
 import {
   reconstructMessagesFromEvents,
   getLastEventTimestamp,
+  prepareMessagesForRunningRun,
 } from "./useAgent/historyLoader";
 import { clearAllLoadingStates } from "./useAgent/messageParts";
 import { type EventHandlerContext } from "./useAgent/eventHandlers";
@@ -375,38 +376,18 @@ export function useAgent(options?: UseAgentOptions): UseAgentReturn {
               lastHistoryTimestampRef.current = lastTimestamp;
             }
 
-            // When the task is still running, we need a streaming assistant
-            // message for SSE to target. Reuse the last assistant message from
-            // history if one exists (avoids a duplicate empty assistant bubble
-            // when the status API lags behind and reports "running" for an
-            // already-completed run).
+            // When the task is still running, target the assistant message for
+            // that same run. If history has the user message but no assistant
+            // events yet, append a fresh assistant bubble after the latest user.
             if (isTaskRunning && currentRunId) {
               setCurrentRunId(currentRunId);
 
-              const lastAssistant = [...reconstructedMessages]
-                .reverse()
-                .find((m) => m.role === "assistant");
-
-              let streamingMessageId: string;
-              if (lastAssistant) {
-                streamingMessageId = lastAssistant.id;
-                reconstructedMessages = reconstructedMessages.map((m) =>
-                  m.id === streamingMessageId ? { ...m, isStreaming: true } : m,
-                );
-              } else {
-                streamingMessageId = crypto.randomUUID();
-                reconstructedMessages = [
-                  ...reconstructedMessages,
-                  {
-                    id: streamingMessageId,
-                    role: "assistant" as const,
-                    content: "",
-                    timestamp: new Date(),
-                    parts: [],
-                    isStreaming: true,
-                  },
-                ];
-              }
+              const prepared = prepareMessagesForRunningRun(
+                reconstructedMessages,
+                currentRunId,
+              );
+              reconstructedMessages = prepared.messages;
+              const streamingMessageId = prepared.streamingMessageId;
 
               setMessages(reconstructedMessages);
 
@@ -435,15 +416,12 @@ export function useAgent(options?: UseAgentOptions): UseAgentReturn {
               isReconnectFromHistoryRef.current = false;
 
               const streamingMessageId = crypto.randomUUID();
-              const newAssistantMsg: Message = {
-                id: streamingMessageId,
-                role: "assistant",
-                content: "",
-                timestamp: new Date(),
-                parts: [],
-                isStreaming: true,
-              };
-              setMessages([newAssistantMsg]);
+              const prepared = prepareMessagesForRunningRun(
+                [],
+                currentRunId,
+                () => streamingMessageId,
+              );
+              setMessages(prepared.messages);
               // Fire-and-forget SSE reconnect (same reason as above).
               const ctx = createSSEContext();
               connectToSSE(

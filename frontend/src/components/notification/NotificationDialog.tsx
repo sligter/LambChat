@@ -198,13 +198,13 @@ export function NotificationDialog({
                   }}
                 >
                   {/* Top row */}
-                  <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-start sm:items-center justify-between gap-2 mb-2 flex-wrap">
                     <div className="flex items-center gap-2 min-w-0">
                       <span
                         className={`shrink-0 h-2 w-2 rounded-full ${config.dotClass}`}
                       />
                       <span
-                        className="text-xs font-medium truncate"
+                        className="text-xs font-medium"
                         style={{ color: "var(--theme-text-secondary)" }}
                       >
                         {t(config.labelKey)}
@@ -232,7 +232,7 @@ export function NotificationDialog({
                   </div>
                   {/* Title */}
                   <p
-                    className="font-semibold text-sm leading-snug"
+                    className="font-semibold text-sm leading-snug break-words"
                     style={{ color: "var(--theme-text)" }}
                   >
                     {title}
@@ -240,7 +240,7 @@ export function NotificationDialog({
                   {/* Content */}
                   {content && (
                     <p
-                      className="text-xs mt-1.5 leading-relaxed"
+                      className="text-xs mt-1.5 leading-relaxed break-words"
                       style={{ color: "var(--theme-text-secondary)" }}
                     >
                       {content}

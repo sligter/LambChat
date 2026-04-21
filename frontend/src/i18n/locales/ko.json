@@ -446,6 +446,8 @@
       "tokenUsage": "토큰 사용량",
       "toolCalls": "도구 호출",
       "toolEdit": "편집",
+      "toolEditAdded": "추가",
+      "toolEditRemoved": "삭제",
       "toolExecute": "실행",
       "toolExitCode": "종료 코드 {{code}}",
       "toolFailed": "명령어 실패",
@@ -1157,7 +1159,9 @@
     "typeMaintenance": "점검",
     "typeSuccess": "성공",
     "typeWarning": "경고",
-    "updatedSuccess": "알림이 업데이트되었습니다"
+    "updatedSuccess": "알림이 업데이트되었습니다",
+    "expand": "상세 보기",
+    "collapse": "상세 숨기기"
   },
   "passwordInput": {
     "hidePassword": "비밀번호 숨기기",

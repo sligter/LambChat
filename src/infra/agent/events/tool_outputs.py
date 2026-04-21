@@ -25,11 +25,13 @@ def extract_tool_output(out: Any) -> Any:
             if messages:
                 return process_messages(messages)
             return update
+        content = getattr(out, "content", None)
+        if content is not None:
+            return normalize_content(content)
         artifact = getattr(out, "artifact", None)
         if artifact is not None:
             return artifact
-        content = getattr(out, "content", None)
-        return normalize_content(content) if content is not None else ""
+        return ""
 
     if isinstance(out, list):
         if out and not isinstance(out[0], (dict, str)):
@@ -192,18 +194,22 @@ def process_messages(messages: list) -> Any:
             content = getattr(message, "content", "")
             artifact = getattr(message, "artifact", None)
 
+        # Prefer content (human-readable) over artifact (structured metadata)
+        if isinstance(content, str) and content:
+            text_parts.append(content)
+            continue
+        if isinstance(content, list):
+            if collect_blocks(content, text_parts, media_blocks):
+                has_media = True
+            continue
         if artifact is not None:
             text_parts.append(json.dumps(artifact, ensure_ascii=False))
             continue
 
-        if isinstance(content, str):
-            text_parts.append(content)
-        elif isinstance(content, list):
-            if collect_blocks(content, text_parts, media_blocks):
-                has_media = True
-        elif isinstance(content, dict):
+        # Fallback: stringify whatever content is
+        if isinstance(content, dict):
             text_parts.append(json.dumps(content, ensure_ascii=False))
-        else:
+        elif content is not None:
             text_parts.append(str(content))
 
     text_result = "\n".join(text_parts)
