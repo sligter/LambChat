@@ -145,9 +145,9 @@ export function ZipUploadModal({
                   <div className="flex items-center gap-2 rounded-xl bg-[var(--theme-primary-light)]/60 px-3 py-1.5">
                     <Archive
                       size={14}
-                      className="text-[var(--theme-primary)]"
+                      className="text-[var(--theme-primary)] shrink-0"
                     />
-                    <span className="text-xs font-medium text-[var(--theme-text)]">
+                    <span className="text-xs font-medium text-[var(--theme-text)] truncate max-w-[200px]">
                       {zipFile.name}
                     </span>
                     <span className="text-xs text-[var(--theme-text-secondary)]">
@@ -268,17 +268,13 @@ export function ZipUploadModal({
                     disabled={zipUploading || selectedZipSkills.length === 0}
                     className="btn-primary disabled:opacity-50"
                   >
-                    <span className="inline-flex items-center justify-center gap-2">
-                      <span className="inline-flex h-4 w-4 items-center justify-center">
-                        {zipUploading ? (
-                          <LoadingSpinner size="sm" color="text-white" />
-                        ) : (
-                          <Upload size={18} />
-                        )}
-                      </span>
-                      <span>
-                        {t("skills.install")} ({selectedZipSkills.length})
-                      </span>
+                    {zipUploading ? (
+                      <LoadingSpinner size="sm" color="text-white" />
+                    ) : (
+                      <Upload size={16} />
+                    )}
+                    <span className="hidden sm:inline">
+                      {t("skills.install")} ({selectedZipSkills.length})
                     </span>
                   </button>
                 )}

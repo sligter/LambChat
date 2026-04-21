@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import {
   Share2,
   MoreHorizontal,
-  Plus,
+  MessageSquarePlus,
   Bell,
   Languages,
   Sun,
@@ -239,7 +239,7 @@ export function Header({
               className="hidden sm:flex h-8 w-8 items-center justify-center rounded-lg text-stone-600 hover:bg-stone-100 dark:text-stone-300 dark:hover:bg-stone-800 transition-colors"
               title={t("sidebar.newChat")}
             >
-              <Plus size={20} />
+              <MessageSquarePlus size={20} />
             </button>
           )}
           {showShareButton && (
@@ -282,7 +282,7 @@ export function Header({
                         }}
                         className="flex w-full items-center gap-3 px-3 py-2.5 text-left text-sm transition-colors text-[var(--theme-text-secondary)] hover:text-[var(--theme-text)] hover:bg-[var(--theme-primary-light)]"
                       >
-                        <Plus size={16} className="shrink-0" />
+                        <MessageSquarePlus size={16} className="shrink-0" />
                         <span className="truncate">{t("sidebar.newChat")}</span>
                       </button>
                     )}

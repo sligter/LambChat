@@ -13,7 +13,7 @@ import {
   Search,
   FolderPlus,
   FolderOpen,
-  Plus,
+  MessageSquarePlus,
 } from "lucide-react";
 import { LoadingSpinner } from "../common/LoadingSpinner";
 import { sessionApi, type BackendSession } from "../../services/api";
@@ -329,7 +329,7 @@ export function SessionSidebar({
           onClick={onNewSession}
           className="w-full h-9 rounded-[10px] flex items-center gap-3 px-[9px] text-sm font-medium text-stone-600 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-800/60 focus:outline-none transition-colors"
         >
-          <Plus size={18} />
+          <MessageSquarePlus size={18} />
           <span>{t("sidebar.newChat")}</span>
         </button>
 
