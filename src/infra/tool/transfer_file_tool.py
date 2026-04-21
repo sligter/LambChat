@@ -244,11 +244,11 @@ async def _upload_to_backend(backend: Any, target_path: str, content: bytes) -> 
 async def transfer_file(
     source_path: Annotated[
         str,
-        "源文件路径。路径前缀决定源 backend：/skills/* → 技能存储, /memories/* → 记忆存储, 其他 → 沙箱",
+        "源文件路径。路径前缀决定源 backend：/skills/* → 技能存储, 其他 → 沙箱/工作区。跨会话语义记忆请使用 memory_* 工具。",
     ],
     target_path: Annotated[
         str,
-        "目标文件路径。路径前缀决定目标 backend：/skills/* → 技能存储, /memories/* → 记忆存储, 其他 → 沙箱",
+        "目标文件路径。路径前缀决定目标 backend：/skills/* → 技能存储, 其他 → 沙箱/工作区。跨会话语义记忆请使用 memory_* 工具。",
     ],
     runtime: ToolRuntime = None,  # type: ignore[assignment]
 ) -> str:
@@ -258,12 +258,10 @@ async def transfer_file(
     仅支持文本文件（代码、配置、Markdown 等），不支持二进制文件（图片、视频、压缩包等）。
     通过路径前缀自动路由到对应的存储后端：
     - /skills/* 路由到技能存储 (MongoDB)
-    - /memories/* 路由到记忆存储 (数据库)
     - 其他路径路由到沙箱 (Daytona/E2B) 或持久化存储
 
     常见用途：
     - 从沙箱转移生成的代码到技能目录
-    - 在沙箱和记忆存储之间共享文本文件
     - 从技能目录复制文件到沙箱工作区
 
     Args:
@@ -397,7 +395,7 @@ async def transfer_path(
     ],
     target_prefix: Annotated[
         str,
-        "目标路径前缀。默认 /skills/，会将源目录下所有文件传输到 skills 数据库，目录名作为 skill 名称。也可指定 /memories/ 或其他路径。",
+        "目标路径前缀。默认 /skills/，会将源目录下所有文件传输到 skills 数据库，目录名作为 skill 名称。也可指定其他沙箱/工作区路径。",
     ] = "/skills/",
     runtime: ToolRuntime = None,  # type: ignore[assignment]
 ) -> str:
@@ -407,7 +405,6 @@ async def transfer_path(
     在任意两个 backend 之间批量传输目录文件：
     - 沙箱 → /skills/ (批量创建 skill)
     - /skills/ → 沙箱 (将 skill 文件复制到工作区)
-    - 沙箱 ↔ /memories/ 等
 
     目录名自动作为目标子路径名称（如 /skills/Foo/ → /home/user/Foo/）。
 
@@ -420,7 +417,6 @@ async def transfer_path(
     常见用途：
     - 从沙箱目录批量创建 skill（如 /home/user/my-skill/ → /skills/my-skill/）
     - 将 skill 文件批量复制到沙箱工作区（如 /skills/MySkill/ → /home/user/MySkill/）
-    - 在沙箱和记忆存储之间迁移文件
 
     Args:
         source_dir: 源目录路径

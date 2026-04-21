@@ -381,12 +381,12 @@ async def _build_memory_index_for_user(user_id: str) -> str:
 
 
 class SandboxMCPMiddleware(AgentMiddleware):
-    """Injects sandbox MCP tool descriptions into the system prompt at request time.
+    """Injects sandbox tool descriptions into the system prompt at request time.
 
     By injecting via middleware (instead of baking into the base system prompt string),
-    the sandbox MCP tools end up at the TAIL of the final system message — after
+    the sandbox tools end up at the TAIL of the final system message — after
     deepagent's BASE_AGENT_PROMPT and all other middleware injections (memory, subagent,
-    summarization, etc.).  This maximizes KV cache hit rates because changes to MCP tools
+    summarization, etc.).  This maximizes KV cache hit rates because changes to sandbox tools
     only invalidate the tail of the cache, not the stable prefix.
 
     ``build_sandbox_mcp_prompt`` has its own per-user 30-minute cache, so repeated
@@ -755,6 +755,28 @@ class PromptCachingMiddleware(AgentMiddleware):
     _MAX_CACHED_SYSTEM_BLOCKS = 4
     _MAX_CACHED_TOOLS = 4
 
+    @staticmethod
+    def _is_anthropic_model(model: Any) -> bool:
+        """Return True when request.model is backed by langchain-anthropic."""
+        seen: set[int] = set()
+        current = model
+        while current is not None and id(current) not in seen:
+            seen.add(id(current))
+            cls = type(current)
+            if cls.__module__.startswith("langchain_anthropic"):
+                return True
+
+            # RunnableBinding and similar wrappers keep the underlying model on
+            # ``bound``.  Some adapters use ``model`` for the wrapped runnable.
+            next_model = getattr(current, "bound", None)
+            if next_model is None:
+                next_model = getattr(current, "_bound", None)
+            if next_model is None:
+                candidate = getattr(current, "model", None)
+                next_model = candidate if not isinstance(candidate, str) else None
+            current = next_model
+        return False
+
     # ---- system message ---------------------------------------------------
 
     @staticmethod
@@ -822,6 +844,9 @@ class PromptCachingMiddleware(AgentMiddleware):
         request: ModelRequest[ContextT],
         handler: Callable[[ModelRequest[ContextT]], Awaitable[ModelResponse[ResponseT]]],
     ) -> ModelResponse[ResponseT]:
+        if not self._is_anthropic_model(getattr(request, "model", None)):
+            return await handler(request)
+
         overrides: dict[str, Any] = {}
 
         new_system = self._retag_system_message(

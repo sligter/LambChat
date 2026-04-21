@@ -39,7 +39,6 @@ For multi-file frontend projects, use `reveal_project(project_path, name, templa
 ### File Transfer
 Different storage backends are routed by path prefix:
 - `/skills/*` → skill store (MongoDB)
-- `/memories/*` → memory store (DB)
 - Other paths → sandbox workspace (Daytona/E2B)
 
 Tools:
