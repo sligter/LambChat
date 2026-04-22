@@ -20,8 +20,15 @@ export interface MCPServerBase {
 export interface MCPServerResponse extends MCPServerBase {
   is_system: boolean;
   can_edit: boolean;
+  allowed_roles: string[];
+  role_quotas: Record<string, MCPRoleQuota>;
   created_at?: string;
   updated_at?: string;
+}
+
+export interface MCPRoleQuota {
+  daily_limit?: number | null;
+  weekly_limit?: number | null;
 }
 
 // MCP Servers List Response
@@ -38,6 +45,8 @@ export interface MCPServerCreate {
   headers?: Record<string, string>;
   command?: string;
   env_keys?: string[];
+  allowed_roles?: string[];
+  role_quotas?: Record<string, MCPRoleQuota>;
 }
 
 // MCP Server Update Request
@@ -48,6 +57,8 @@ export interface MCPServerUpdate {
   headers?: Record<string, string>;
   command?: string;
   env_keys?: string[];
+  allowed_roles?: string[];
+  role_quotas?: Record<string, MCPRoleQuota>;
 }
 
 // MCP Toggle Response

@@ -58,8 +58,15 @@ async def rebuild_sandbox_mcp(backend: Any, user_id: str) -> None:
         return
     logger.info(f"[Sandbox MCP Rebuild] mcporter version: {version_result.output.strip()}")
 
-    # Get sandbox-transport MCP servers
-    sandbox_servers = await mcp_storage.get_sandbox_servers(user_id)
+    # Get sandbox-transport MCP servers (with role-based filtering)
+    from src.infra.mcp.quota import resolve_user_mcp_access
+
+    user_roles, is_admin = await resolve_user_mcp_access(user_id)
+    sandbox_servers = await mcp_storage.get_sandbox_servers(
+        user_id,
+        user_roles=user_roles,
+        is_admin=is_admin,
+    )
     logger.info(f"[Sandbox MCP Rebuild] Found {len(sandbox_servers)} sandbox servers")
 
     # Compute the set of server names that *should* be registered

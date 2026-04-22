@@ -14,7 +14,7 @@ from src.infra.mcp.encryption import (
     encrypt_server_secrets,
     encrypt_value,
 )
-from src.infra.mcp.storage_operations import StorageOperations
+from src.infra.mcp.storage_operations import StorageOperations, _can_access_system_server
 from src.infra.storage.mongodb import get_mongo_client
 from src.kernel.config import settings
 from src.kernel.schemas.mcp import (
@@ -135,6 +135,11 @@ class MCPStorage(StorageOperations):
             "command": server.command,
             "env_keys": server.env_keys,
             "is_system": True,
+            "allowed_roles": getattr(server, "allowed_roles", []),
+            "role_quotas": {
+                role_name: quota.model_dump() if hasattr(quota, "model_dump") else quota
+                for role_name, quota in getattr(server, "role_quotas", {}).items()
+            },
             "created_at": now,
             "updated_at": now,
             "updated_by": admin_user_id,
@@ -180,6 +185,12 @@ class MCPStorage(StorageOperations):
             update_data["command"] = updates.command
         if updates.env_keys is not None:
             update_data["env_keys"] = updates.env_keys
+        if updates.allowed_roles is not None:
+            update_data["allowed_roles"] = updates.allowed_roles
+        if updates.role_quotas is not None:
+            update_data["role_quotas"] = {
+                role_name: quota.model_dump() for role_name, quota in updates.role_quotas.items()
+            }
 
         await collection.update_one({"name": name}, {"$set": update_data})
 
@@ -331,7 +342,11 @@ class MCPStorage(StorageOperations):
     # ==========================================
 
     async def discover_server_tools(
-        self, server_name: str, user_id: str
+        self,
+        server_name: str,
+        user_id: str,
+        user_roles: list[str] | None = None,
+        is_admin: bool = False,
     ) -> tuple[list[dict[str, Any]], Optional[str]]:
         """
         Discover tools available from a specific MCP server.
@@ -347,6 +362,13 @@ class MCPStorage(StorageOperations):
             )
             if not server:
                 server = await self.get_system_server(server_name)
+                # Check role-based access for system servers
+                if server and not _can_access_system_server(
+                    getattr(server, "allowed_roles", []),
+                    user_roles,
+                    is_admin=is_admin,
+                ):
+                    return [], f"Server '{server_name}' not found"
             if not server:
                 return [], f"Server '{server_name}' not found"
 
@@ -634,6 +656,8 @@ class MCPStorage(StorageOperations):
             env_keys=doc.get("env_keys"),
             is_system=True,
             disabled_tools=doc.get("disabled_tools", []),
+            allowed_roles=doc.get("allowed_roles", []),
+            role_quotas=doc.get("role_quotas", {}),
             created_at=created_at,
             updated_at=updated_at,
             updated_by=doc.get("updated_by"),
@@ -723,6 +747,8 @@ class MCPStorage(StorageOperations):
             env_keys=doc_copy.get("env_keys"),
             is_system=is_system,
             can_edit=can_edit,
+            allowed_roles=doc_copy.get("allowed_roles", []),
+            role_quotas=doc_copy.get("role_quotas", {}),
             created_at=created_at,
             updated_at=updated_at,
         )
@@ -744,6 +770,8 @@ class MCPStorage(StorageOperations):
             result["command"] = doc["command"]
         if doc.get("env_keys"):
             result["env_keys"] = doc["env_keys"]
+        if doc.get("role_quotas"):
+            result["role_quotas"] = doc["role_quotas"]
 
         return result
 
