@@ -7,7 +7,7 @@ import {
   type ReactNode,
 } from "react";
 import { useTranslation } from "react-i18next";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { ProfileModal } from "../../profile/ProfileModal";
 import { BlockPreviewPortal } from "../../chat/ChatMessage/items/McpBlockPreview";
 import { SessionSidebar } from "../../panels/SessionSidebar";
@@ -33,6 +33,7 @@ import { useDragAndDrop } from "./useDragAndDrop";
 import { useWebSocketNotifications } from "./useWebSocketNotifications";
 import { useAgentOptions } from "./useAgentOptions";
 import { useSessionSync } from "./useSessionSync";
+import { shouldScrollToBottomAfterExternalNavigation } from "./externalNavigationState";
 import {
   reconcileCurrentModelSelection,
   resolveDefaultModelSelection,
@@ -209,6 +210,7 @@ function ChatAppContent({
   onShowProfile: () => void;
 }) {
   const { t, i18n } = useTranslation();
+  const location = useLocation();
   const { enableSkills, settings, availableModels, defaultModel } =
     useSettingsContext();
   const { hasPermission, isAuthenticated } = useAuth();
@@ -554,6 +556,10 @@ function ChatAppContent({
   });
 
   const [sessionName, setSessionName] = useState<string | null>(null);
+  const externalScrollToBottomToken =
+    shouldScrollToBottomAfterExternalNavigation(location.state)
+      ? location.key
+      : null;
 
   useEffect(() => {
     if (!sessionId) {
@@ -776,6 +782,7 @@ function ChatAppContent({
           onAttachmentsChange={setPageDragAttachments}
           settings={settings || {}}
           i18n={i18n}
+          externalScrollToBottomToken={externalScrollToBottomToken}
         />
         <BlockPreviewPortal />
       </>

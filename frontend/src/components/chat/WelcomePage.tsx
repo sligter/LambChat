@@ -77,7 +77,7 @@ export const WelcomePage = memo(function WelcomePage({
           <img
             src="/icons/icon.svg"
             alt=""
-            className="welcome-icon hidden sm:inline-block size-12 lg:size-14 mr-4 align-text-bottom rounded-full"
+            className="welcome-icon hidden sm:inline-block size-10 lg:size-12 mr-4 align-text-bottom rounded-full"
           />
           {greeting}
         </h1>

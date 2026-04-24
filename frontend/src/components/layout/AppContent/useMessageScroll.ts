@@ -1,6 +1,7 @@
 import { useRef, useEffect, useState, useCallback } from "react";
 import type { VirtuosoHandle } from "react-virtuoso";
 import {
+  forceScrollerToPhysicalBottom,
   hasNewOutgoingMessage,
   shouldAutoScrollForMessageUpdate,
   shouldAutoScrollAfterViewportChange,
@@ -22,6 +23,7 @@ interface UseMessageScrollReturn {
 export function useMessageScroll(
   messages: { id: string }[],
   sessionId?: string | null,
+  externalScrollToBottomToken?: string | null,
 ): UseMessageScrollReturn {
   const MOBILE_BOTTOM_BREATHING_ROOM_PX = 96;
   const DESKTOP_BOTTOM_BREATHING_ROOM_PX = 16;
@@ -40,6 +42,7 @@ export function useMessageScroll(
   const rafRef = useRef<number>(0);
   const viewportResizeRafRef = useRef<number>(0);
   const scrollCleanupRef = useRef<(() => void) | null>(null);
+  const pendingExternalScrollTokenRef = useRef<string | null>(null);
   const previousMessagesRef = useRef(messages);
   const isNearBottomRef = useRef(true);
 
@@ -64,17 +67,25 @@ export function useMessageScroll(
   const scrollToBottom = useCallback(() => {
     userScrolledUpRef.current = false;
     autoScrollActiveRef.current = true;
+    forceScrollerToPhysicalBottom({
+      scroller: virtuosoScrollerRef.current,
+      footer: messagesEndRef.current,
+    });
+    ignoreProgrammaticScrollUntilRef.current = Date.now() + 120;
     scrollCleanupRef.current?.();
     scrollCleanupRef.current = startVirtuosoScrollToBottom({
       virtuoso: virtuosoRef.current,
       scroller: virtuosoScrollerRef.current,
       footer: messagesEndRef.current,
+      preferPhysicalBottom: true,
+      intervalMs: isMobileViewport ? 20 : 16,
+      maxAttempts: isMobileViewport ? 8 : 4,
       observeLayoutChanges: true,
       resizeObserverTarget:
         virtuosoScrollerRef.current?.firstElementChild ??
         virtuosoScrollerRef.current,
-      maxDurationMs: isMobileViewport ? 6500 : 3000,
-      settleWindowMs: isMobileViewport ? 650 : 180,
+      maxDurationMs: isMobileViewport ? 240 : 96,
+      settleWindowMs: isMobileViewport ? 96 : 48,
       shouldAbort: () => userScrolledUpRef.current,
       onAutoScroll: () => {
         ignoreProgrammaticScrollUntilRef.current = Date.now() + 80;
@@ -260,6 +271,26 @@ export function useMessageScroll(
       scrollToBottom();
     }
     previousMessagesRef.current = messages;
+  }, [messages, scrollToBottom]);
+
+  useEffect(() => {
+    if (externalScrollToBottomToken) {
+      pendingExternalScrollTokenRef.current = externalScrollToBottomToken;
+    }
+  }, [externalScrollToBottomToken]);
+
+  useEffect(() => {
+    if (
+      !pendingExternalScrollTokenRef.current ||
+      messages.length === 0 ||
+      !virtuosoRef.current ||
+      !virtuosoScrollerRef.current
+    ) {
+      return;
+    }
+
+    pendingExternalScrollTokenRef.current = null;
+    scrollToBottom();
   }, [messages, scrollToBottom]);
 
   useEffect(() => {

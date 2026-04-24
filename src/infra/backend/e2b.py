@@ -230,12 +230,16 @@ class E2BBackend(BaseSandbox):
 
     def _is_entry_dir(self, entry: Any) -> bool:
         """判断 E2B 文件条目是否为目录（兼容 type 和 is_dir 两种 API）"""
-        from e2b import FileType
-
-        if hasattr(entry, "type") and entry.type == FileType.DIR:
-            return True
         if hasattr(entry, "is_dir") and entry.is_dir:
             return True
+        if hasattr(entry, "type"):
+            try:
+                from e2b import FileType
+
+                if entry.type == FileType.DIR:
+                    return True
+            except Exception:
+                pass
         return False
 
     def ls(self, path: str) -> LsResult:
@@ -342,7 +346,8 @@ class E2BBackend(BaseSandbox):
         try:
             import fnmatch
 
-            entries = self._sandbox.files.list(path=path)
+            search_path = self.work_dir if path == "/" else path
+            entries = self._sandbox.files.list(path=search_path)
             result: list[FileInfo] = []
 
             def _match_glob(entries_list: list[Any], current_path: str, depth: int) -> None:
@@ -367,7 +372,7 @@ class E2BBackend(BaseSandbox):
                         except Exception:
                             pass
 
-            _match_glob(entries, path, 0)
+            _match_glob(entries, search_path, 0)
             return GlobResult(matches=result)
         except Exception as e:
             logger.warning(f"E2B glob({pattern}) failed: {e}, falling back to execute()")

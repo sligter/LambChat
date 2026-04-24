@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  forceScrollerToPhysicalBottom,
+  forceVirtuosoToBottom,
   getInitialBottomItemLocation,
   hasNewOutgoingMessage,
   shouldAutoScrollForMessageUpdate,
@@ -10,15 +12,18 @@ import {
 
 test("keeps asking Virtuoso to scroll until the scroller reaches the bottom", async () => {
   const scrollCalls: Array<{ top: number; behavior: string }> = [];
-  const virtuoso = {
-    scrollTo: (args: { top: number; behavior: string }) => {
-      scrollCalls.push(args);
-    },
-  };
   const scroller = {
     scrollTop: 0,
     clientHeight: 100,
     scrollHeight: 500,
+  };
+  const virtuoso = {
+    scrollTo: (args: { top: number; behavior: string }) => {
+      scrollCalls.push(args);
+      if (scrollCalls.length >= 3) {
+        scroller.scrollTop = scroller.scrollHeight - scroller.clientHeight;
+      }
+    },
   };
 
   const stop = startVirtuosoScrollToBottom({
@@ -28,8 +33,6 @@ test("keeps asking Virtuoso to scroll until the scroller reaches the bottom", as
     maxAttempts: 5,
   });
 
-  await new Promise((resolve) => setTimeout(resolve, 20));
-  scroller.scrollTop = 400;
   await new Promise((resolve) => setTimeout(resolve, 20));
   stop();
 
@@ -65,10 +68,109 @@ test("falls back to the footer sentinel when Virtuoso handles are unavailable", 
   assert.equal(called, true);
 });
 
-test("uses the footer sentinel even when Virtuoso is available", async () => {
-  let footerScrolls = 0;
+test("forces the physical bottom by scrolling the footer sentinel into view", () => {
+  let footerArgs:
+    | { behavior?: "auto" | "smooth"; block?: ScrollLogicalPosition }
+    | undefined;
+  const scroller = {
+    scrollTop: 0,
+    clientHeight: 100,
+    scrollHeight: 640,
+  };
+  const footer = {
+    scrollIntoView: (args?: {
+      behavior?: "auto" | "smooth";
+      block?: ScrollLogicalPosition;
+    }) => {
+      footerArgs = args;
+      scroller.scrollTop = scroller.scrollHeight;
+    },
+  };
+
+  forceScrollerToPhysicalBottom({ scroller, footer });
+
+  assert.deepEqual(footerArgs, {
+    behavior: "auto",
+    block: "end",
+  });
+  assert.equal(scroller.scrollTop, scroller.scrollHeight);
+});
+
+test("keeps bottom-lock pinned to the physical scroller bottom when footer is available", async () => {
+  let scrollToIndexCalls = 0;
+  let footerCalls = 0;
+  const scroller = {
+    scrollTop: 0,
+    clientHeight: 100,
+    scrollHeight: 640,
+  };
+  const footer = {
+    scrollIntoView: () => {
+      footerCalls += 1;
+      scroller.scrollTop = scroller.scrollHeight;
+    },
+  };
   const virtuoso = {
     scrollTo: () => undefined,
+    scrollToIndex: () => {
+      scrollToIndexCalls += 1;
+      scroller.scrollTop = scroller.scrollHeight - scroller.clientHeight;
+    },
+  };
+
+  startVirtuosoScrollToBottom({
+    virtuoso,
+    scroller,
+    footer,
+    preferPhysicalBottom: true,
+    intervalMs: 1,
+    maxAttempts: 5,
+  });
+
+  await new Promise((resolve) => setTimeout(resolve, 20));
+
+  assert.ok(footerCalls > 0);
+  assert.equal(scrollToIndexCalls, 0);
+  assert.equal(scroller.scrollTop, scroller.scrollHeight);
+});
+
+test("forces the list to the last item when Virtuoso supports scrollToIndex", () => {
+  let scrollToIndexArgs:
+    | { index: "LAST" | number; align?: string; behavior?: string }
+    | undefined;
+  const scroller = {
+    scrollTop: 0,
+    clientHeight: 100,
+    scrollHeight: 640,
+  };
+  const virtuoso = {
+    scrollTo: () => undefined,
+    scrollToIndex: (args: {
+      index: "LAST" | number;
+      align?: "center" | "end" | "start";
+      behavior?: "auto" | "smooth";
+    }) => {
+      scrollToIndexArgs = args;
+    },
+  };
+
+  forceVirtuosoToBottom({ virtuoso, scroller });
+
+  assert.deepEqual(scrollToIndexArgs, {
+    index: "LAST",
+    align: "end",
+    behavior: "auto",
+  });
+  assert.equal(scroller.scrollTop, scroller.scrollHeight);
+});
+
+test("prefers Virtuoso scrolling without nudging the footer sentinel when handles are available", async () => {
+  let footerScrolls = 0;
+  let virtuosoScrolls = 0;
+  const virtuoso = {
+    scrollTo: () => {
+      virtuosoScrolls += 1;
+    },
   };
   const scroller = {
     scrollTop: 0,
@@ -92,8 +194,39 @@ test("uses the footer sentinel even when Virtuoso is available", async () => {
 
   await new Promise((resolve) => setTimeout(resolve, 5));
 
-  assert.ok(footerScrolls > 0);
-  assert.equal(scroller.scrollTop, 400);
+  assert.ok(virtuosoScrolls > 0);
+  assert.equal(footerScrolls, 0);
+});
+
+test("prefers Virtuoso autoscrollToBottom when the handle supports it", async () => {
+  let autoScrollCalls = 0;
+  let scrollToCalls = 0;
+  const scroller = {
+    scrollTop: 0,
+    clientHeight: 100,
+    scrollHeight: 500,
+  };
+  const virtuoso = {
+    autoscrollToBottom: () => {
+      autoScrollCalls += 1;
+      scroller.scrollTop = scroller.scrollHeight - scroller.clientHeight;
+    },
+    scrollTo: () => {
+      scrollToCalls += 1;
+    },
+  };
+
+  startVirtuosoScrollToBottom({
+    virtuoso,
+    scroller,
+    intervalMs: 1,
+    maxAttempts: 5,
+  });
+
+  await new Promise((resolve) => setTimeout(resolve, 20));
+
+  assert.ok(autoScrollCalls > 0);
+  assert.equal(scrollToCalls, 0);
 });
 
 test("does not settle early just because the scroller is within the breathing room", async () => {
@@ -138,6 +271,7 @@ test("waits for the configured stable height window before settling", async () =
     virtuoso,
     scroller,
     intervalMs: 5,
+    maxAttempts: 80,
     maxDurationMs: 400,
     settleWindowMs: 220,
     onComplete: (reason) => {
@@ -150,6 +284,37 @@ test("waits for the configured stable height window before settling", async () =
 
   await new Promise((resolve) => setTimeout(resolve, 100));
   assert.equal(completionReason, "settled");
+});
+
+test("honors the configured maxAttempts instead of retrying until the time budget expires", async () => {
+  let completionReason: "settled" | "aborted" | "max-attempts" | null = null;
+  let scrollCalls = 0;
+  const virtuoso = {
+    scrollTo: () => {
+      scrollCalls += 1;
+    },
+  };
+  const scroller = {
+    scrollTop: 0,
+    clientHeight: 100,
+    scrollHeight: 500,
+  };
+
+  startVirtuosoScrollToBottom({
+    virtuoso,
+    scroller,
+    intervalMs: 5,
+    maxAttempts: 3,
+    maxDurationMs: 500,
+    onComplete: (reason) => {
+      completionReason = reason;
+    },
+  });
+
+  await new Promise((resolve) => setTimeout(resolve, 80));
+
+  assert.equal(completionReason, "max-attempts");
+  assert.equal(scrollCalls, 3);
 });
 
 test("keeps bottom locked when observed layout changes", async () => {
@@ -336,7 +501,7 @@ test("auto-scrolls appended assistant messages only while the view is bottom-anc
   );
 });
 
-test("keeps streaming message updates bottom-locked without stealing history scrollback", () => {
+test("starts a bottom-lock run when a streaming assistant message continues near the bottom", () => {
   const previousMessages = [
     { id: "1", role: "user" },
     { id: "2", role: "assistant" },
@@ -351,17 +516,28 @@ test("keeps streaming message updates bottom-locked without stealing history scr
       previousMessages,
       nextMessages,
       userScrolledUp: false,
-      autoScrollActive: true,
-      isNearBottom: false,
+      autoScrollActive: false,
+      isNearBottom: true,
     }),
     true,
   );
+});
+
+test("does not restart bottom-lock while a streaming assistant update is already being followed", () => {
+  const previousMessages = [
+    { id: "1", role: "user" },
+    { id: "2", role: "assistant" },
+  ];
+  const nextMessages = [
+    { id: "1", role: "user" },
+    { id: "2", role: "assistant" },
+  ];
 
   assert.equal(
     shouldAutoScrollForMessageUpdate({
       previousMessages,
       nextMessages,
-      userScrolledUp: true,
+      userScrolledUp: false,
       autoScrollActive: true,
       isNearBottom: false,
     }),

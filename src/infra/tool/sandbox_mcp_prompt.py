@@ -28,6 +28,7 @@ _MAX_TOOLS_IN_PROMPT = 20
 
 # mcporter timeout
 _MCPORTER_TIMEOUT = 15
+_MCPORTER_CHECK_TIMEOUT = 5
 
 
 async def build_sandbox_mcp_prompt(
@@ -319,6 +320,9 @@ def _format_tools_list_sections(data: Any) -> tuple[tuple[str, ...], int]:
 async def _fetch_and_format(backend: Any) -> tuple[tuple[str, ...], int]:
     """Run mcporter list and format the output."""
     try:
+        if not await _is_mcporter_available(backend):
+            return (), 0
+
         result = await backend.aexecute("mcporter list --json", timeout=_MCPORTER_TIMEOUT)
         if result.exit_code != 0:
             logger.warning(f"[SandboxMCP Prompt] mcporter list failed: {result.output}")
@@ -336,3 +340,20 @@ async def _fetch_and_format(backend: Any) -> tuple[tuple[str, ...], int]:
     except Exception as e:
         logger.warning(f"[SandboxMCP Prompt] Failed to fetch tools: {e}")
         return (), 0
+
+
+async def _is_mcporter_available(backend: Any) -> bool:
+    """Check whether mcporter is installed in the current sandbox."""
+    try:
+        result = await backend.aexecute("mcporter --version", timeout=_MCPORTER_CHECK_TIMEOUT)
+    except Exception as e:
+        logger.info(f"[SandboxMCP Prompt] Failed to check mcporter availability: {e}")
+        return False
+
+    if result.exit_code != 0:
+        logger.info(
+            f"[SandboxMCP Prompt] mcporter not available (exit={result.exit_code}, output={result.output})"
+        )
+        return False
+
+    return True

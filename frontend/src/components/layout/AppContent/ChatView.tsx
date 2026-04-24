@@ -96,6 +96,7 @@ interface ChatViewProps {
     settings?: { frontend?: Array<{ key: string; value: unknown }> };
   };
   i18n: { language?: string };
+  externalScrollToBottomToken?: string | null;
 }
 
 export function ChatView({
@@ -138,6 +139,7 @@ export function ChatView({
   onAttachmentsChange,
   settings,
   i18n,
+  externalScrollToBottomToken,
 }: ChatViewProps) {
   const { t } = useTranslation();
   const { user } = useAuth();
@@ -174,7 +176,7 @@ export function ChatView({
     handleVirtuosoAtBottomChange,
     scrollToBottom,
     scrollToTop,
-  } = useMessageScroll(messages, sessionId);
+  } = useMessageScroll(messages, sessionId, externalScrollToBottomToken);
 
   const [activePreviewState, setActivePreviewState] =
     useState<ActiveRevealPreviewState | null>(null);
@@ -414,7 +416,6 @@ export function ChatView({
             computeItemKey={(_, message) => message.id}
             atBottomStateChange={handleVirtuosoAtBottomChange}
             atBottomThreshold={isMobileViewport ? 120 : 50}
-            followOutput="smooth"
             components={virtuosoComponents}
             itemContent={virtuosoItemContent}
             initialTopMostItemIndex={getInitialBottomItemLocation(

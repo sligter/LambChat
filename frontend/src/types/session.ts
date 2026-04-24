@@ -55,6 +55,7 @@ export interface SSEEventRecord {
   event_type: string;
   data: Record<string, unknown>;
   timestamp: string;
+  run_id?: string;
 }
 
 export interface SessionEventsResponse {

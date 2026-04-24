@@ -1,7 +1,13 @@
 type ScrollBehaviorMode = "auto" | "smooth";
 
 interface VirtuosoLike {
+  autoscrollToBottom?: () => void;
   scrollTo: (args: { top: number; behavior: ScrollBehaviorMode }) => void;
+  scrollToIndex?: (args: {
+    index: "LAST" | number;
+    align?: "center" | "end" | "start";
+    behavior?: ScrollBehaviorMode;
+  }) => void;
 }
 
 interface ScrollerLike {
@@ -26,6 +32,7 @@ interface StartVirtuosoScrollToBottomOptions {
   virtuoso?: VirtuosoLike | null;
   scroller?: ScrollerLike | null;
   footer?: FooterLike | null;
+  preferPhysicalBottom?: boolean;
   intervalMs?: number;
   maxAttempts?: number;
   maxDurationMs?: number;
@@ -107,7 +114,18 @@ export function shouldAutoScrollForMessageUpdate({
     nextLatestMessage.id === previousLatestMessage?.id &&
     previousLatestMessage?.role === "assistant";
 
-  return latestChanged || latestContinued;
+  if (latestChanged) {
+    return true;
+  }
+
+  // Keep the existing bottom-lock loop running, but don't restart it on every
+  // streaming update for the same assistant message. Repeated restarts cause
+  // visible scroll jitter when message height is still changing.
+  if (latestContinued) {
+    return !autoScrollActive && isNearBottom;
+  }
+
+  return false;
 }
 
 export function shouldAutoScrollAfterViewportChange({
@@ -136,10 +154,73 @@ export function shouldAutoScrollAfterViewportChange({
   return autoScrollActive || isNearBottom;
 }
 
+export function forceScrollerToPhysicalBottom({
+  scroller,
+  footer,
+}: {
+  scroller?: ScrollerLike | null;
+  footer?: FooterLike | null;
+}): void {
+  footer?.scrollIntoView({ behavior: "auto", block: "end" });
+  if (scroller) {
+    scroller.scrollTop = scroller.scrollHeight;
+  }
+}
+
+export function forceVirtuosoToBottom({
+  virtuoso,
+  scroller,
+  footer,
+}: {
+  virtuoso?: VirtuosoLike | null;
+  scroller?: ScrollerLike | null;
+  footer?: FooterLike | null;
+}): void {
+  const pinScrollerToBottom = () => {
+    if (scroller) {
+      scroller.scrollTop = scroller.scrollHeight;
+      return true;
+    }
+    return false;
+  };
+
+  if (virtuoso?.scrollToIndex) {
+    virtuoso.scrollToIndex({
+      index: "LAST",
+      align: "end",
+      behavior: "auto",
+    });
+    pinScrollerToBottom();
+    return;
+  }
+
+  if (typeof virtuoso?.autoscrollToBottom === "function") {
+    virtuoso.autoscrollToBottom();
+    pinScrollerToBottom();
+    return;
+  }
+
+  if (virtuoso) {
+    virtuoso.scrollTo({
+      top: Number.MAX_SAFE_INTEGER,
+      behavior: "auto",
+    });
+    pinScrollerToBottom();
+    return;
+  }
+
+  if (pinScrollerToBottom()) {
+    return;
+  }
+
+  forceScrollerToPhysicalBottom({ scroller, footer });
+}
+
 export function startVirtuosoScrollToBottom({
   virtuoso,
   scroller,
   footer,
+  preferPhysicalBottom = false,
   intervalMs = 30,
   maxAttempts = 40,
   maxDurationMs,
@@ -152,7 +233,7 @@ export function startVirtuosoScrollToBottom({
   onComplete,
 }: StartVirtuosoScrollToBottomOptions): () => void {
   if (!virtuoso || !scroller) {
-    footer?.scrollIntoView({ behavior: "auto" });
+    forceVirtuosoToBottom({ virtuoso, footer });
     onComplete?.("settled");
     return () => undefined;
   }
@@ -172,11 +253,15 @@ export function startVirtuosoScrollToBottom({
   };
   const scroll = () => {
     onAutoScroll?.();
-    virtuoso.scrollTo({
-      top: Number.MAX_SAFE_INTEGER,
-      behavior: "auto",
-    });
-    footer?.scrollIntoView({ behavior: "auto", block: "end" });
+    if (preferPhysicalBottom && (footer || scroller)) {
+      forceScrollerToPhysicalBottom({ scroller, footer });
+      return;
+    }
+    if (typeof virtuoso.autoscrollToBottom === "function") {
+      virtuoso.autoscrollToBottom();
+      return;
+    }
+    forceVirtuosoToBottom({ virtuoso, footer });
   };
 
   scroll();
@@ -240,15 +325,21 @@ export function startVirtuosoScrollToBottom({
       scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 1;
     const hasStableHeight =
       Date.now() - lastHeightChangeAt >= stableHeightWindowMs;
+    const hasReachedAttemptLimit = attempts >= maxAttempts;
     const hasExceededScrollBudget = Date.now() - startedAt >= maxScrollWindowMs;
 
     if (
       (isAtBottom &&
         hasStableHeight &&
         attempts >= minAttemptsBeforeSettling) ||
+      hasReachedAttemptLimit ||
       hasExceededScrollBudget
     ) {
-      finish(hasExceededScrollBudget ? "max-attempts" : "settled");
+      finish(
+        hasExceededScrollBudget || hasReachedAttemptLimit
+          ? "max-attempts"
+          : "settled",
+      );
       return;
     }
 

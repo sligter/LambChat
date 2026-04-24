@@ -1,6 +1,9 @@
+import pytest
+
 from src.infra.tool.deferred_manager import DeferredToolManager
 from src.infra.tool.sandbox_mcp_prompt import (
     _MAX_TOOLS_IN_PROMPT,
+    _fetch_and_format,
     _format_tools_list,
     _format_tools_list_sections,
     _maybe_append_overflow_hint,
@@ -195,3 +198,60 @@ def test_deferred_manager_applies_disabled_mcp_tools() -> None:
     assert manager.get_tool("github:create_issue") is None
     assert manager.get_tool("slack:send") is None
     assert manager.get_tool("notion:query") is not None
+
+
+@pytest.mark.asyncio
+async def test_fetch_and_format_returns_empty_when_mcporter_is_unavailable() -> None:
+    class _Result:
+        def __init__(self, exit_code: int, output: str) -> None:
+            self.exit_code = exit_code
+            self.output = output
+
+    class _Backend:
+        def __init__(self) -> None:
+            self.commands: list[tuple[str, int]] = []
+
+        async def aexecute(self, command: str, *, timeout: int | None = None) -> _Result:
+            self.commands.append((command, timeout or 0))
+            if command == "mcporter --version":
+                return _Result(127, "/bin/bash: mcporter: command not found")
+            raise AssertionError(f"unexpected command: {command}")
+
+    backend = _Backend()
+
+    sections, total = await _fetch_and_format(backend)
+
+    assert sections == ()
+    assert total == 0
+    assert backend.commands == [("mcporter --version", 5)]
+
+
+@pytest.mark.asyncio
+async def test_fetch_and_format_lists_tools_when_mcporter_is_available() -> None:
+    class _Result:
+        def __init__(self, exit_code: int, output: str) -> None:
+            self.exit_code = exit_code
+            self.output = output
+
+    class _Backend:
+        def __init__(self) -> None:
+            self.commands: list[tuple[str, int]] = []
+
+        async def aexecute(self, command: str, *, timeout: int | None = None) -> _Result:
+            self.commands.append((command, timeout or 0))
+            if command == "mcporter --version":
+                return _Result(0, "mcporter 1.2.3")
+            if command == "mcporter list --json":
+                return _Result(
+                    0,
+                    '{"servers":[{"name":"playwright","status":"ok","tools":[{"name":"screenshot","description":"Take a screenshot.","inputSchema":{"type":"object","properties":{"url":{"type":"string"}},"required":["url"]}}]}]}',
+                )
+            raise AssertionError(f"unexpected command: {command}")
+
+    backend = _Backend()
+
+    sections, total = await _fetch_and_format(backend)
+
+    assert total == 1
+    assert len(sections) == 2
+    assert backend.commands == [("mcporter --version", 5), ("mcporter list --json", 15)]

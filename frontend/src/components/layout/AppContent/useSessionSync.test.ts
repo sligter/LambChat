@@ -2,21 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   getSessionRouteSyncAction,
-  shouldResetExternalNavigateFlag,
+  shouldLoadSessionFromUrlChange,
 } from "./useSessionSync.ts";
-
-test("resets the external navigation flag only when present", () => {
-  assert.equal(
-    shouldResetExternalNavigateFlag({ externalNavigate: true }),
-    true,
-  );
-  assert.equal(
-    shouldResetExternalNavigateFlag({ externalNavigate: false }),
-    false,
-  );
-  assert.equal(shouldResetExternalNavigateFlag({}), false);
-  assert.equal(shouldResetExternalNavigateFlag(null), false);
-});
 
 test("does not restore a chat route after the user already navigated away", () => {
   assert.equal(
@@ -58,5 +45,19 @@ test("updates the chat url when a new session is created from /chat", () => {
       type: "replace-url",
       path: "/chat/session-123",
     },
+  );
+});
+
+test("loads the target session when external navigation lands on chat from an empty state", () => {
+  assert.equal(
+    shouldLoadSessionFromUrlChange({
+      activeTab: "chat",
+      sessionId: null,
+      urlSessionId: "session-123",
+      isLoading: false,
+      isNewSession: false,
+      isInternalNavigation: false,
+    }),
+    true,
   );
 });

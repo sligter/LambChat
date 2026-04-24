@@ -201,7 +201,8 @@ function App() {
     <ThemeProvider>
       <ErrorBoundary>
         <Toaster
-          position="top-center"
+          position="top-right"
+          containerStyle={{ top: "56px" }}
           toastOptions={{
             duration: 4000,
             style: {

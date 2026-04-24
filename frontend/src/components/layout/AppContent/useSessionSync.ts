@@ -3,6 +3,10 @@ import { useNavigate, useParams, useLocation } from "react-router-dom";
 import type { TabType } from "./types.ts";
 import { shouldBlockSessionSelection } from "../../../utils/sessionSelectionGuard.ts";
 import type { SessionConfig } from "../../../hooks/useAgent/types.ts";
+import {
+  shouldResetExternalNavigateFlag,
+  type ExternalNavigationState,
+} from "./externalNavigationState.ts";
 
 interface UseSessionSyncOptions {
   activeTab: TabType;
@@ -31,10 +35,13 @@ interface SessionRouteSyncAction {
   path: string;
 }
 
-export function shouldResetExternalNavigateFlag(
-  locationState: { externalNavigate?: boolean } | null | undefined,
-): boolean {
-  return locationState?.externalNavigate === true;
+interface ShouldLoadSessionFromUrlChangeInput {
+  activeTab: TabType;
+  sessionId: string | null;
+  urlSessionId: string | undefined;
+  isLoading: boolean;
+  isNewSession: boolean;
+  isInternalNavigation: boolean;
 }
 
 export function isChatPath(pathname: string): boolean {
@@ -76,6 +83,33 @@ export function getSessionRouteSyncAction({
   }
 
   return null;
+}
+
+export function shouldLoadSessionFromUrlChange({
+  activeTab,
+  sessionId,
+  urlSessionId,
+  isLoading,
+  isNewSession,
+  isInternalNavigation,
+}: ShouldLoadSessionFromUrlChangeInput): boolean {
+  if (activeTab !== "chat") {
+    return false;
+  }
+
+  if (!urlSessionId) {
+    return false;
+  }
+
+  if (isLoading || sessionId === urlSessionId) {
+    return false;
+  }
+
+  if (isNewSession || isInternalNavigation) {
+    return false;
+  }
+
+  return true;
 }
 
 export function useSessionSync({
@@ -155,31 +189,40 @@ export function useSessionSync({
 
   // Load session when URL changes (e.g., from toast click)
   useEffect(() => {
-    if (activeTab !== "chat") return;
-
-    // Skip if sessionId is null (new session being created, handled by clearMessages)
-    if (!sessionId) return;
-
-    // Skip if urlSessionId is null/undefined (no session in URL)
-    if (!urlSessionId) return;
-
-    // Skip if already loading or if sessionId matches URL (no need to reload)
-    if (isLoadingRef.current || sessionId === urlSessionId) {
-      // URL is in sync, safe to reset the new session flag
-      if (isNewSessionRef.current) isNewSessionRef.current = false;
+    if (activeTab !== "chat") {
       return;
     }
 
-    // Skip if we just created a new session and URL hasn't caught up yet.
-    // This prevents loading stale history from the old urlSessionId.
+    if (!urlSessionId) {
+      return;
+    }
+
+    if (isLoadingRef.current || sessionId === urlSessionId) {
+      if (isNewSessionRef.current) isNewSessionRef.current = false;
+      if (isInternalNavRef.current) isInternalNavRef.current = false;
+      return;
+    }
+
     if (isNewSessionRef.current) {
       isNewSessionRef.current = false;
       return;
     }
 
-    // Skip if this was an internal navigation (handled by handleSelectSession)
     if (isInternalNavRef.current) {
       isInternalNavRef.current = false;
+      return;
+    }
+
+    if (
+      !shouldLoadSessionFromUrlChange({
+        activeTab,
+        sessionId,
+        urlSessionId,
+        isLoading: isLoadingRef.current,
+        isNewSession: isNewSessionRef.current,
+        isInternalNavigation: isInternalNavRef.current,
+      })
+    ) {
       return;
     }
 
@@ -208,7 +251,7 @@ export function useSessionSync({
       sessionId,
       urlSessionId,
       externalNavigate: shouldResetExternalNavigateFlag(
-        locationStateRef.current as { externalNavigate?: boolean } | null,
+        locationStateRef.current as ExternalNavigationState | null,
       ),
     });
 
