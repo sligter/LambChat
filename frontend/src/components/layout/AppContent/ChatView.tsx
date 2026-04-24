@@ -242,7 +242,7 @@ export function ChatView({
         />
       ),
     });
-  }, [outlineItems, activeOutlineId, handleOutlineNavigate]);
+  }, [outlineItems, activeOutlineId, handleOutlineNavigate, t]);
 
   useEffect(() => {
     if (outlineToggleRef) {
