@@ -216,9 +216,10 @@ export function UserMenu({ onShowProfile }: UserMenuProps) {
   const visibleSys = systemSettingsItems.filter((i) => i.show);
 
   const menuItemClass =
-    "flex w-full items-center gap-3 px-3 py-2.5 text-left text-sm transition-colors text-[var(--theme-text-secondary)] hover:text-[var(--theme-text)] hover:bg-[var(--theme-primary-light)] active:scale-[0.98]";
+    "flex w-full items-center gap-3 px-3 py-1.5 sm:py-2.5 text-left text-sm transition-colors text-[var(--theme-text-secondary)] hover:text-[var(--theme-text)] hover:bg-[var(--theme-primary-light)] active:scale-[0.98]";
 
-  const dividerClass = "mx-3 my-1 border-t border-[var(--theme-border)]";
+  const dividerClass =
+    "mx-3 my-0.5 sm:my-1 border-t border-[var(--theme-border)]";
 
   const renderNavItem = (item: {
     path: string;
@@ -281,7 +282,7 @@ export function UserMenu({ onShowProfile }: UserMenuProps) {
       )}
 
       {/* Bottom actions */}
-      <div className="border-t border-[var(--theme-border)] mt-1">
+      <div className="border-t border-[var(--theme-border)] mt-0.5 sm:mt-1">
         <button
           onClick={() => {
             onShowProfile();

@@ -30,6 +30,7 @@ import {
 
 export interface ProjectItemHandle {
   refresh: () => Promise<void>;
+  softRefresh: () => Promise<void>;
   prependSession: (session: BackendSession) => void;
   removeSession: (sessionId: string) => void;
   updateSession: (session: BackendSession) => void;
@@ -99,6 +100,7 @@ export const ProjectItem = forwardRef<ProjectItemHandle, ProjectItemProps>(
       hasMore,
       loadMoreRef,
       refresh,
+      softRefresh,
       prependSession,
       removeSession,
       updateSession,
@@ -133,12 +135,20 @@ export const ProjectItem = forwardRef<ProjectItemHandle, ProjectItemProps>(
       ref,
       () => ({
         refresh,
+        softRefresh,
         prependSession,
         removeSession,
         updateSession,
         sessions,
       }),
-      [refresh, prependSession, removeSession, updateSession, sessions],
+      [
+        refresh,
+        softRefresh,
+        prependSession,
+        removeSession,
+        updateSession,
+        sessions,
+      ],
     );
 
     // Start editing

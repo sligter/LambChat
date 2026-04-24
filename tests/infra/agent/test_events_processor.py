@@ -47,6 +47,23 @@ class FakePresenter:
             },
         }
 
+    def present_thinking(
+        self,
+        content: str,
+        thinking_id: str | None = None,
+        depth: int = 0,
+        agent_id: str | None = None,
+    ) -> dict[str, Any]:
+        return {
+            "event": "thinking",
+            "data": {
+                "content": content,
+                "thinking_id": thinking_id,
+                "depth": depth,
+                "agent_id": agent_id,
+            },
+        }
+
 
 def chat_stream(content: str, chunk_id: str = "chunk-1", metadata: dict[str, Any] | None = None):
     return {
@@ -93,3 +110,36 @@ async def test_text_chunk_key_change_flushes_previous_chunk_without_dropping_cur
     await processor.process_event({"event": "on_chat_model_end", "data": {"output": None}})
 
     assert [event["data"]["content"] for event in presenter.emitted] == ["hello", "world"]
+
+
+@pytest.mark.asyncio
+async def test_reasoning_content_chunk_emits_thinking_event() -> None:
+    presenter = FakePresenter()
+    processor = AgentEventProcessor(presenter)
+
+    await processor.process_event(
+        {
+            "event": "on_chat_model_stream",
+            "name": "chat_model",
+            "data": {
+                "chunk": SimpleNamespace(
+                    content="",
+                    id="chunk-r",
+                    additional_kwargs={"reasoning_content": "step by step"},
+                )
+            },
+            "metadata": {},
+        }
+    )
+
+    assert presenter.emitted == [
+        {
+            "event": "thinking",
+            "data": {
+                "content": "step by step",
+                "thinking_id": "chunk-r",
+                "depth": 0,
+                "agent_id": None,
+            },
+        }
+    ]

@@ -32,7 +32,8 @@ class ToolSearchInput(BaseModel):
         ...,
         description=(
             "Query to find deferred tools by name or capability. "
-            'Use "select:ToolA,ToolB" to fetch exact tools by name. '
+            "Use exact tool names as shown in the deferred MCP list, for example "
+            '"select:github:create_issue". '
             'Use keywords like "database query" for best-match search. '
             'Prefix a term with + to require it in the tool name (e.g., "+slack send").'
         ),
@@ -56,9 +57,10 @@ class ToolSearchTool(BaseTool):
         "Until fetched, only the name is known — there is no parameter schema, so the tool cannot be invoked. "
         "This tool takes a query, matches it against the deferred tool list, and returns "
         "the matched tools' complete parameter schemas. Once a tool's schema is returned, "
-        "it is callable exactly like any other tool in your tool list.\n\n"
+        "it is callable exactly like any other tool in your tool list. "
+        "Use exact tool names as shown in the deferred MCP list (format: `server:tool`).\n\n"
         "Query forms:\n"
-        '- "select:mcp__github__create_issue" — fetch this exact tool by name\n'
+        '- "select:github:create_issue" — fetch this exact tool by name\n'
         '- "database query" — keyword search, best matches returned\n'
         '- "+slack send" — require "slack" in the name, rank by remaining terms'
     )
@@ -169,5 +171,8 @@ class ToolSearchTool(BaseTool):
         elif already_available_count:
             status = f" ({already_available_count} already available)"
 
-        header = f"Found {len(results)} tool(s){status}. These tools are now available for use:\n\n"
+        header = (
+            f"Found {len(results)} tool(s){status}. These tools are now available for use. "
+            "If the tool you need appears below, call it directly next.\n\n"
+        )
         return header + "\n\n---\n\n".join(parts)

@@ -466,6 +466,16 @@ export const ChatInput = memo(function ChatInput({
   const [stopConfirmOpen, setStopConfirmOpen] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const resizeRafRef = useRef<number>(0);
+  const [history, setHistory] = useState<string[]>(() => {
+    try {
+      const stored = localStorage.getItem("chatInputHistory");
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  });
+  const historyIndexRef = useRef(-1);
+  const draftRef = useRef("");
 
   // Use external attachments if provided, otherwise use internal state
   const attachments = externalAttachments ?? internalAttachments;
@@ -582,7 +592,19 @@ export const ChatInput = memo(function ChatInput({
     e.preventDefault();
     if (!canSend) return;
     if (input.trim() && !isLoading && !disabled) {
-      onSend(input.trim(), agentOptionValues, attachments);
+      const trimmed = input.trim();
+      onSend(trimmed, agentOptionValues, attachments);
+      setHistory((prev) => {
+        const next = [...prev, trimmed].slice(-200);
+        try {
+          localStorage.setItem("chatInputHistory", JSON.stringify(next));
+        } catch {
+          /* storage full or unavailable */
+        }
+        return next;
+      });
+      historyIndexRef.current = -1;
+      draftRef.current = "";
       setInput("");
       setAttachments([]);
       requestAnimationFrame(() => {
@@ -600,17 +622,65 @@ export const ChatInput = memo(function ChatInput({
       const needsModifier = newlineModifier === "ctrl" ? e.ctrlKey : e.shiftKey;
 
       if (needsModifier) {
-        // Modifier held: allow default newline behavior
         return;
       }
 
-      // No modifier: send (or show stop confirm if loading)
       e.preventDefault();
       if (isLoading) {
         setStopConfirmOpen(true);
       } else {
         handleSubmit(e);
       }
+      return;
+    }
+
+    if (history.length === 0) return;
+
+    const textarea = textareaRef.current;
+    const atTop =
+      textarea?.selectionStart === 0 && textarea?.selectionEnd === 0;
+    const value = textarea?.value ?? "";
+    const atBottom =
+      textarea?.selectionStart === value.length &&
+      textarea?.selectionEnd === value.length;
+
+    if (e.key === "ArrowUp" && atTop) {
+      e.preventDefault();
+      if (historyIndexRef.current === -1) {
+        draftRef.current = input;
+      }
+      const newIndex = Math.min(
+        historyIndexRef.current + 1,
+        history.length - 1,
+      );
+      historyIndexRef.current = newIndex;
+      setInput(history[history.length - 1 - newIndex]);
+      requestAnimationFrame(() => {
+        if (textarea) {
+          textarea.selectionStart = textarea.selectionEnd =
+            history[history.length - 1 - newIndex].length;
+        }
+      });
+    } else if (
+      e.key === "ArrowDown" &&
+      (atBottom || historyIndexRef.current !== -1)
+    ) {
+      e.preventDefault();
+      const newIndex = historyIndexRef.current - 1;
+      if (newIndex < 0) {
+        historyIndexRef.current = -1;
+        setInput(draftRef.current);
+        draftRef.current = "";
+      } else {
+        historyIndexRef.current = newIndex;
+        setInput(history[history.length - 1 - newIndex]);
+      }
+      requestAnimationFrame(() => {
+        if (textarea) {
+          textarea.selectionStart = textarea.selectionEnd =
+            textarea.value.length;
+        }
+      });
     }
   };
 

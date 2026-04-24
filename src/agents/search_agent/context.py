@@ -105,6 +105,7 @@ class SearchAgentContext:
                     disabled_tools=self.disabled_tools,
                     disabled_mcp_tools=self.disabled_mcp_tools,
                     pre_discovered_names=pre_discovered,
+                    prompt_tool_limit=getattr(settings, "DEFERRED_TOOL_PROMPT_LIMIT", 40),
                 )
                 logger.info(
                     f"[SearchAgentContext] Deferred {len(mcp_tools)} MCP tools "

@@ -10,9 +10,9 @@ export function SkillsPanelSkeleton() {
   return (
     <div className="flex h-full flex-col gap-4 animate-fade-in">
       <PanelHeaderSkeleton />
-      <div className="flex-1 overflow-y-auto min-h-0 p-2 sm:p-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {Array.from({ length: 6 }).map((_, i) => (
+      <div className="flex-1 overflow-y-auto min-h-0 p-2 sm:p-4 xl:p-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 xl:gap-5">
+          {Array.from({ length: 9 }).map((_, i) => (
             <div key={i} className="panel-card flex flex-col p-4 sm:p-5">
               <div className="flex items-start justify-between gap-2 sm:gap-3">
                 <div className="flex-1 min-w-0">
@@ -70,9 +70,9 @@ export function MarketplacePanelSkeleton() {
   return (
     <div className="flex h-full flex-col gap-3 sm:gap-4 animate-fade-in">
       <PanelHeaderSkeleton />
-      <div className="flex-1 overflow-y-auto min-h-0 p-4 sm:p-6">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-          {Array.from({ length: 9 }).map((_, i) => (
+      <div className="flex-1 overflow-y-auto min-h-0 p-4 sm:p-6 xl:p-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+          {Array.from({ length: 12 }).map((_, i) => (
             <div key={i} className="panel-card overflow-hidden !p-0">
               {/* Gradient banner */}
               <div
@@ -137,7 +137,7 @@ export function UsersPanelSkeleton() {
   return (
     <div className="flex h-full flex-col gap-4 animate-fade-in">
       <PanelHeaderSkeleton />
-      <div className="flex-1 overflow-y-auto min-h-0 p-3 sm:p-6">
+      <div className="flex-1 overflow-y-auto min-h-0 p-3 sm:p-6 xl:p-8">
         {/* Desktop table */}
         <div className="hidden sm:block">
           <div className="panel-card !p-0 overflow-hidden">
@@ -149,31 +149,34 @@ export function UsersPanelSkeleton() {
                   "var(--glass-bg-subtle, color-mix(in srgb, var(--theme-bg) 80%, white))",
               }}
             >
-              <SkeletonLine width="w-24" className="!h-3 !rounded" />
-              <SkeletonLine width="w-32" className="!h-3 !rounded flex-1" />
-              <SkeletonLine width="w-20" className="!h-3 !rounded" />
+              <SkeletonLine width="w-24 xl:w-28" className="!h-3 !rounded" />
+              <SkeletonLine
+                width="w-32 xl:w-44"
+                className="!h-3 !rounded flex-1"
+              />
+              <SkeletonLine width="w-20 xl:w-24" className="!h-3 !rounded" />
               <SkeletonLine width="w-16" className="!h-3 !rounded" />
-              <SkeletonLine width="w-20" className="!h-3 !rounded" />
-              <SkeletonLine width="w-16" className="!h-3 !rounded" />
+              <SkeletonLine width="w-20 xl:w-28" className="!h-3 !rounded" />
+              <SkeletonLine width="w-16 xl:w-20" className="!h-3 !rounded" />
             </div>
-            {Array.from({ length: 6 }).map((_, i) => (
+            {Array.from({ length: 8 }).map((_, i) => (
               <div
                 key={i}
                 className="flex items-center gap-4 px-4 py-3"
                 style={{ borderTop: "1px solid var(--theme-border)" }}
               >
-                <div className="flex items-center gap-3 w-28 shrink-0">
+                <div className="flex items-center gap-3 w-28 xl:w-32 shrink-0">
                   <div className="skeleton-line size-8 rounded-full shrink-0" />
                   <SkeletonLine
-                    width={i % 2 === 0 ? "w-16" : "w-20"}
+                    width={i % 2 === 0 ? "w-16 xl:w-20" : "w-20 xl:w-24"}
                     className="!h-4"
                   />
                 </div>
                 <SkeletonLine
-                  width={i % 3 === 0 ? "w-36" : "w-44"}
+                  width={i % 3 === 0 ? "w-36 xl:w-52" : "w-44 xl:w-60"}
                   className="!h-3.5 flex-1"
                 />
-                <div className="flex gap-1 w-20 shrink-0">
+                <div className="flex gap-1 w-20 xl:w-24 shrink-0">
                   <SkeletonLine width="w-14" className="!h-5 !rounded-full" />
                 </div>
                 <SkeletonLine
@@ -224,9 +227,9 @@ export function RolesPanelSkeleton() {
   return (
     <div className="flex h-full flex-col gap-3 sm:gap-4 animate-fade-in">
       <PanelHeaderSkeleton />
-      <div className="flex-1 overflow-y-auto p-3 sm:p-6">
-        <div className="grid gap-4">
-          {Array.from({ length: 4 }).map((_, i) => (
+      <div className="flex-1 overflow-y-auto p-3 sm:p-6 xl:p-8">
+        <div className="grid gap-4 xl:grid-cols-2">
+          {Array.from({ length: 6 }).map((_, i) => (
             <div key={i} className="panel-card !p-4">
               <div className="flex items-start justify-between gap-2">
                 <div className="flex-1 min-w-0">
@@ -309,8 +312,8 @@ export function MCPPanelSkeleton() {
   return (
     <div className="flex h-full flex-col gap-3 sm:gap-4 animate-fade-in">
       <PanelHeaderSkeleton />
-      <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3">
-        {Array.from({ length: 4 }).map((_, i) => (
+      <div className="flex-1 overflow-y-auto p-3 sm:p-4 xl:p-6 space-y-3">
+        {Array.from({ length: 6 }).map((_, i) => (
           <div key={i} className="panel-card !p-4">
             <div className="flex items-start justify-between gap-2">
               <div className="flex-1 min-w-0">
@@ -362,7 +365,7 @@ export function FeedbackPanelSkeleton() {
   return (
     <div className="flex h-full flex-col gap-3 sm:gap-4 animate-fade-in">
       <PanelHeaderSkeleton hasSearch={false} />
-      <div className="flex-1 overflow-y-auto min-h-0 p-4 sm:p-6">
+      <div className="flex-1 overflow-y-auto min-h-0 p-4 sm:p-6 xl:p-8">
         {/* Stats grid — matches glass-card style */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-4">
           {[0, 1, 2, 3].map((i) => (
@@ -392,8 +395,8 @@ export function FeedbackPanelSkeleton() {
           ))}
         </div>
         {/* Feedback list */}
-        <div className="space-y-3">
-          {Array.from({ length: 5 }).map((_, i) => (
+        <div className="space-y-3 xl:space-y-4">
+          {Array.from({ length: 7 }).map((_, i) => (
             <div key={i} className="panel-card !p-4 sm:!p-5">
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2 sm:gap-3 min-w-0">
@@ -431,8 +434,8 @@ export function ChannelsPanelSkeleton() {
   return (
     <div className="flex h-full flex-col gap-3 sm:gap-4 animate-fade-in">
       <PanelHeaderSkeleton hasSearch={false} />
-      <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-4">
-        {Array.from({ length: 4 }).map((_, i) => (
+      <div className="flex-1 overflow-y-auto p-3 sm:p-4 xl:p-6 space-y-4">
+        {Array.from({ length: 6 }).map((_, i) => (
           <div key={i} className="panel-card !p-4">
             <div className="flex items-center gap-2.5 sm:gap-3">
               <div
@@ -482,8 +485,8 @@ export function AgentPanelSkeleton() {
           className="!h-7 sm:!h-8 !rounded-md"
         />
       </div>
-      <div className="flex-1 overflow-y-auto px-4 py-5 sm:px-6 space-y-5">
-        {Array.from({ length: 5 }).map((_, i) => (
+      <div className="flex-1 overflow-y-auto px-4 py-5 sm:px-6 xl:px-8 space-y-5">
+        {Array.from({ length: 7 }).map((_, i) => (
           <div key={i} className="panel-card flex items-center gap-3.5 !p-4">
             <div
               className="flex size-11 shrink-0 items-center justify-center rounded-xl"
@@ -528,8 +531,8 @@ export function ModelPanelSkeleton() {
           className="!h-7 sm:!h-8 !rounded-md"
         />
       </div>
-      <div className="flex-1 overflow-y-auto px-3 py-4 sm:px-6 sm:py-5 space-y-1">
-        {Array.from({ length: 6 }).map((_, i) => (
+      <div className="flex-1 overflow-y-auto px-3 py-4 sm:px-6 xl:px-8 sm:py-5 space-y-1">
+        {Array.from({ length: 8 }).map((_, i) => (
           <div key={i} className="panel-card !p-0">
             <div className="flex items-center justify-between p-3 sm:p-4 gap-2">
               <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">

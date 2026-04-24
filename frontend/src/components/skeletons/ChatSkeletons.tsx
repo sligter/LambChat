@@ -40,7 +40,7 @@ export function ChatPageSkeleton() {
 }
 
 /** Skeleton that mimics a chat conversation layout (user + assistant alternating) with input */
-export function ChatSkeleton({ count = 3 }: { count?: number }) {
+export function ChatSkeleton({ count = 5 }: { count?: number }) {
   // Each entry: [bubble width, ...line widths] — mimics natural user queries of varying length
   const userMsgs = [
     { bubble: "w-[75%] sm:w-[55%]", lines: ["100%", "82%"] },
@@ -150,7 +150,7 @@ export function ChatSkeleton({ count = 3 }: { count?: number }) {
 }
 
 /** Messages-only skeleton (for streaming footer, no input box) */
-export function ChatSkeletonMessagesOnly({ count = 1 }: { count?: number }) {
+export function ChatSkeletonMessagesOnly({ count = 3 }: { count?: number }) {
   const userMsgs = [
     { bubble: "w-[75%] sm:w-[55%]", lines: ["100%", "82%"] },
     { bubble: "w-[85%] sm:w-[65%]", lines: ["100%"] },
@@ -231,19 +231,19 @@ export function WelcomeSkeleton() {
         <div className="max-w-[90vw] w-full flex items-center justify-center gap-4">
           <div className="skeleton-line size-12 rounded-full hidden sm:block shadow-md ring-1 ring-stone-200/60 dark:ring-stone-700/40" />
           <SkeletonLine
-            width="w-48 sm:w-64 lg:w-80"
+            width="w-48 sm:w-64 lg:w-80 xl:w-96"
             className="!h-[1.65rem] sm:!h-8 md:!h-9 !rounded-lg"
           />
         </div>
         {/* Subtitle */}
         <SkeletonLine
-          width="w-36 sm:w-48"
+          width="w-36 sm:w-48 xl:w-56"
           className="!h-3 sm:!h-4 mt-2 sm:mt-3 !rounded-lg"
         />
       </div>
 
       {/* ChatInput skeleton — matches real ChatInput rounded-3xl container */}
-      <div className="w-full max-w-[48rem]">
+      <div className="w-full max-w-[48rem] lg:max-w-[52rem] xl:max-w-[56rem]">
         <div
           className="flex flex-col w-full rounded-3xl px-1 border"
           style={{
@@ -271,7 +271,7 @@ export function WelcomeSkeleton() {
 
       {/* Suggestions skeleton — mobile: 2 cards, desktop: 4 cards */}
       <div className="w-full px-2 sm:mt-5">
-        <div className="w-[19rem] sm:max-w-[36rem] sm:w-full mx-auto">
+        <div className="w-[19rem] sm:max-w-[36rem] lg:max-w-[48rem] xl:max-w-[56rem] sm:w-full mx-auto">
           {/* Label + refresh */}
           <div className="flex items-center justify-between mb-2 sm:mb-3">
             <div className="flex items-center gap-1.5">

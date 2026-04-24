@@ -127,16 +127,39 @@ async def test_env_var_prompt_lists_keys_without_values(monkeypatch: pytest.Monk
 
 
 @pytest.mark.asyncio
+async def test_env_var_prompt_sections_split_intro_and_key_list(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from src.infra.tool import env_var_prompt
+
+    storage = _FakeEnvVarStorage()
+    monkeypatch.setattr(env_var_prompt, "EnvVarStorage", lambda: storage)
+    env_var_prompt.invalidate_env_var_prompt_cache("user-1")
+
+    sections = await env_var_prompt.build_env_var_prompt_sections("user-1")
+
+    assert len(sections) == 2
+    assert "## Available Environment Variables" in sections[0]
+    assert "`FIRECRAWL_API_KEY`" in sections[1]
+    assert "os.environ" not in sections[1]
+
+
+@pytest.mark.asyncio
 async def test_env_var_prompt_middleware_appends_key_list(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from src.infra.agent import middleware
+    from src.infra.tool import env_var_prompt
 
-    async def fake_build_env_var_prompt(user_id: str) -> str:
+    async def fake_build_env_var_prompt_sections(user_id: str) -> tuple[str, ...]:
         assert user_id == "user-1"
-        return "## Available Environment Variables\n- `FIRECRAWL_API_KEY`"
+        return ("## Available Environment Variables", "- `FIRECRAWL_API_KEY`")
 
-    monkeypatch.setattr(middleware, "build_env_var_prompt", fake_build_env_var_prompt)
+    monkeypatch.setattr(
+        env_var_prompt,
+        "build_env_var_prompt_sections",
+        fake_build_env_var_prompt_sections,
+    )
 
     captured = []
 
@@ -150,7 +173,11 @@ async def test_env_var_prompt_middleware_appends_key_list(
     )
 
     assert result == "ok"
-    assert "FIRECRAWL_API_KEY" in str(captured[0].system_message.content)
+    assert captured[0].system_message.content == [
+        {"type": "text", "text": "base"},
+        {"type": "text", "text": "## Available Environment Variables"},
+        {"type": "text", "text": "- `FIRECRAWL_API_KEY`"},
+    ]
 
 
 @pytest.mark.asyncio

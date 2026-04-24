@@ -1,4 +1,4 @@
-from src.agents.core.subagent_prompts import SUBAGENT_PROMPT, SUBAGENT_TASK_GUIDE
+from src.agents.core.subagent_prompts import SUBAGENT_PROMPT, SUBAGENT_TASK_GUIDE, WORKFLOW_SECTION
 
 
 def test_subagent_prompt_requires_structured_handoff_notes() -> None:
@@ -29,3 +29,16 @@ def test_main_agent_guide_requires_synthesizing_subagent_results() -> None:
     guide = SUBAGENT_TASK_GUIDE.lower()
     for phrase in required_guidance:
         assert phrase in guide
+
+
+def test_workflow_section_mentions_searching_deferred_tools() -> None:
+    required_guidance = [
+        "search_tools",
+        "deferred",
+        "load the matching schema",
+        "already loaded",
+    ]
+
+    workflow = WORKFLOW_SECTION.lower()
+    for phrase in required_guidance:
+        assert phrase in workflow

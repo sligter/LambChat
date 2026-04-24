@@ -16,8 +16,8 @@ from src.infra.logging import get_logger
 
 logger = get_logger(__name__)
 
-# Cache: user_id -> (prompt_string, total_tool_count, timestamp)
-_sandbox_mcp_prompt_cache: dict[str, tuple[str, int, float]] = {}
+# Cache: user_id -> (prompt_sections, total_tool_count, timestamp)
+_sandbox_mcp_prompt_cache: dict[str, tuple[tuple[str, ...], int, float]] = {}
 
 # Cache TTL in seconds
 _CACHE_TTL = 1800  # 30 minutes
@@ -35,6 +35,15 @@ async def build_sandbox_mcp_prompt(
     user_id: str,
     force_refresh: bool = False,
 ) -> str:
+    """Build a prompt section describing available sandbox MCP tools."""
+    return "\n\n".join(await build_sandbox_mcp_prompt_sections(backend, user_id, force_refresh))
+
+
+async def build_sandbox_mcp_prompt_sections(
+    backend: Any,
+    user_id: str,
+    force_refresh: bool = False,
+) -> tuple[str, ...]:
     """Build a prompt section describing available sandbox MCP tools.
 
     Args:
@@ -50,22 +59,22 @@ async def build_sandbox_mcp_prompt(
 
     # Check cache
     if not force_refresh and user_id in _sandbox_mcp_prompt_cache:
-        prompt, total_count, ts = _sandbox_mcp_prompt_cache[user_id]
+        prompt_sections, total_count, ts = _sandbox_mcp_prompt_cache[user_id]
         if time.time() - ts < _CACHE_TTL:
             logger.debug(f"[SandboxMCP Prompt] Cache hit for user {user_id}")
-            return _maybe_append_overflow_hint(prompt, total_count)
+            return _maybe_append_overflow_hint_sections(prompt_sections, total_count)
 
     # Fetch from mcporter
-    prompt, total_count = await _fetch_and_format(backend)
+    prompt_sections, total_count = await _fetch_and_format(backend)
 
     # Update cache (even if empty — avoids repeated mcporter calls when no servers exist)
-    _sandbox_mcp_prompt_cache[user_id] = (prompt, total_count, time.time())
+    _sandbox_mcp_prompt_cache[user_id] = (prompt_sections, total_count, time.time())
     logger.info(
         f"[SandboxMCP Prompt] {'Cache miss' if not force_refresh else 'Force refresh'} "
-        f"for user {user_id}, prompt length={len(prompt)}, total_tools={total_count}"
+        f"for user {user_id}, prompt length={sum(len(section) for section in prompt_sections)}, total_tools={total_count}"
     )
 
-    return _maybe_append_overflow_hint(prompt, total_count)
+    return _maybe_append_overflow_hint_sections(prompt_sections, total_count)
 
 
 def _cleanup_stale_cache() -> None:
@@ -96,7 +105,22 @@ def _maybe_append_overflow_hint(prompt: str, total_count: int) -> str:
     return (
         prompt
         + f"> **Note:** Only {_MAX_TOOLS_IN_PROMPT} of {total_count} tools are shown above. "
-        + 'Use `execute(command="mcporter list")` to browse all available tools.\n'
+        + 'Use `execute(command="mcporter list")` to browse all available tools, then '
+        + '`execute(command="mcporter list --schema")` before the first call.\n'
+    )
+
+
+def _maybe_append_overflow_hint_sections(
+    prompt_sections: tuple[str, ...], total_count: int
+) -> tuple[str, ...]:
+    """Append overflow hint as its own section when tools were truncated."""
+    if not prompt_sections or total_count <= _MAX_TOOLS_IN_PROMPT:
+        return prompt_sections
+
+    return prompt_sections + (
+        f"> **Note:** Only {_MAX_TOOLS_IN_PROMPT} of {total_count} tools are shown above. "
+        'Use `execute(command="mcporter list")` to browse all available tools, then '
+        '`execute(command="mcporter list --schema")` before the first call.\n',
     )
 
 
@@ -160,6 +184,12 @@ def _format_params(schema: Any) -> str:
 
 
 def _format_tools_list(data: Any) -> tuple[str, int]:
+    """Backward-compatible string formatter for sandbox tool prompt."""
+    sections, total_count = _format_tools_list_sections(data)
+    return "\n\n".join(sections), total_count
+
+
+def _format_tools_list_sections(data: Any) -> tuple[tuple[str, ...], int]:
     """Format mcporter list JSON output into a readable prompt section.
 
     Returns:
@@ -184,14 +214,14 @@ def _format_tools_list(data: Any) -> tuple[str, int]:
     }
     """
     if not isinstance(data, dict):
-        return "", 0
+        return (), 0
 
     # mcporter returns servers as a list under "servers" key
     servers = data.get("servers", [])
     if not isinstance(servers, list):
-        return "", 0
+        return (), 0
 
-    lines = [
+    intro_lines = [
         "## Sandbox Tools (NOT MCP — DO NOT call directly)",
         "",
         "⚠️ **IMPORTANT**: The tools listed below are **sandbox tools**, NOT MCP tools. "
@@ -201,14 +231,20 @@ def _format_tools_list(data: Any) -> tuple[str, int]:
         "**How to use**: You MUST use the `execute` tool with `mcporter` commands. "
         "The `execute` tool is your ONLY way to invoke sandbox tools.",
         "",
-        "Example — calling `server.my_tool` with arg `query=hello`:",
+        "**Required first-use sequence**: before the first `mcporter call` for any sandbox tool, "
+        "you must inspect its parameters via `execute`.",
+        "Do NOT jump straight to `mcporter call` just because a short params summary appears below.",
+        "",
+        "Example — inspect first, then call `server.my_tool` with arg `query=hello`:",
         "```",
+        'execute(command="mcporter list --schema")',
+        "# inspect the schema for server.my_tool, then:",
         'execute(command="mcporter call server.my_tool query=hello")',
         "```",
         "",
         "**Discovery** — run via `execute`:",
         "- `mcporter list` — list all servers and tools",
-        "- `mcporter list --schema` — show parameter schemas (check before first use)",
+        "- `mcporter list --schema` — show parameter schemas (mandatory before first use)",
         "",
         "**Invocation** — call via `execute`: `mcporter call server.tool <args>`",
         "- Named args: `mcporter call server.tool key=value` (values with spaces MUST be quoted)",
@@ -220,6 +256,7 @@ def _format_tools_list(data: Any) -> tuple[str, int]:
         "changes are persisted and auto-restored on sandbox rebuild.",
         "",
     ]
+    tool_lines: list[str] = []
 
     tool_count = 0
     total_count = 0
@@ -236,7 +273,7 @@ def _format_tools_list(data: Any) -> tuple[str, int]:
 
         # Server header
         status_tag = f" ({server_status})" if server_status and server_status != "ok" else ""
-        lines.append(f"### {server_name}{status_tag}")
+        tool_lines.append(f"### {server_name}{status_tag}")
 
         for tool in tools:
             total_count += 1
@@ -258,39 +295,44 @@ def _format_tools_list(data: Any) -> tuple[str, int]:
             # Clean description: strip Args/COST WARNING sections, keep core description
             tool_desc = _clean_description(tool_desc)
 
-            lines.append(f"- `{full_name}`")
+            tool_lines.append(f"- `{full_name}`")
             if tool_desc:
-                lines.append(f"  {tool_desc}")
+                tool_lines.append(f"  {tool_desc}")
 
             # Extract and format parameters
             param_line = _format_params(tool.get("inputSchema"))
             if param_line:
-                lines.append(f"  {param_line}")
+                tool_lines.append(f"  {param_line}")
 
-            lines.append(f'  → use: `execute(command="mcporter call {full_name} <args>")`')
+            tool_lines.append('  → first inspect: `execute(command="mcporter list --schema")`')
+            tool_lines.append(
+                f'  → then call: `execute(command="mcporter call {full_name} <args>")`'
+            )
 
-        lines.append("")
+        tool_lines.append("")
 
-    return "\n".join(lines), total_count
+    if not tool_lines:
+        return (), total_count
+    return ("\n".join(intro_lines), "\n".join(tool_lines).rstrip()), total_count
 
 
-async def _fetch_and_format(backend: Any) -> tuple[str, int]:
+async def _fetch_and_format(backend: Any) -> tuple[tuple[str, ...], int]:
     """Run mcporter list and format the output."""
     try:
         result = await backend.aexecute("mcporter list --json", timeout=_MCPORTER_TIMEOUT)
         if result.exit_code != 0:
             logger.warning(f"[SandboxMCP Prompt] mcporter list failed: {result.output}")
-            return "", 0
+            return (), 0
 
         try:
             data = json.loads(result.output)
             logger.debug(f"[SandboxMCP Prompt] mcporter list output: {data}")
         except json.JSONDecodeError:
             logger.warning("[SandboxMCP Prompt] mcporter list returned invalid JSON")
-            return "", 0
+            return (), 0
 
-        return _format_tools_list(data)
+        return _format_tools_list_sections(data)
 
     except Exception as e:
         logger.warning(f"[SandboxMCP Prompt] Failed to fetch tools: {e}")
-        return "", 0
+        return (), 0

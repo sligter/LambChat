@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Optional
 
 from src.infra.logging import get_logger
+from src.kernel.config import settings
 
 if TYPE_CHECKING:
     from langchain_core.tools import BaseTool
@@ -46,6 +47,7 @@ class DeferredToolManager:
         disabled_tools: Optional[list[str]] = None,
         disabled_mcp_tools: Optional[list[str]] = None,
         pre_discovered_names: Optional[list[str]] = None,
+        prompt_tool_limit: Optional[int] = None,
     ):
         # 应用 disabled_tools 过滤
         disabled_set = set(disabled_tools or [])
@@ -75,6 +77,10 @@ class DeferredToolManager:
         pre_set = set(pre_discovered_names or []) & set(self._tool_map.keys())
         self._discovered_names: set[str] = pre_set
         self._session_id = session_id
+        configured_prompt_limit = prompt_tool_limit
+        if configured_prompt_limit is None:
+            configured_prompt_limit = getattr(settings, "DEFERRED_TOOL_PROMPT_LIMIT", 40)
+        self._prompt_tool_limit = max(int(configured_prompt_limit or 0), 0) or None
 
         # Backward-compatible aggregate dirty flag.
         self.stale: bool = True
@@ -83,6 +89,7 @@ class DeferredToolManager:
 
         # 缓存
         self._cached_stubs: list[DeferredToolStub] = []
+        self._cached_prompt_blocks: tuple[str, ...] = ()
         self._cached_stubs_string: str = ""
 
         logger.info(
@@ -138,52 +145,54 @@ class DeferredToolManager:
         self.stale = self._stubs_stale or self._prompt_stale
         return self._cached_stubs
 
-    def get_deferred_stubs_string(self) -> str:
-        """返回可直接拼入系统提示的预格式化字符串（带脏标记缓存）。
-
-        包含两部分：
-        1. 未发现工具列表 — Agent 需通过 search_tools 加载
-        2. 已发现工具列表 — Agent 可直接使用（schema 已注入 request.tools）
-        """
+    def get_deferred_prompt_blocks(self) -> tuple[str, ...]:
+        """Return prompt blocks for deferred MCP guidance and visible tool stubs."""
         if not self._prompt_stale:
-            return self._cached_stubs_string
-
-        parts: list[str] = []
-
-        # 已发现工具（直接可用）
-        if self._discovered_names:
-            discovered_lines = "\n".join(f"- {name}" for name in sorted(self._discovered_names))
-            parts.append(
-                "## MCP Tools (Loaded)\n\n"
-                "These tools are loaded and ready to use:\n\n"
-                f"{discovered_lines}\n"
-            )
+            return self._cached_prompt_blocks
 
         # 未发现工具（需要 search_tools）
         stubs = self.get_deferred_stubs()  # 调用后 stale=False 并更新缓存
         if stubs:
-            lines = "\n".join(f"- {s.name}: {s.description}" for s in stubs)
-            parts.append(
+            visible_stubs = stubs
+            hidden_count = 0
+            if self._prompt_tool_limit is not None and len(stubs) > self._prompt_tool_limit:
+                visible_stubs = stubs[: self._prompt_tool_limit]
+                hidden_count = len(stubs) - len(visible_stubs)
+
+            lines = "\n".join(f"- {s.name}: {s.description}" for s in visible_stubs)
+            parts: list[str] = [
                 "## MCP Tools (Deferred)\n\n"
                 "The following tools are available but not yet loaded. "
-                "Call `search_tools` to load their full parameter schemas before using them. "
+                "If one of these tools would help with the current request, call `search_tools` "
+                "first to load its full parameter schema, then use that tool normally. "
                 "`search_tools` only searches the deferred MCP tools listed in this section; "
                 "it does NOT search sandbox tools. Sandbox tools are NOT MCP tools — "
-                "use `execute` with `mcporter` commands to discover and call them.\n\n"
-                f"{lines}\n"
-            )
+                "use `execute` with `mcporter` commands to discover and call them.",
+                lines,
+            ]
+            if hidden_count:
+                noun = "tool" if hidden_count == 1 else "tools"
+                parts.append(
+                    f"\n\nNote: {hidden_count} more deferred MCP {noun} not shown here to save "
+                    "context. Use `search_tools` with capability keywords, or `select:server:tool` "
+                    "when you know the exact name."
+                )
+            result = tuple(parts)
+        else:
+            result = ()
 
-        if not parts:
-            self._cached_stubs_string = ""
-            self._prompt_stale = False
-            self.stale = self._stubs_stale or self._prompt_stale
-            return ""
-
-        result = "\n\n".join(parts)
-        self._cached_stubs_string = result
+        self._cached_prompt_blocks = result
+        self._cached_stubs_string = "\n\n".join(result)
         self._prompt_stale = False
         self.stale = self._stubs_stale or self._prompt_stale
         return result
+
+    def get_deferred_stubs_string(self) -> str:
+        """返回可直接拼入系统提示的预格式化字符串（带脏标记缓存）。"""
+        if not self._prompt_stale:
+            return self._cached_stubs_string
+        self.get_deferred_prompt_blocks()
+        return self._cached_stubs_string
 
     def get_discovered_tools(self) -> list["BaseTool"]:
         """获取已发现工具的完整 BaseTool 列表"""

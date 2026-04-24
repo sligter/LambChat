@@ -150,6 +150,29 @@ class Presenter:
                 logger.warning("Failed to init dual_writer: %s", e)
         return self._dual_writer
 
+    async def _build_trace_metadata(self) -> Dict[str, Any]:
+        """Build trace metadata, enriching it with non-sensitive user identity when available."""
+        metadata: Dict[str, Any] = {
+            "agent_name": self.config.agent_name,
+        }
+
+        if not self.config.user_id:
+            return metadata
+
+        metadata["user_id"] = self.config.user_id
+
+        try:
+            from src.infra.user.storage import UserStorage
+
+            user = await UserStorage().get_by_id(self.config.user_id)
+            username = getattr(user, "username", None) if user else None
+            if username:
+                metadata["username"] = username
+        except Exception as e:
+            logger.debug("Failed to enrich trace metadata for user %s: %s", self.config.user_id, e)
+
+        return metadata
+
     async def _ensure_trace(self):
         """确保 trace 已创建"""
         if self._trace_created:
@@ -174,15 +197,14 @@ class Presenter:
                 self.trace_id,
                 self.config.session_id,
             )
+            metadata = await self._build_trace_metadata()
             await dual_writer.create_trace(
                 trace_id=self.trace_id,
                 session_id=self.config.session_id,
                 agent_id=self.config.agent_id,
                 run_id=self.run_id,
                 user_id=self.config.user_id,
-                metadata={
-                    "agent_name": self.config.agent_name,
-                },
+                metadata=metadata,
             )
             self._trace_created = True
             logger.debug("Trace created successfully: %s", self.trace_id)

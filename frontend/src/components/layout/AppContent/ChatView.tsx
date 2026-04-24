@@ -268,7 +268,7 @@ export function ChatView({
         <>
           {showStreamingFooterSkeleton && (
             <div className="pb-4">
-              <ChatSkeletonMessagesOnly count={1} />
+              <ChatSkeletonMessagesOnly count={3} />
             </div>
           )}
           <div
@@ -389,7 +389,7 @@ export function ChatView({
       >
         {messages.length === 0 ? (
           isLoading ? (
-            <ChatSkeleton count={3} />
+            <ChatSkeleton count={5} />
           ) : (
             <WelcomePage
               greeting={greeting}

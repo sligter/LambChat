@@ -3,6 +3,7 @@ from langchain_core.tools import BaseTool
 
 from src.infra.agent.middleware import PromptCachingMiddleware, SectionPromptMiddleware
 from src.infra.tool.deferred_manager import DeferredToolManager
+from src.kernel.config import settings
 
 
 class _FakeTool(BaseTool):
@@ -113,6 +114,16 @@ async def test_prompt_caching_middleware_tags_anthropic_wrapped_models() -> None
     assert result.tools[0].extras == {"cache_control": {"type": "ephemeral"}}
 
 
+def test_prompt_caching_middleware_uses_settings_for_cache_limits(monkeypatch) -> None:
+    monkeypatch.setattr(settings, "PROMPT_CACHE_MAX_SYSTEM_BLOCKS", 6, raising=False)
+    monkeypatch.setattr(settings, "PROMPT_CACHE_MAX_TOOLS", 5, raising=False)
+
+    middleware = PromptCachingMiddleware()
+
+    assert middleware._max_cached_system_blocks == 6
+    assert middleware._max_cached_tools == 5
+
+
 def test_deferred_manager_returns_discovered_tools_in_sorted_order() -> None:
     manager = DeferredToolManager(
         all_deferred_tools=[
@@ -129,6 +140,38 @@ def test_deferred_manager_returns_discovered_tools_in_sorted_order() -> None:
     assert [tool.name for tool in discovered] == ["alpha:create", "zeta:lookup"]
 
 
+def test_deferred_prompt_does_not_repeat_loaded_tool_names() -> None:
+    manager = DeferredToolManager(
+        all_deferred_tools=[
+            _FakeTool(name="alpha:create", description="alpha create", server="alpha"),
+            _FakeTool(name="beta:list", description="beta list", server="beta"),
+        ],
+        session_id="session-1",
+        pre_discovered_names=["alpha:create"],
+    )
+
+    prompt = manager.get_deferred_stubs_string()
+
+    assert "## MCP Tools (Loaded)" not in prompt
+    assert "- alpha:create" not in prompt
+    assert "- beta:list: beta list" in prompt
+
+
+def test_deferred_prompt_blocks_split_stable_rules_and_dynamic_tool_list() -> None:
+    manager = DeferredToolManager(
+        all_deferred_tools=[
+            _FakeTool(name="beta:list", description="beta list", server="beta"),
+        ],
+        session_id="session-1",
+    )
+
+    blocks = manager.get_deferred_prompt_blocks()
+
+    assert len(blocks) == 2
+    assert "search_tools" in blocks[0]
+    assert "- beta:list: beta list" in blocks[1]
+
+
 def test_deferred_prompt_string_is_stably_sorted() -> None:
     manager = DeferredToolManager(
         all_deferred_tools=[
@@ -142,7 +185,6 @@ def test_deferred_prompt_string_is_stably_sorted() -> None:
 
     prompt = manager.get_deferred_stubs_string()
 
-    assert prompt.index("- beta:list") < prompt.index("- alpha:create: alpha create")
     assert prompt.index("- alpha:create: alpha create") < prompt.index("- zeta:lookup: zeta lookup")
 
 
@@ -160,6 +202,25 @@ def test_deferred_prompt_string_survives_prior_stub_cache_access() -> None:
     assert [stub.name for stub in stubs] == ["alpha:create"]
     assert "## MCP Tools (Deferred)" in prompt
     assert "- alpha:create: alpha create" in prompt
+
+
+def test_deferred_prompt_string_truncates_long_tool_list() -> None:
+    manager = DeferredToolManager(
+        all_deferred_tools=[
+            _FakeTool(name="alpha:create", description="alpha create", server="alpha"),
+            _FakeTool(name="beta:list", description="beta list", server="beta"),
+            _FakeTool(name="gamma:query", description="gamma query", server="gamma"),
+        ],
+        session_id="session-1",
+        prompt_tool_limit=2,
+    )
+
+    prompt = manager.get_deferred_stubs_string()
+
+    assert "- alpha:create: alpha create" in prompt
+    assert "- beta:list: beta list" in prompt
+    assert "- gamma:query: gamma query" not in prompt
+    assert "1 more deferred MCP tool not shown" in prompt
 
 
 async def test_section_prompt_middleware_appends_separate_blocks() -> None:

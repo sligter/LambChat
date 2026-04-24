@@ -23,6 +23,7 @@ from deepagents.backends.protocol import (
     FileInfo,
     FileUploadResponse,
     GlobResult,
+    GrepMatch,
     LsResult,
     ReadResult,
     WriteResult,
@@ -30,6 +31,11 @@ from deepagents.backends.protocol import (
 from deepagents.backends.sandbox import BaseSandbox
 
 from src.infra.logging import get_logger
+from src.infra.sandbox_grep import (
+    build_grep_command,
+    get_sandbox_grep_timeout,
+    parse_grep_response,
+)
 from src.kernel.config import settings
 
 if TYPE_CHECKING:
@@ -128,6 +134,28 @@ class E2BBackend(BaseSandbox):
                 exit_code=-1,
                 truncated=False,
             )
+
+    def grep_raw(
+        self,
+        pattern: str,
+        path: str | None = None,
+        glob: str | None = None,
+    ) -> list[GrepMatch] | str:
+        """Search file contents with a shorter default timeout than generic execute()."""
+        timeout = get_sandbox_grep_timeout(settings)
+        result = self.execute(build_grep_command(pattern, path, glob), timeout=timeout)
+        return parse_grep_response(result, timeout)
+
+    async def agrep_raw(
+        self,
+        pattern: str,
+        path: str | None = None,
+        glob: str | None = None,
+    ) -> list[GrepMatch] | str:
+        """Async grep variant that preserves backend-specific timeout handling."""
+        timeout = get_sandbox_grep_timeout(settings)
+        result = await self.aexecute(build_grep_command(pattern, path, glob), timeout=timeout)
+        return parse_grep_response(result, timeout)
 
     def execute_with_callbacks(
         self,

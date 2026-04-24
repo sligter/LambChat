@@ -27,19 +27,19 @@ export function PanelHeaderSkeleton({
           </div>
           <div className="min-w-0">
             <SkeletonLine
-              width="w-28 sm:w-36"
+              width="w-28 sm:w-36 xl:w-48"
               className="!h-[18px] sm:!h-[20px]"
             />
             <SkeletonLine
-              width="w-40 sm:w-52"
+              width="w-40 sm:w-52 xl:w-64"
               className="!h-3 sm:!h-3.5 mt-0.5"
             />
           </div>
         </div>
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-          <div className="skeleton-line h-9 w-20 sm:w-24 rounded-lg" />
+          <div className="skeleton-line h-9 w-20 sm:w-24 xl:w-28 rounded-lg" />
           <div className="skeleton-line h-9 w-9 rounded-lg sm:hidden" />
-          <div className="skeleton-line h-9 w-20 sm:w-24 rounded-lg hidden sm:block" />
+          <div className="skeleton-line h-9 w-20 sm:w-24 xl:w-28 rounded-lg hidden sm:block" />
         </div>
       </div>
       {hasSearch && (

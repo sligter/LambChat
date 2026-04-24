@@ -12,7 +12,7 @@ export function FilesContentSkeleton() {
           style={{ backgroundColor: "var(--theme-bg)" }}
         />
         <div className="absolute bottom-0 left-0 right-0 h-px bg-stone-200/60 dark:bg-stone-700/40" />
-        <div className="relative px-3 sm:px-5 md:px-6 py-2.5 sm:py-3 md:py-4">
+        <div className="relative px-3 sm:px-5 md:px-6 xl:px-8 py-2.5 sm:py-3 md:py-4">
           <div className="flex items-center justify-between gap-2 sm:gap-3 w-full">
             <div className="flex flex-wrap gap-1.5 sm:gap-2 items-center">
               <div className="skeleton-line h-7 sm:h-8 w-16 sm:w-20 rounded-lg" />
@@ -30,7 +30,7 @@ export function FilesContentSkeleton() {
 
       {/* Content: session groups with grid cards */}
       <div className="flex-1 overflow-y-auto min-h-0 relative z-[1]">
-        <div className="flex flex-col pb-6 px-5 md:px-6 gap-3 md:gap-6">
+        <div className="flex flex-col pb-6 px-5 md:px-6 xl:px-8 gap-3 md:gap-6">
           {/* Session group 1 */}
           <div className="flex flex-col gap-2.5 md:gap-3">
             <div className="flex items-center justify-between gap-2 pt-4 md:pt-5">
@@ -40,8 +40,8 @@ export function FilesContentSkeleton() {
               />
               <div className="skeleton-line h-[16px] sm:h-[18px] w-8 sm:w-10 rounded-md" />
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-start">
-              {[0, 1, 2].map((i) => (
+            <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-4 gap-3 items-start">
+              {[0, 1, 2, 3].map((i) => (
                 <div
                   key={i}
                   className="flex flex-col overflow-hidden rounded-xl border border-stone-200/60 dark:border-stone-700/40"
@@ -78,8 +78,8 @@ export function FilesContentSkeleton() {
               />
               <div className="skeleton-line h-[16px] sm:h-[18px] w-8 sm:w-10 rounded-md" />
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-start">
-              {[0, 1].map((i) => (
+            <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-4 gap-3 items-start">
+              {[0, 1, 2].map((i) => (
                 <div
                   key={i}
                   className="flex flex-col overflow-hidden rounded-xl border border-stone-200/60 dark:border-stone-700/40"

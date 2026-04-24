@@ -72,13 +72,17 @@ class Settings(BaseSettings):
     LLM_MAX_RETRIES: int = 3
     LLM_RETRY_DELAY: float = 1.0
     LLM_MODEL_CACHE_SIZE: int = 50  # 模型实例缓存大小，防止内存泄漏
+    PROMPT_CACHE_MAX_SYSTEM_BLOCKS: int = 12
+    PROMPT_CACHE_MAX_TOOLS: int = 12
 
     # MCP Settings
     ENABLE_MCP: bool = True
     ENABLE_DEFERRED_TOOL_LOADING: bool = True
     DEFERRED_TOOL_THRESHOLD: int = 20
     DEFERRED_TOOL_SEARCH_LIMIT: int = 25
+    DEFERRED_TOOL_PROMPT_LIMIT: int = 25
     MCP_ENCRYPTION_SALT: Optional[str] = None  # 默认随机生成，确保加密一致性
+    DEEPAGENT_DEFAULT_MAX_INPUT_TOKENS: int = 64000
 
     # Session Settings
     SESSION_MAX_RUNS_PER_SESSION: int = 100
@@ -133,6 +137,7 @@ class Settings(BaseSettings):
     DAYTONA_SERVER_URL: str = ""
     DAYTONA_TIMEOUT: int = 180
     DAYTONA_IMAGE: str = ""
+    SANDBOX_GREP_TIMEOUT: int = 30
     DAYTONA_AUTO_STOP_INTERVAL: int = 5
     DAYTONA_AUTO_ARCHIVE_INTERVAL: int = 5
     DAYTONA_AUTO_DELETE_INTERVAL: int = 1440

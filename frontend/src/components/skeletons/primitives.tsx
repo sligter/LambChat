@@ -52,7 +52,7 @@ export function SkeletonList({
       className={
         compact
           ? `space-y-1 ${className}`
-          : `space-y-1.5 sm:space-y-2.5 ${className}`
+          : `space-y-1.5 sm:space-y-2.5 xl:space-y-3 ${className}`
       }
     >
       {Array.from({ length: count }).map((_, i) => (
@@ -61,7 +61,7 @@ export function SkeletonList({
           className={`flex items-center gap-3 px-4 rounded-lg ${
             compact
               ? "py-2.5"
-              : "px-2 sm:px-3 py-2 sm:py-2.5 sm:gap-3 sm:rounded-xl"
+              : "px-2 sm:px-3 py-2 sm:py-2.5 xl:py-3 sm:gap-3 xl:gap-4 sm:rounded-xl"
           }`}
           style={{
             backgroundColor:
@@ -97,21 +97,21 @@ interface SkeletonCardProps {
 export function SkeletonCard({ className = "" }: SkeletonCardProps) {
   return (
     <div
-      className={`p-2.5 sm:p-3 rounded-lg border ${className}`}
+      className={`p-2.5 sm:p-3 xl:p-4 rounded-lg border ${className}`}
       style={{
         backgroundColor:
           "var(--theme-bg-card, color-mix(in srgb, var(--theme-bg) 80%, white))",
         borderColor: "var(--theme-border)",
       }}
     >
-      <div className="flex items-center gap-2 mb-1.5 sm:mb-2">
+      <div className="flex items-center gap-2 mb-1.5 sm:mb-2 xl:mb-3">
         <SkeletonBlock
           width="w-4 sm:w-5"
           height="h-4 sm:h-5"
           className="!rounded-full"
         />
-        <SkeletonLine width="w-20 sm:w-24" />
-        <SkeletonLine width="w-14 sm:w-16" className="ml-auto" />
+        <SkeletonLine width="w-20 sm:w-24 xl:w-28" />
+        <SkeletonLine width="w-14 sm:w-16 xl:w-20" className="ml-auto" />
       </div>
       <SkeletonLine width="w-full" className="!h-1.5 sm:!h-2" />
     </div>

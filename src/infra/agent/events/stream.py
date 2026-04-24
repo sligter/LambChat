@@ -163,6 +163,19 @@ class StreamEventMixin:
             await self._append_text_chunk(content, current_depth, current_agent_id, chunk_id)
             return
 
+        if isinstance(content, str) and not content:
+            rc = getattr(chunk, "additional_kwargs", {}).get("reasoning_content")
+            if rc:
+                await self._presenter_emit(
+                    self.presenter.present_thinking(
+                        rc,
+                        thinking_id=chunk_id,
+                        depth=current_depth,
+                        agent_id=current_agent_id,
+                    )
+                )
+            return
+
         if isinstance(content, list):
             present_thinking = self.presenter.present_thinking
             emit = self._presenter_emit
@@ -171,12 +184,12 @@ class StreamEventMixin:
                 if not isinstance(block, dict):
                     continue
                 block_type = block.get("type")
-                if block_type == "thinking":
-                    thinking_text = block.get("thinking", "")
-                    if thinking_text:
+                if block_type in ("thinking", "reasoning"):
+                    reasoning_text = block.get("thinking") or block.get("reasoning", "")
+                    if reasoning_text:
                         await emit(
                             present_thinking(
-                                thinking_text,
+                                reasoning_text,
                                 thinking_id=chunk_id,
                                 depth=current_depth,
                                 agent_id=current_agent_id,

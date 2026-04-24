@@ -12,19 +12,21 @@ from src.infra.logging import get_logger
 logger = get_logger(__name__)
 
 _CACHE_TTL = 300
-_env_var_prompt_cache: dict[str, tuple[str, float]] = {}
+_env_var_prompt_cache: dict[str, tuple[tuple[str, ...], float]] = {}
 
 
-async def build_env_var_prompt(user_id: str, force_refresh: bool = False) -> str:
-    """Build a prompt section listing environment variable keys for a user."""
+async def build_env_var_prompt_sections(
+    user_id: str, force_refresh: bool = False
+) -> tuple[str, ...]:
+    """Build prompt sections listing environment variable keys for a user."""
     if not user_id:
-        return ""
+        return ()
 
     _cleanup_stale_cache()
     if not force_refresh and user_id in _env_var_prompt_cache:
-        prompt, ts = _env_var_prompt_cache[user_id]
+        prompt_sections, ts = _env_var_prompt_cache[user_id]
         if time.time() - ts < _CACHE_TTL:
-            return prompt
+            return prompt_sections
 
     try:
         variables = await EnvVarStorage().list_vars(user_id)
@@ -32,26 +34,30 @@ async def build_env_var_prompt(user_id: str, force_refresh: bool = False) -> str
         logger.warning(
             "[EnvVar Prompt] Failed to list env vars for user %s", user_id, exc_info=True
         )
-        return ""
+        return ()
 
     keys = sorted(variable.key for variable in variables if getattr(variable, "key", ""))
     if not keys:
-        prompt = ""
+        prompt_sections = ()
     else:
-        lines = [
+        intro_lines = [
             "## Available Environment Variables",
             "",
             "The following environment variables are configured for sandbox execution. "
             "Their secret contents are not shown. Use the names directly in shell commands "
             "or code, for example `$FIRECRAWL_API_KEY` in shell or "
             '`os.environ.get("FIRECRAWL_API_KEY")` in Python. Do not print or reveal secrets.',
-            "",
         ]
-        lines.extend(f"- `{key}`" for key in keys)
-        prompt = "\n".join(lines)
+        key_lines = [f"- `{key}`" for key in keys]
+        prompt_sections = ("\n".join(intro_lines), "\n".join(key_lines))
 
-    _env_var_prompt_cache[user_id] = (prompt, time.time())
-    return prompt
+    _env_var_prompt_cache[user_id] = (prompt_sections, time.time())
+    return prompt_sections
+
+
+async def build_env_var_prompt(user_id: str, force_refresh: bool = False) -> str:
+    """Build a prompt section listing environment variable keys for a user."""
+    return "\n\n".join(await build_env_var_prompt_sections(user_id, force_refresh))
 
 
 def invalidate_env_var_prompt_cache(user_id: str) -> None:

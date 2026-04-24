@@ -300,11 +300,11 @@ export const SessionSidebar = forwardRef<
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshKey]);
 
-  // Refresh session lists when user switches sessions (picks up unread_count changes)
+  // Soft-refresh session lists when user switches sessions (picks up unread_count changes without resetting scroll)
   useEffect(() => {
     if (!currentSessionId) return;
-    uncategorizedList.refresh();
-    projectRefs.current.forEach((ref) => ref?.refresh());
+    uncategorizedList.softRefresh();
+    projectRefs.current.forEach((ref) => ref?.softRefresh());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentSessionId]);
 

@@ -1,5 +1,11 @@
 from src.infra.tool.deferred_manager import DeferredToolManager
-from src.infra.tool.sandbox_mcp_prompt import _format_tools_list
+from src.infra.tool.sandbox_mcp_prompt import (
+    _MAX_TOOLS_IN_PROMPT,
+    _format_tools_list,
+    _format_tools_list_sections,
+    _maybe_append_overflow_hint,
+)
+from src.infra.tool.tool_search_tool import ToolSearchTool
 
 
 class _FakeTool:
@@ -7,6 +13,20 @@ class _FakeTool:
         self.name = name
         self.description = description
         self.server = server
+
+
+class _FakeManager:
+    pass
+
+
+class _SearchArgsSchema(_FakeManager):
+    @classmethod
+    def model_json_schema(cls):
+        return {
+            "type": "object",
+            "properties": {"title": {"type": "string"}},
+            "required": ["title"],
+        }
 
 
 def test_deferred_prompt_excludes_sandbox_mcp_from_search_tools() -> None:
@@ -26,6 +46,45 @@ def test_deferred_prompt_excludes_sandbox_mcp_from_search_tools() -> None:
     assert "search_tools" in prompt
     assert "does NOT search sandbox tools" in prompt
     assert "use `execute` with `mcporter`" in prompt
+
+
+def test_deferred_prompt_tells_model_to_search_before_using_tool() -> None:
+    manager = DeferredToolManager(
+        all_deferred_tools=[
+            _FakeTool(
+                name="github:create_issue",
+                description="Create an issue in GitHub.",
+                server="github",
+            )
+        ],
+        session_id="session-1",
+    )
+
+    prompt = manager.get_deferred_stubs_string()
+
+    assert "If one of these tools would help" in prompt
+    assert "call `search_tools` first" in prompt
+    assert "then use that tool normally" in prompt
+
+
+def test_search_tools_description_uses_server_tool_exact_name_format() -> None:
+    description = ToolSearchTool(manager=_FakeManager()).description
+
+    assert "select:github:create_issue" in description
+    assert "select:mcp__github__create_issue" not in description
+    assert "Use exact tool names as shown" in description
+
+
+async def test_search_tools_result_tells_model_to_call_loaded_tool_next() -> None:
+    tool = _FakeTool("github:create_issue", "Create issue", server="github")
+    tool.args_schema = _SearchArgsSchema
+    manager = DeferredToolManager(all_deferred_tools=[tool], session_id="session-1")
+    search_tool = ToolSearchTool(manager=manager, search_limit=5)
+
+    result = await search_tool._arun("select:github:create_issue")
+
+    assert "call it directly next" in result
+    assert "github:create_issue" in result
 
 
 def test_sandbox_mcp_prompt_tells_model_to_use_mcporter_not_search_tools() -> None:
@@ -55,6 +114,71 @@ def test_sandbox_mcp_prompt_tells_model_to_use_mcporter_not_search_tools() -> No
     assert "NOT MCP" in prompt
     assert "execute" in prompt
     assert "mcporter call" in prompt
+
+
+def test_sandbox_mcp_prompt_sections_split_intro_and_tool_listing() -> None:
+    sections, total = _format_tools_list_sections(
+        {
+            "servers": [
+                {
+                    "name": "playwright",
+                    "status": "ok",
+                    "tools": [
+                        {
+                            "name": "screenshot",
+                            "description": "Take a screenshot.",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {"url": {"type": "string"}},
+                                "required": ["url"],
+                            },
+                        }
+                    ],
+                }
+            ]
+        }
+    )
+
+    assert total == 1
+    assert len(sections) == 2
+    assert "Sandbox Tools" in sections[0]
+    assert "`playwright.screenshot`" in sections[1]
+
+
+def test_sandbox_overflow_hint_mentions_schema_inspection() -> None:
+    prompt = _maybe_append_overflow_hint("sandbox prompt\n", _MAX_TOOLS_IN_PROMPT + 1)
+
+    assert "mcporter list" in prompt
+    assert "mcporter list --schema" in prompt
+
+
+def test_sandbox_mcp_prompt_requires_schema_inspection_before_first_call() -> None:
+    prompt, total = _format_tools_list(
+        {
+            "servers": [
+                {
+                    "name": "playwright",
+                    "status": "ok",
+                    "tools": [
+                        {
+                            "name": "screenshot",
+                            "description": "Take a screenshot.",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {"url": {"type": "string"}},
+                                "required": ["url"],
+                            },
+                        }
+                    ],
+                }
+            ]
+        }
+    )
+
+    assert total == 1
+    assert "before the first `mcporter call`" in prompt
+    assert "must inspect its parameters via `execute`" in prompt
+    assert "`mcporter list --schema`" in prompt
 
 
 def test_deferred_manager_applies_disabled_mcp_tools() -> None:

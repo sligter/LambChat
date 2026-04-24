@@ -27,6 +27,7 @@ interface UseProjectSessionListReturn {
   error: string | null;
   loadMoreRef: React.RefCallback<HTMLElement>;
   refresh: () => Promise<void>;
+  softRefresh: () => Promise<void>;
   prependSession: (session: BackendSession) => void;
   removeSession: (sessionId: string) => void;
   updateSession: (session: BackendSession) => void;
@@ -114,6 +115,34 @@ export function useProjectSessionList(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
 
+  const softRefresh = useCallback(async () => {
+    try {
+      const response = await sessionApi.list({
+        project_id: projectId,
+        limit: PAGE_SIZE,
+        skip: 0,
+        status: "active",
+      });
+      const newSessions =
+        "sessions" in response
+          ? response.sessions
+          : Array.isArray(response)
+            ? response
+            : [];
+      const latest = new Map(newSessions.map((s) => [s.id, s]));
+      setSessions((prev) => {
+        const merged = prev.map((s) => latest.get(s.id) ?? s);
+        // prepend any brand-new sessions not yet in the list
+        for (const s of newSessions) {
+          if (!prev.some((p) => p.id === s.id)) merged.unshift(s);
+        }
+        return dedup(merged);
+      });
+    } catch {
+      // silent — soft refresh is best-effort
+    }
+  }, [projectId]);
+
   const prependSession = useCallback((session: BackendSession) => {
     setSessions((prev) => {
       if (prev.some((s) => s.id === session.id)) return prev;
@@ -137,6 +166,7 @@ export function useProjectSessionList(
     error,
     loadMoreRef,
     refresh,
+    softRefresh,
     prependSession,
     removeSession,
     updateSession,

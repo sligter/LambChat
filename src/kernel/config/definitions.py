@@ -187,6 +187,20 @@ SETTING_DEFINITIONS: dict[str, dict] = {
         "description": "settingDesc.LLM_MODEL_CACHE_SIZE",
         "default": 50,
     },
+    "PROMPT_CACHE_MAX_SYSTEM_BLOCKS": {
+        "type": SettingType.NUMBER,
+        "category": SettingCategory.LLM,
+        "subcategory": "cache",
+        "description": "settingDesc.PROMPT_CACHE_MAX_SYSTEM_BLOCKS",
+        "default": 12,
+    },
+    "PROMPT_CACHE_MAX_TOOLS": {
+        "type": SettingType.NUMBER,
+        "category": SettingCategory.LLM,
+        "subcategory": "cache",
+        "description": "settingDesc.PROMPT_CACHE_MAX_TOOLS",
+        "default": 12,
+    },
     # ============================================
     # Session Settings
     # ============================================
@@ -303,6 +317,14 @@ SETTING_DEFINITIONS: dict[str, dict] = {
         "description": "settingDesc.DAYTONA_TIMEOUT",
         "default": 180,
         "depends_on": {"key": "SANDBOX_PLATFORM", "value": "daytona"},
+    },
+    "SANDBOX_GREP_TIMEOUT": {
+        "type": SettingType.NUMBER,
+        "category": SettingCategory.SANDBOX,
+        "subcategory": "general",
+        "description": "settingDesc.SANDBOX_GREP_TIMEOUT",
+        "default": 30,
+        "depends_on": "ENABLE_SANDBOX",
     },
     "DAYTONA_IMAGE": {
         "type": SettingType.STRING,

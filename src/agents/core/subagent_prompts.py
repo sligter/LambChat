@@ -47,6 +47,11 @@ Tools:
 
 Text files only (no binary). Limits: single file 10MB, batch 100MB/200files.
 
+### Tool Selection Rules
+- If the needed tool is already loaded, call it directly.
+- If a relevant MCP tool appears in a deferred section, call `search_tools` to load the matching schema, then call that tool directly.
+- If the capability is a sandbox tool, use `execute` with `mcporter list --schema` before the first `mcporter call`.
+
 ### Clarification
 When uncertain, use `ask_human`. Never guess.
 """
