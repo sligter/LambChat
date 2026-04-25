@@ -187,7 +187,7 @@ async def test_env_var_list_returns_masked_values(monkeypatch: pytest.MonkeyPatc
     storage = _FakeEnvVarStorage()
     monkeypatch.setattr(env_var_tool, "EnvVarStorage", lambda: storage)
 
-    result = json.loads(await env_var_tool._env_var_list(_Runtime("user-1")))
+    result = json.loads(await env_var_tool.env_var_list.coroutine(runtime=_Runtime("user-1")))
 
     assert result["count"] == 1
     assert result["variables"][0]["key"] == "FIRECRAWL_API_KEY"
@@ -205,7 +205,9 @@ async def test_env_var_set_delegates_to_storage_and_masks_response(
     monkeypatch.setattr(env_var_tool, "EnvVarStorage", lambda: storage)
 
     result = json.loads(
-        await env_var_tool._env_var_set(_Runtime("user-1"), "FIRECRAWL_API_KEY", "secret")
+        await env_var_tool.env_var_set.coroutine(
+            "FIRECRAWL_API_KEY", "secret", runtime=_Runtime("user-1")
+        )
     )
 
     assert result["success"] is True
@@ -233,8 +235,8 @@ async def test_env_var_set_invalidates_prompt_and_syncs_current_sandbox(
     monkeypatch.setattr(env_var_tool, "ensure_sandbox_mcp", fake_sync)
     monkeypatch.setattr(env_var_tool, "invalidate_env_var_prompt_cache", invalidated.append)
 
-    await env_var_tool._env_var_set(
-        _Runtime("user-1", backend=backend), "FIRECRAWL_API_KEY", "secret"
+    await env_var_tool.env_var_set.coroutine(
+        "FIRECRAWL_API_KEY", "secret", runtime=_Runtime("user-1", backend=backend)
     )
 
     assert sync_calls == [(backend, "user-1")]
@@ -248,7 +250,9 @@ async def test_env_var_delete_delegates_to_storage(monkeypatch: pytest.MonkeyPat
     storage = _FakeEnvVarStorage()
     monkeypatch.setattr(env_var_tool, "EnvVarStorage", lambda: storage)
 
-    result = json.loads(await env_var_tool._env_var_delete(_Runtime("user-1"), "FIRECRAWL_API_KEY"))
+    result = json.loads(
+        await env_var_tool.env_var_delete.coroutine("FIRECRAWL_API_KEY", runtime=_Runtime("user-1"))
+    )
 
     assert result == {
         "success": True,
@@ -261,7 +265,7 @@ async def test_env_var_delete_delegates_to_storage(monkeypatch: pytest.MonkeyPat
 async def test_env_var_tool_requires_runtime_user() -> None:
     from src.infra.tool import env_var_tool
 
-    result = json.loads(await env_var_tool._env_var_list(_Runtime(None)))
+    result = json.loads(await env_var_tool.env_var_list.coroutine(runtime=_Runtime(None)))
 
     assert result == {"error": "No user context available"}
 

@@ -106,6 +106,7 @@ export function shouldAutoScrollForMessageUpdate({
   userScrolledUp,
   autoScrollActive,
   isNearBottom,
+  isLoadingHistory = false,
   shouldMaintainStreamLock = false,
 }: {
   previousMessages: ScrollMessageLike[];
@@ -113,9 +114,10 @@ export function shouldAutoScrollForMessageUpdate({
   userScrolledUp: boolean;
   autoScrollActive: boolean;
   isNearBottom: boolean;
+  isLoadingHistory?: boolean;
   shouldMaintainStreamLock?: boolean;
 }): boolean {
-  if (userScrolledUp || nextMessages.length === 0) {
+  if (userScrolledUp || nextMessages.length === 0 || isLoadingHistory) {
     return false;
   }
 
@@ -125,6 +127,7 @@ export function shouldAutoScrollForMessageUpdate({
 
   const previousLatestMessage = previousMessages[previousMessages.length - 1];
   const nextLatestMessage = nextMessages[nextMessages.length - 1];
+  const appendedMessageCount = nextMessages.length - previousMessages.length;
 
   if (nextLatestMessage?.role !== "assistant") {
     return false;
@@ -136,7 +139,7 @@ export function shouldAutoScrollForMessageUpdate({
     previousLatestMessage?.role === "assistant";
 
   if (latestChanged) {
-    return true;
+    return appendedMessageCount === 1;
   }
 
   // Keep the existing bottom-lock loop running, but don't restart it on every

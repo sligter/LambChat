@@ -9,8 +9,7 @@ import re
 import sys
 from typing import TYPE_CHECKING, Annotated, Any
 
-from langchain_core.tools import BaseTool, InjectedToolArg, StructuredTool
-from pydantic import BaseModel, Field
+from langchain_core.tools import BaseTool, InjectedToolArg
 
 from src.infra.envvar.storage import EnvVarStorage
 from src.infra.tool.backend_utils import get_user_id_from_runtime
@@ -28,31 +27,9 @@ else:
         sys.modules.setdefault("langchain.tools", _mod)
         from langchain.tools import ToolRuntime  # type: ignore[assignment]
 
+from langchain.tools import tool  # noqa: E402
 
 _ENV_KEY_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
-
-
-class _ListInput(BaseModel):
-    pass
-
-
-class _SetInput(BaseModel):
-    key: str = Field(
-        ...,
-        description="Environment variable key. Must match ^[A-Za-z_][A-Za-z0-9_]*$.",
-    )
-    value: str = Field(..., description="Environment variable value to store encrypted.")
-
-
-class _DeleteInput(BaseModel):
-    key: str = Field(
-        ...,
-        description="Environment variable key. Must match ^[A-Za-z_][A-Za-z0-9_]*$.",
-    )
-
-
-class _DeleteAllInput(BaseModel):
-    pass
 
 
 def _json(data: dict[str, Any]) -> str:
@@ -87,7 +64,12 @@ def _masked_var(variable: Any) -> dict[str, Any]:
     }
 
 
-async def _env_var_list(runtime: Annotated[ToolRuntime, InjectedToolArg]) -> str:
+@tool
+async def env_var_list(
+    runtime: Annotated[ToolRuntime, InjectedToolArg],
+) -> str:
+    """List the current user's saved environment variable keys.
+    Values are always masked and plaintext secrets are never returned."""
     user_id = _get_user_id(runtime)
     if not user_id:
         return _json({"error": "No user context available"})
@@ -97,11 +79,15 @@ async def _env_var_list(runtime: Annotated[ToolRuntime, InjectedToolArg]) -> str
     return _json({"variables": masked, "count": len(masked)})
 
 
-async def _env_var_set(
+@tool
+async def env_var_set(
+    key: Annotated[str, "Environment variable key. Must match ^[A-Za-z_][A-Za-z0-9_]*$."],
+    value: Annotated[str, "Environment variable value to store encrypted."],
     runtime: Annotated[ToolRuntime, InjectedToolArg],
-    key: str,
-    value: str,
 ) -> str:
+    """Create or update one encrypted environment variable for the current user.
+    Use this when configuring sandbox MCP env_keys. The saved value is never
+    returned; responses contain only a masked value."""
     user_id = _get_user_id(runtime)
     if not user_id:
         return _json({"error": "No user context available"})
@@ -122,10 +108,12 @@ async def _env_var_set(
     )
 
 
-async def _env_var_delete(
+@tool
+async def env_var_delete(
+    key: Annotated[str, "Environment variable key. Must match ^[A-Za-z_][A-Za-z0-9_]*$."],
     runtime: Annotated[ToolRuntime, InjectedToolArg],
-    key: str,
 ) -> str:
+    """Delete one environment variable for the current user by key."""
     user_id = _get_user_id(runtime)
     if not user_id:
         return _json({"error": "No user context available"})
@@ -142,7 +130,12 @@ async def _env_var_delete(
     return _json({"success": True, "message": f"Environment variable '{key}' deleted"})
 
 
-async def _env_var_delete_all(runtime: Annotated[ToolRuntime, InjectedToolArg]) -> str:
+@tool
+async def env_var_delete_all(
+    runtime: Annotated[ToolRuntime, InjectedToolArg],
+) -> str:
+    """Delete all environment variables for the current user. Use only when the
+    user explicitly asks to clear all environment variables."""
     user_id = _get_user_id(runtime)
     if not user_id:
         return _json({"error": "No user context available"})
@@ -161,43 +154,4 @@ async def _env_var_delete_all(runtime: Annotated[ToolRuntime, InjectedToolArg]) 
 
 def get_env_var_tools() -> list[BaseTool]:
     """Return safe environment variable CRUD tools for the current user."""
-    return [
-        StructuredTool(
-            name="env_var_list",
-            description=(
-                "List the current user's saved environment variable keys. "
-                "Values are always masked and plaintext secrets are never returned."
-            ),
-            args_schema=_ListInput,
-            func=None,
-            coroutine=_env_var_list,
-        ),
-        StructuredTool(
-            name="env_var_set",
-            description=(
-                "Create or update one encrypted environment variable for the current user. "
-                "Use this when configuring sandbox MCP env_keys. The saved value is never "
-                "returned; responses contain only a masked value."
-            ),
-            args_schema=_SetInput,
-            func=None,
-            coroutine=_env_var_set,
-        ),
-        StructuredTool(
-            name="env_var_delete",
-            description="Delete one environment variable for the current user by key.",
-            args_schema=_DeleteInput,
-            func=None,
-            coroutine=_env_var_delete,
-        ),
-        StructuredTool(
-            name="env_var_delete_all",
-            description=(
-                "Delete all environment variables for the current user. Use only when the "
-                "user explicitly asks to clear all environment variables."
-            ),
-            args_schema=_DeleteAllInput,
-            func=None,
-            coroutine=_env_var_delete_all,
-        ),
-    ]
+    return [env_var_list, env_var_set, env_var_delete, env_var_delete_all]

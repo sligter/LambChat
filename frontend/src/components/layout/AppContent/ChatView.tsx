@@ -63,6 +63,7 @@ interface ChatViewProps {
   sessionName: string | null;
   currentRunId: string | null;
   isLoading: boolean;
+  isLoadingHistory: boolean;
   connectionStatus?: ConnectionStatus;
   canSendMessage: boolean;
   tools: ToolState[];
@@ -111,6 +112,8 @@ interface ChatViewProps {
   i18n: { language?: string };
   externalNavigationToken?: string | null;
   externalNavigationTargetFile?: ExternalNavigationTargetFile | null;
+  externalNavigationTargetRunId?: string | null;
+  externalNavigationTargetRunPending?: boolean;
   externalScrollToBottom?: boolean;
   outlineToggleRef?: React.RefObject<(() => void) | null>;
 }
@@ -121,6 +124,7 @@ export function ChatView({
   sessionName,
   currentRunId,
   isLoading,
+  isLoadingHistory,
   connectionStatus,
   canSendMessage,
   tools,
@@ -157,6 +161,8 @@ export function ChatView({
   i18n,
   externalNavigationToken,
   externalNavigationTargetFile,
+  externalNavigationTargetRunId,
+  externalNavigationTargetRunPending,
   externalScrollToBottom,
   outlineToggleRef,
 }: ChatViewProps) {
@@ -206,8 +212,10 @@ export function ChatView({
     sessionId,
     externalNavigationToken,
     externalNavigationTargetFile,
+    externalNavigationTargetRunId,
+    externalNavigationTargetRunPending,
     externalScrollToBottom,
-    isLoading,
+    isLoadingHistory,
   );
 
   const activeOutlineId = useActiveOutlineItem(

@@ -68,6 +68,7 @@ export function RevealedFilesPanel() {
         fileKey: file.file_key,
         fileName: file.file_name,
         originalPath: file.original_path,
+        traceId: file.trace_id,
         source: file.source,
       },
     }),

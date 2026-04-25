@@ -521,7 +521,7 @@ test("does not treat assistant-only streaming updates or bulk history loads as l
   );
 });
 
-test("allows bulk history loads to bottom-lock when the latest message is assistant", () => {
+test("does not auto-scroll while history loading is still in progress", () => {
   assert.equal(
     shouldAutoScrollForMessageUpdate({
       previousMessages: [],
@@ -534,8 +534,9 @@ test("allows bulk history loads to bottom-lock when the latest message is assist
       userScrolledUp: false,
       autoScrollActive: false,
       isNearBottom: true,
+      isLoadingHistory: true,
     }),
-    true,
+    false,
   );
 });
 
@@ -551,6 +552,24 @@ test("does not auto-scroll non-assistant bulk history updates just because the l
       userScrolledUp: false,
       autoScrollActive: false,
       isNearBottom: false,
+    }),
+    false,
+  );
+});
+
+test("does not auto-scroll when multiple messages are appended at once", () => {
+  assert.equal(
+    shouldAutoScrollForMessageUpdate({
+      previousMessages: [{ id: "1", role: "user" }],
+      nextMessages: [
+        { id: "1", role: "user" },
+        { id: "2", role: "assistant" },
+        { id: "3", role: "assistant" },
+      ],
+      userScrolledUp: false,
+      autoScrollActive: false,
+      isNearBottom: true,
+      isLoadingHistory: false,
     }),
     false,
   );

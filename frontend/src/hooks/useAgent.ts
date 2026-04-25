@@ -50,6 +50,7 @@ export function useAgent(options?: UseAgentOptions): UseAgentReturn {
   // State
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -259,6 +260,7 @@ export function useAgent(options?: UseAgentOptions): UseAgentReturn {
         );
       }
       isLoadingHistoryRef.current = true;
+      setIsLoadingHistory(true);
 
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
@@ -449,6 +451,7 @@ export function useAgent(options?: UseAgentOptions): UseAgentReturn {
         setError(i18n.t("chat.requestFailed"));
       } finally {
         setIsLoading(false);
+        setIsLoadingHistory(false);
         isLoadingHistoryRef.current = false;
       }
 
@@ -800,6 +803,7 @@ export function useAgent(options?: UseAgentOptions): UseAgentReturn {
   return {
     messages,
     isLoading,
+    isLoadingHistory,
     error,
     sessionId,
     currentRunId,

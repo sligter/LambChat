@@ -51,12 +51,14 @@ test("extracts the target file only for external navigation", () => {
       targetFile: {
         fileId: "file-123",
         originalPath: "/tmp/demo.txt",
+        traceId: "trace-123",
         source: "reveal_file",
       },
     }),
     {
       fileId: "file-123",
       originalPath: "/tmp/demo.txt",
+      traceId: "trace-123",
       source: "reveal_file",
     },
   );

@@ -175,6 +175,7 @@ export interface HistoryEvent {
 export interface UseAgentReturn {
   messages: Message[];
   isLoading: boolean;
+  isLoadingHistory: boolean;
   error: string | null;
   sessionId: string | null;
   currentProjectId: string | null;

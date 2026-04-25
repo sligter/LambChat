@@ -33,6 +33,23 @@ export interface ExternalNavigationMatch {
   partIndex: number;
 }
 
+export function findMessageIndexForRunId(
+  messages: Pick<Message, "runId">[],
+  targetRunId: string | null | undefined,
+): number {
+  if (!targetRunId) {
+    return -1;
+  }
+
+  for (let index = messages.length - 1; index >= 0; index--) {
+    if (messages[index]?.runId === targetRunId) {
+      return index;
+    }
+  }
+
+  return -1;
+}
+
 export function createToolPartAnchorId(
   messageId: string,
   partIndex: number,
@@ -92,6 +109,20 @@ interface ShouldFinalizeHistoryLoadScrollOptions {
   pendingHistoryScroll: boolean;
   isLoadingHistory: boolean;
   messageCount: number;
+}
+
+interface ShouldArmPendingHistoryScrollOptions {
+  isLoadingHistory: boolean;
+  sessionId?: string | null;
+  historyScrollArmed: boolean;
+}
+
+export function shouldArmPendingHistoryScroll({
+  isLoadingHistory,
+  sessionId,
+  historyScrollArmed,
+}: ShouldArmPendingHistoryScrollOptions): boolean {
+  return !!sessionId && isLoadingHistory && !historyScrollArmed;
 }
 
 export function shouldFinalizeHistoryLoadScroll({
@@ -251,10 +282,12 @@ export function findMessageIndexForExternalNavigation(
 }
 
 export function useMessageScroll(
-  messages: Pick<Message, "id" | "role" | "isStreaming" | "parts">[],
+  messages: Pick<Message, "id" | "role" | "isStreaming" | "parts" | "runId">[],
   sessionId?: string | null,
   externalNavigationToken?: string | null,
   externalNavigationTargetFile?: ExternalNavigationTargetFile | null,
+  externalNavigationTargetRunId?: string | null,
+  externalNavigationTargetRunPending = false,
   externalScrollToBottom = false,
   isLoadingHistory = false,
 ): UseMessageScrollReturn {
@@ -298,6 +331,8 @@ export function useMessageScroll(
   const streamLockActiveRef = useRef(false);
   const streamingAssistantActiveRef = useRef(false);
   const pendingHistoryScrollRef = useRef(false);
+  const historyLoadActiveRef = useRef(isLoadingHistory);
+  const historyScrollArmedRef = useRef(false);
   const isLoadingHistoryRef = useRef(isLoadingHistory);
 
   const latestMessage = messages[messages.length - 1];
@@ -506,20 +541,38 @@ export function useMessageScroll(
     };
   }, [bottomBreathingRoomPx, isMobileViewport, scrollToBottom]);
 
-  const prevSessionIdRef = useRef<string | null | undefined>(undefined);
-  const initializedRef = useRef(false);
   useEffect(() => {
-    if (sessionId && (prevSessionIdRef.current || !initializedRef.current)) {
-      const shouldDeferToExternalNavigation = !!externalNavigationToken;
-      pendingHistoryScrollRef.current = !shouldDeferToExternalNavigation;
-      initializedRef.current = true;
+    if (!isLoadingHistory) {
+      historyLoadActiveRef.current = false;
+      historyScrollArmedRef.current = false;
+      return;
     }
-    prevSessionIdRef.current = sessionId;
-  }, [sessionId, externalNavigationToken]);
+
+    if (!historyLoadActiveRef.current) {
+      historyLoadActiveRef.current = true;
+      historyScrollArmedRef.current = false;
+      pendingHistoryScrollRef.current = false;
+    }
+
+    if (
+      shouldArmPendingHistoryScroll({
+        isLoadingHistory,
+        sessionId,
+        historyScrollArmed: historyScrollArmedRef.current,
+      })
+    ) {
+      pendingHistoryScrollRef.current = !externalNavigationToken;
+      historyScrollArmedRef.current = true;
+    }
+  }, [sessionId, externalNavigationToken, isLoadingHistory]);
 
   // After history load completes, jump to the final message once instead of
   // trying to bottom-lock the list throughout the loading phase.
   useEffect(() => {
+    if (!isLoadingHistory && messages.length === 0) {
+      pendingHistoryScrollRef.current = false;
+    }
+
     if (
       shouldFinalizeHistoryLoadScroll({
         pendingHistoryScroll: pendingHistoryScrollRef.current,
@@ -582,6 +635,7 @@ export function useMessageScroll(
         userScrolledUp: userScrolledUpRef.current,
         autoScrollActive: autoScrollActiveRef.current,
         isNearBottom: effectiveIsNearBottom,
+        isLoadingHistory,
         shouldMaintainStreamLock,
       })
     ) {
@@ -626,12 +680,27 @@ export function useMessageScroll(
     }
 
     if (pendingExternalNavigation.targetFile) {
-      const match = findMessageIndexForExternalNavigation(
-        messages,
-        pendingExternalNavigation.targetFile,
-      );
+      if (
+        pendingExternalNavigation.targetFile.traceId &&
+        externalNavigationTargetRunPending &&
+        !externalNavigationTargetRunId
+      ) {
+        return;
+      }
 
-      if (!match) {
+      const runMessageIndex = findMessageIndexForRunId(
+        messages,
+        externalNavigationTargetRunId,
+      );
+      const contentMatch =
+        runMessageIndex === -1
+          ? findMessageIndexForExternalNavigation(
+              messages,
+              pendingExternalNavigation.targetFile,
+            )
+          : null;
+
+      if (runMessageIndex === -1 && !contentMatch) {
         if (!isLoadingHistory) {
           pendingExternalNavigationRef.current = null;
         }
@@ -646,18 +715,25 @@ export function useMessageScroll(
       ignoreProgrammaticScrollUntilRef.current = Date.now() + 120;
       anchorScrollCleanupRef.current?.();
 
-      const anchorId = createToolPartAnchorId(
-        messages[match.messageIndex]!.id,
-        match.partIndex,
-      );
+      const resolvedMessageIndex =
+        runMessageIndex !== -1
+          ? runMessageIndex
+          : contentMatch?.messageIndex ?? -1;
       const fallbackMessageAnchorId = createMessageAnchorId(
-        messages[match.messageIndex]!.id,
+        messages[resolvedMessageIndex]!.id,
       );
+      const anchorId =
+        contentMatch && runMessageIndex === -1
+          ? createToolPartAnchorId(
+              messages[contentMatch.messageIndex]!.id,
+              contentMatch.partIndex,
+            )
+          : fallbackMessageAnchorId;
 
       anchorScrollCleanupRef.current = scrollElementIntoViewWithRetries({
         getElement: () => {
           virtuosoRef.current?.scrollToIndex({
-            index: match.messageIndex,
+            index: resolvedMessageIndex,
             align: "start",
             behavior: "auto",
           });
@@ -672,6 +748,9 @@ export function useMessageScroll(
     }
 
     if (pendingExternalNavigation.scrollToBottom) {
+      if (isLoadingHistory) {
+        return;
+      }
       pendingExternalNavigationRef.current = null;
       scrollToBottom();
     }
@@ -679,6 +758,8 @@ export function useMessageScroll(
     messages,
     scrollToBottom,
     isLoadingHistory,
+    externalNavigationTargetRunId,
+    externalNavigationTargetRunPending,
     externalNavigationTargetFile,
   ]);
 

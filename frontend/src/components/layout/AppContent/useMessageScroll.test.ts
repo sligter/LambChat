@@ -3,7 +3,9 @@ import assert from "node:assert/strict";
 import {
   createToolPartAnchorId,
   findMessageIndexForExternalNavigation,
+  findMessageIndexForRunId,
   scrollElementIntoViewWithRetries,
+  shouldArmPendingHistoryScroll,
   shouldFinalizeHistoryLoadScroll,
 } from "./useMessageScroll.ts";
 
@@ -150,6 +152,13 @@ test("retries anchor scrolling until the target element appears", async () => {
   assert.equal(attempts, 3);
 });
 
+test("finds the latest message for a resolved run id", () => {
+  const messages = [{ runId: "run-1" }, { runId: "run-2" }, { runId: "run-2" }];
+
+  assert.equal(findMessageIndexForRunId(messages, "run-2"), 2);
+  assert.equal(findMessageIndexForRunId(messages, "run-9"), -1);
+});
+
 test("waits until history loading completes before triggering the final bottom scroll", () => {
   assert.equal(
     shouldFinalizeHistoryLoadScroll({
@@ -185,6 +194,44 @@ test("does not trigger a final history scroll when there is no pending scroll or
       pendingHistoryScroll: true,
       isLoadingHistory: false,
       messageCount: 0,
+    }),
+    false,
+  );
+});
+
+test("arms the history finalize scroll only once per loading cycle", () => {
+  assert.equal(
+    shouldArmPendingHistoryScroll({
+      isLoadingHistory: true,
+      sessionId: "session-1",
+      historyScrollArmed: false,
+    }),
+    true,
+  );
+
+  assert.equal(
+    shouldArmPendingHistoryScroll({
+      isLoadingHistory: true,
+      sessionId: "session-1",
+      historyScrollArmed: true,
+    }),
+    false,
+  );
+
+  assert.equal(
+    shouldArmPendingHistoryScroll({
+      isLoadingHistory: false,
+      sessionId: "session-1",
+      historyScrollArmed: false,
+    }),
+    false,
+  );
+
+  assert.equal(
+    shouldArmPendingHistoryScroll({
+      isLoadingHistory: true,
+      sessionId: null,
+      historyScrollArmed: false,
     }),
     false,
   );

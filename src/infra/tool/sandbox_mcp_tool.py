@@ -14,8 +14,7 @@ import shlex
 import sys
 from typing import TYPE_CHECKING, Annotated, Any, Optional
 
-from langchain_core.tools import BaseTool, InjectedToolArg, StructuredTool
-from pydantic import BaseModel, Field
+from langchain_core.tools import BaseTool, InjectedToolArg
 
 from src.infra.tool.sandbox_mcp_utils import build_env_flags
 
@@ -33,6 +32,8 @@ else:
         sys.modules.setdefault("langchain.tools", _mod)
         from langchain.tools import ToolRuntime  # type: ignore[assignment]
 
+from langchain.tools import tool  # noqa: E402
+
 from src.infra.logging import get_logger
 from src.infra.tool.backend_utils import (
     get_backend_from_runtime,
@@ -44,35 +45,6 @@ logger = get_logger(__name__)
 
 # mcporter command timeout (seconds)
 _MCPORTER_TIMEOUT = 60
-
-
-# ── Args schemas ────────────────────────────────────────────────
-
-
-class _AddInput(BaseModel):
-    server_name: str = Field(..., description="MCP server name to register")
-    command: str = Field(..., description="stdio command, e.g. 'npx @anthropic/mcp-server-fetch'")
-    env_keys: Optional[str] = Field(
-        None,
-        description="Comma-separated list of environment variable KEY names to inject "
-        "(must be pre-defined in user's environment variables settings)",
-    )
-
-
-class _UpdateInput(BaseModel):
-    server_name: str = Field(..., description="Name of the MCP server to update")
-    command: Optional[str] = Field(
-        None, description="New stdio command (leave unchanged if omitted)"
-    )
-    env_keys: Optional[str] = Field(
-        None,
-        description="Comma-separated list of environment variable KEY names to inject "
-        "(leave unchanged if omitted)",
-    )
-
-
-class _RemoveInput(BaseModel):
-    server_name: str = Field(..., description="MCP server name to remove")
 
 
 # ── MongoDB persistence helpers ───────────────────────────────
@@ -129,16 +101,22 @@ async def _delete_server_from_mongodb(user_id: str, server_name: str) -> bool:
 # ── Tool implementations ───────────────────────────────────────
 
 
-# build_env_flags removed — use src.infra.tool.sandbox_mcp_utils.build_env_flags instead
-
-
-async def _mcporter_add(
-    runtime: Annotated[ToolRuntime, InjectedToolArg],
-    server_name: str,
-    command: str,
-    env_keys: Optional[str] = None,
+@tool
+async def sandbox_mcp_add(
+    server_name: Annotated[str, "MCP server name to register"],
+    command: Annotated[str, "stdio command, e.g. 'npx @anthropic/mcp-server-fetch'"],
+    env_keys: Annotated[
+        Optional[str],
+        "Comma-separated list of environment variable KEY names to inject "
+        "(must be pre-defined in user's environment variables settings)",
+    ] = None,
+    runtime: Annotated[ToolRuntime, InjectedToolArg] = None,  # type: ignore[assignment]
 ) -> str:
-    """Add a new MCP server to the sandbox and persist to MongoDB."""
+    """Register a new MCP server in the sandbox and persist it to the database.
+    Provide server_name and the stdio command (e.g. 'npx @anthropic/mcp-server-fetch').
+    Optionally pass env_keys as comma-separated KEY names to inject
+    (these must be pre-defined in user's environment variable settings).
+    The server will be automatically restored when the sandbox is rebuilt."""
     backend = get_backend_from_runtime(runtime)
     if backend is None:
         return json.dumps({"error": "No sandbox backend available"})
@@ -174,13 +152,20 @@ async def _mcporter_add(
     )
 
 
-async def _mcporter_update(
-    runtime: Annotated[ToolRuntime, InjectedToolArg],
-    server_name: str,
-    command: Optional[str] = None,
-    env_keys: Optional[str] = None,
+@tool
+async def sandbox_mcp_update(
+    server_name: Annotated[str, "Name of the MCP server to update"],
+    command: Annotated[Optional[str], "New stdio command (leave unchanged if omitted)"] = None,
+    env_keys: Annotated[
+        Optional[str],
+        "Comma-separated list of environment variable KEY names to inject "
+        "(leave unchanged if omitted)",
+    ] = None,
+    runtime: Annotated[ToolRuntime, InjectedToolArg] = None,  # type: ignore[assignment]
 ) -> str:
-    """Update an existing MCP server's command/env_keys in the sandbox and MongoDB."""
+    """Update an existing sandbox MCP server's command or environment variables.
+    Provide server_name and optionally the new command and/or env_keys.
+    Changes are persisted to the database and applied to the sandbox."""
     backend = get_backend_from_runtime(runtime)
     if backend is None:
         return json.dumps({"error": "No sandbox backend available"})
@@ -239,11 +224,13 @@ async def _mcporter_update(
     )
 
 
-async def _mcporter_remove(
-    runtime: Annotated[ToolRuntime, InjectedToolArg],
-    server_name: str,
+@tool
+async def sandbox_mcp_remove(
+    server_name: Annotated[str, "MCP server name to remove"],
+    runtime: Annotated[ToolRuntime, InjectedToolArg] = None,  # type: ignore[assignment]
 ) -> str:
-    """Remove an MCP server from the sandbox and MongoDB."""
+    """Remove an MCP server from the sandbox and delete it from the database.
+    The server will no longer be restored when the sandbox is rebuilt."""
     backend = get_backend_from_runtime(runtime)
     if backend is None:
         return json.dumps({"error": "No sandbox backend available"})
@@ -285,48 +272,13 @@ async def _mcporter_remove(
 def get_sandbox_mcp_tools() -> list[BaseTool]:
     """Get all sandbox MCP management tools.
 
-    Returns three independent LangChain StructuredTools so the LLM can
+    Returns three independent LangChain tools so the LLM can
     manage MCP servers:
       - sandbox_mcp_add:      register a new server (persists to MongoDB)
       - sandbox_mcp_update:   update server command/env_keys (persists to MongoDB)
       - sandbox_mcp_remove:   unregister a server (persists to MongoDB)
     """
-    return [
-        StructuredTool(
-            name="sandbox_mcp_add",
-            description=(
-                "Register a new MCP server in the sandbox and persist it to the database. "
-                "Provide server_name and the stdio command (e.g. 'npx @anthropic/mcp-server-fetch'). "
-                "Optionally pass env_keys as comma-separated KEY names to inject "
-                "(these must be pre-defined in user's environment variable settings). "
-                "The server will be automatically restored when the sandbox is rebuilt."
-            ),
-            args_schema=_AddInput,
-            func=None,
-            coroutine=_mcporter_add,
-        ),
-        StructuredTool(
-            name="sandbox_mcp_update",
-            description=(
-                "Update an existing sandbox MCP server's command or environment variables. "
-                "Provide server_name and optionally the new command and/or env_keys. "
-                "Changes are persisted to the database and applied to the sandbox."
-            ),
-            args_schema=_UpdateInput,
-            func=None,
-            coroutine=_mcporter_update,
-        ),
-        StructuredTool(
-            name="sandbox_mcp_remove",
-            description=(
-                "Remove an MCP server from the sandbox and delete it from the database. "
-                "The server will no longer be restored when the sandbox is rebuilt."
-            ),
-            args_schema=_RemoveInput,
-            func=None,
-            coroutine=_mcporter_remove,
-        ),
-    ]
+    return [sandbox_mcp_add, sandbox_mcp_update, sandbox_mcp_remove]
 
 
 # Backwards compatibility alias

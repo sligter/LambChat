@@ -5,6 +5,7 @@ export interface ExternalNavigationTargetFile {
   fileKey?: string | null;
   fileName?: string;
   originalPath?: string | null;
+  traceId?: string | null;
   source?: RevealedFileItem["source"];
 }
 
@@ -45,6 +46,7 @@ export function getExternalNavigationTargetFile(
     !!targetFile.fileId ||
     !!targetFile.fileKey?.trim() ||
     !!targetFile.originalPath?.trim() ||
+    !!targetFile.traceId?.trim() ||
     !!targetFile.fileName?.trim();
 
   return hasMatchableField ? targetFile : null;

@@ -268,6 +268,7 @@ function ChatAppContent({
     sessionId,
     currentRunId,
     isLoading,
+    isLoadingHistory,
     agents,
     currentAgent,
     allowedModelIds: agentAllowedModelIds,
@@ -567,6 +568,12 @@ function ChatAppContent({
   });
 
   const [sessionName, setSessionName] = useState<string | null>(null);
+  const [externalNavigationTargetRunId, setExternalNavigationTargetRunId] =
+    useState<string | null>(null);
+  const [
+    externalNavigationTargetRunPending,
+    setExternalNavigationTargetRunPending,
+  ] = useState(false);
   const externalNavigationTargetFile = getExternalNavigationTargetFile(
     location.state,
   );
@@ -597,6 +604,49 @@ function ChatAppContent({
 
     fetchSessionName();
   }, [sessionId]);
+
+  useEffect(() => {
+    if (!sessionId || !externalNavigationTargetFile?.traceId) {
+      setExternalNavigationTargetRunId(null);
+      setExternalNavigationTargetRunPending(false);
+      return;
+    }
+
+    let cancelled = false;
+    setExternalNavigationTargetRunPending(true);
+
+    const resolveTargetRunId = async () => {
+      try {
+        const { sessionApi } = await import("../../../services/api");
+        const response = await sessionApi.getRuns(sessionId);
+        if (cancelled) {
+          return;
+        }
+
+        const matchedRun =
+          response.runs.find(
+            (run) => run.trace_id === externalNavigationTargetFile.traceId,
+          ) ?? null;
+        setExternalNavigationTargetRunId(matchedRun?.run_id ?? null);
+        setExternalNavigationTargetRunPending(false);
+      } catch (err) {
+        if (!cancelled) {
+          console.warn(
+            "[AppContent] Failed to resolve external navigation run:",
+            err,
+          );
+          setExternalNavigationTargetRunId(null);
+          setExternalNavigationTargetRunPending(false);
+        }
+      }
+    };
+
+    resolveTargetRunId();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionId, externalNavigationTargetFile?.traceId]);
 
   useEffect(() => {
     if (newlyCreatedSession?.name && sessionId === newlyCreatedSession.id) {
@@ -772,6 +822,7 @@ function ChatAppContent({
           sessionName={sessionName}
           currentRunId={currentRunId}
           isLoading={isLoading}
+          isLoadingHistory={isLoadingHistory}
           connectionStatus={connectionStatus}
           canSendMessage={canSendMessage}
           tools={effectiveTools}
@@ -808,6 +859,10 @@ function ChatAppContent({
           i18n={i18n}
           externalNavigationToken={externalNavigationToken}
           externalNavigationTargetFile={externalNavigationTargetFile}
+          externalNavigationTargetRunId={externalNavigationTargetRunId}
+          externalNavigationTargetRunPending={
+            externalNavigationTargetRunPending
+          }
           externalScrollToBottom={externalScrollToBottom}
           outlineToggleRef={outlineToggleRef}
         />
