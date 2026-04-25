@@ -9,6 +9,7 @@ import {
   findMessageIndexForRunId,
   scrollElementIntoViewWithRetries,
   shouldArmPendingHistoryScroll,
+  shouldDeferExternalNavigationScroll,
   shouldKeepExternalNavigationPending,
   shouldFinalizeHistoryLoadScroll,
 } from "./useMessageScroll.ts";
@@ -362,6 +363,32 @@ test("keeps external navigation pending when the run is known but the reveal par
 
   assert.equal(
     shouldKeepExternalNavigationPending({
+      runMessageIndex: -1,
+      matchedPartIndex: -1,
+    }),
+    false,
+  );
+});
+
+test("defers external navigation scrolling until the exact reveal part is ready", () => {
+  assert.equal(
+    shouldDeferExternalNavigationScroll({
+      runMessageIndex: 3,
+      matchedPartIndex: -1,
+    }),
+    true,
+  );
+
+  assert.equal(
+    shouldDeferExternalNavigationScroll({
+      runMessageIndex: 3,
+      matchedPartIndex: 1,
+    }),
+    false,
+  );
+
+  assert.equal(
+    shouldDeferExternalNavigationScroll({
       runMessageIndex: -1,
       matchedPartIndex: -1,
     }),

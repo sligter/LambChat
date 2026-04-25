@@ -219,6 +219,16 @@ export function shouldKeepExternalNavigationPending({
   return runMessageIndex !== -1 && matchedPartIndex === -1;
 }
 
+export function shouldDeferExternalNavigationScroll({
+  runMessageIndex,
+  matchedPartIndex,
+}: {
+  runMessageIndex: number;
+  matchedPartIndex: number;
+}): boolean {
+  return runMessageIndex !== -1 && matchedPartIndex === -1;
+}
+
 function ensureSubagentPanelsOpen(subagentChain: string[] | undefined): void {
   if (!subagentChain?.length) {
     return;
@@ -936,9 +946,16 @@ export function useMessageScroll(
         runMessageIndex,
         matchedPartIndex,
       });
+      const shouldDeferScroll = shouldDeferExternalNavigationScroll({
+        runMessageIndex,
+        matchedPartIndex,
+      });
 
       if (!shouldKeepPending) {
         pendingExternalNavigationRef.current = null;
+      }
+      if (shouldDeferScroll) {
+        return;
       }
       const fallbackMessageAnchorId = createMessageAnchorId(
         messages[resolvedMessageIndex]!.id,
