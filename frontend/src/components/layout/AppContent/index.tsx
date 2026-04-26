@@ -563,8 +563,13 @@ function ChatAppContent({
   useWebSocketNotifications({
     sessionId,
     enabled: isAuthenticated,
-    onSessionUnread: (sid, count, projectId) => {
-      sidebarRef.current?.updateSessionUnread(sid, count, projectId);
+    onSessionUnread: (sid, count, projectId, isFavorite) => {
+      sidebarRef.current?.updateSessionUnread(
+        sid,
+        count,
+        projectId,
+        isFavorite,
+      );
     },
   });
 

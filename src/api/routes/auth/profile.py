@@ -148,5 +148,19 @@ async def update_user_metadata(
                 detail="Invalid disabled_tools: must be a list of strings.",
             )
 
+    # Validate pinned_model_ids if provided
+    if "pinned_model_ids" in request.metadata:
+        pinned = request.metadata["pinned_model_ids"]
+        if not isinstance(pinned, list) or not all(isinstance(m, str) for m in pinned):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid pinned_model_ids: must be a list of strings.",
+            )
+        if len(pinned) > 10:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Too many pinned models: maximum 10 allowed.",
+            )
+
     updated_user = await storage.update_metadata(current_user.sub, request.metadata)
     return updated_user

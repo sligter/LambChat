@@ -1,6 +1,6 @@
 import type { RevealPreviewRequest } from "./revealPreviewData";
 
-export type RevealPreviewOpenSource = "auto" | "manual";
+export type RevealPreviewOpenSource = "auto" | "manual" | "external";
 
 export interface ActiveRevealPreviewState {
   request: RevealPreviewRequest;
@@ -15,7 +15,7 @@ export function createActiveRevealPreviewState(
   return {
     request,
     source,
-    userInteracted: source === "manual",
+    userInteracted: source !== "auto",
   };
 }
 
@@ -40,7 +40,7 @@ export function shouldAcceptRevealPreviewOpen(input: {
 }): boolean {
   const { activePreview, nextPreview, source, dismissedPreviewKeys } = input;
 
-  if (source === "manual") {
+  if (source === "manual" || source === "external") {
     return true;
   }
 

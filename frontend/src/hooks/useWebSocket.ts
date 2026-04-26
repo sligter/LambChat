@@ -14,6 +14,7 @@ export interface TaskCompleteNotification {
     message?: string;
     unread_count?: number;
     project_id?: string | null;
+    is_favorite?: boolean;
   };
 }
 

@@ -50,7 +50,7 @@ import type {
 import type { RevealPreviewRequest } from "../../chat/ChatMessage/items/revealPreviewData";
 import { clearFileRevealAutoOpenState } from "../../chat/ChatMessage/items/fileRevealAutoOpen";
 import { clearProjectRevealAutoOpenState } from "../../chat/ChatMessage/items/projectRevealAutoOpen";
-import { getLatestAutoPreviewTarget } from "../../chat/ChatMessage/autoPreviewEligibility";
+import { getLatestChatAutoPreviewTarget } from "../../chat/ChatMessage/autoPreviewEligibility";
 import {
   createActiveRevealPreviewState,
   markRevealPreviewInteracted,
@@ -59,6 +59,7 @@ import {
   type RevealPreviewOpenSource,
 } from "../../chat/ChatMessage/items/revealPreviewState";
 import type { ExternalNavigationTargetFile } from "./externalNavigationState";
+import { shouldOpenExternalNavigationPreview } from "./externalNavigationState";
 
 interface ChatViewProps {
   messages: Message[];
@@ -298,7 +299,14 @@ export function ChatView({
     useState<ActiveRevealPreviewState | null>(null);
   const activePreviewStateRef = useRef<ActiveRevealPreviewState | null>(null);
   const dismissedPreviewKeysRef = useRef<Set<string>>(new Set());
-  const handledExternalPreviewTokenRef = useRef<string | null>(null);
+  const handledExternalPreviewRef = useRef<{
+    token: string | null;
+    sessionId: string | null;
+  }>({
+    token: null,
+    sessionId: null,
+  });
+  const externalPreviewActiveRef = useRef(false);
   const activePreview = activePreviewState?.request ?? null;
 
   useEffect(() => {
@@ -310,6 +318,11 @@ export function ChatView({
       preview: RevealPreviewRequest,
       source: RevealPreviewOpenSource = "manual",
     ) => {
+      // Block auto-open when an external navigation preview is active
+      if (source === "auto" && externalPreviewActiveRef.current) {
+        return false;
+      }
+
       const shouldOpen = shouldAcceptRevealPreviewOpen({
         activePreview: activePreviewStateRef.current,
         nextPreview: preview,
@@ -321,7 +334,7 @@ export function ChatView({
         return false;
       }
 
-      if (source === "manual") {
+      if (source !== "auto") {
         dismissedPreviewKeysRef.current.delete(preview.previewKey);
       }
 
@@ -336,6 +349,7 @@ export function ChatView({
     if (dismiss && currentPreview) {
       dismissedPreviewKeysRef.current.add(currentPreview.request.previewKey);
     }
+    externalPreviewActiveRef.current = false;
     setActivePreviewState(null);
   }, []);
 
@@ -348,14 +362,19 @@ export function ChatView({
     clearFileRevealAutoOpenState();
     clearProjectRevealAutoOpenState();
     setActivePreviewState(null);
+    externalPreviewActiveRef.current = false;
     closePersistentToolPanel();
   }, [sessionId]);
 
   useEffect(() => {
     if (
-      !externalNavigationToken ||
-      !externalNavigationPreview ||
-      handledExternalPreviewTokenRef.current === externalNavigationToken
+      !shouldOpenExternalNavigationPreview({
+        externalNavigationToken,
+        externalNavigationPreview,
+        handledToken: handledExternalPreviewRef.current.token,
+        handledSessionId: handledExternalPreviewRef.current.sessionId,
+        sessionId,
+      })
     ) {
       return;
     }
@@ -364,13 +383,34 @@ export function ChatView({
       return;
     }
 
-    handledExternalPreviewTokenRef.current = externalNavigationToken;
-    handleOpenPreview(externalNavigationPreview, "auto");
-  }, [externalNavigationToken, externalNavigationPreview, handleOpenPreview]);
+    if (!externalNavigationToken || !externalNavigationPreview) {
+      return;
+    }
+
+    const opened = handleOpenPreview(externalNavigationPreview, "external");
+    if (!opened) {
+      return;
+    }
+
+    handledExternalPreviewRef.current = {
+      token: externalNavigationToken,
+      sessionId: sessionId ?? null,
+    };
+    externalPreviewActiveRef.current = true;
+  }, [
+    externalNavigationToken,
+    externalNavigationPreview,
+    handleOpenPreview,
+    sessionId,
+  ]);
 
   const latestAutoPreview = useMemo(
-    () => getLatestAutoPreviewTarget(messages),
-    [messages],
+    () =>
+      getLatestChatAutoPreviewTarget({
+        messages,
+        suppressAutoPreview: !!externalNavigationPreview,
+      }),
+    [messages, externalNavigationPreview],
   );
   const isMobileViewport =
     typeof window !== "undefined" ? window.innerWidth < 640 : false;
@@ -537,7 +577,6 @@ export function ChatView({
               suggestions={displaySuggestions}
               canSendMessage={canSendMessage}
               onSendMessage={onSendMessage}
-              noPermissionHint={t("chat.noPermissionHint")}
               chatInputProps={chatInputProps}
               onRefreshSuggestions={refreshSuggestions}
             />

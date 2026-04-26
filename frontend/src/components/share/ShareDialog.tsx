@@ -26,6 +26,10 @@ import type {
 } from "../../types";
 import { sessionApi } from "../../services/api/session";
 import { useSwipeToClose } from "../../hooks/useSwipeToClose";
+import {
+  shouldLoadRunsForShareType,
+  shouldShowExistingSharesSkeleton,
+} from "./shareDialogState";
 
 interface ShareDialogProps {
   isOpen: boolean;
@@ -50,6 +54,8 @@ export function ShareDialog({
   const [runs, setRuns] = useState<RunSummary[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingRuns, setIsLoadingRuns] = useState(false);
+  const [hasLoadedShares, setHasLoadedShares] = useState(false);
+  const [hasLoadedRuns, setHasLoadedRuns] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const swipeRef = useSwipeToClose({
@@ -62,6 +68,7 @@ export function ShareDialog({
     try {
       const shares = await shareApi.listBySession(sessionId);
       setExistingShares(shares);
+      setHasLoadedShares(true);
     } catch (error) {
       console.error("Failed to load shares:", error);
     } finally {
@@ -79,6 +86,7 @@ export function ShareDialog({
           new Date(a.started_at).getTime() - new Date(b.started_at).getTime(),
       );
       setRuns(sortedRuns);
+      setHasLoadedRuns(true);
 
       // Auto-select runs up to and including currentRunId
       if (currentRunId) {
@@ -101,9 +109,34 @@ export function ShareDialog({
   useEffect(() => {
     if (isOpen) {
       loadExistingShares();
+    }
+  }, [isOpen, loadExistingShares]);
+
+  useEffect(() => {
+    if (
+      shouldLoadRunsForShareType({
+        isOpen,
+        shareType,
+        hasLoadedRuns,
+        isLoadingRuns,
+      })
+    ) {
       loadRuns();
     }
-  }, [isOpen, loadExistingShares, loadRuns]);
+  }, [isOpen, shareType, hasLoadedRuns, isLoadingRuns, loadRuns]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setShareType("full");
+      setSelectedRunIds([]);
+      setExistingShares([]);
+      setRuns([]);
+      setHasLoadedShares(false);
+      setHasLoadedRuns(false);
+      setIsLoading(false);
+      setIsLoadingRuns(false);
+    }
+  }, [isOpen]);
 
   const handleCreateShare = async () => {
     setIsCreating(true);
@@ -406,7 +439,10 @@ export function ShareDialog({
             </div>
 
             {/* Existing shares */}
-            {isLoading ? (
+            {shouldShowExistingSharesSkeleton({
+              isLoading,
+              hasLoadedShares,
+            }) ? (
               <div className="space-y-2 py-2">
                 <SkeletonCard />
                 <SkeletonCard />

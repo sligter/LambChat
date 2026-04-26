@@ -8,6 +8,10 @@ from typing import Any, Dict, Optional
 
 from bson import ObjectId
 
+from src.infra.session.favorites import (
+    is_session_favorite,
+    normalize_session_metadata,
+)
 from src.kernel.config import settings
 from src.kernel.schemas.session import Session, SessionCreate, SessionUpdate
 
@@ -32,6 +36,22 @@ class SessionStorage:
             db = client[settings.MONGODB_DB]
             self._collection = db[settings.MONGODB_SESSIONS_COLLECTION]
         return self._collection
+
+    @staticmethod
+    def _build_session(
+        session_dict: dict[str, Any],
+        favorites_project_id: str | None = None,
+    ) -> Session:
+        """Convert a Mongo document into a normalized Session model."""
+        normalized = dict(session_dict)
+        normalized["metadata"] = normalize_session_metadata(
+            normalized.get("metadata"),
+            favorites_project_id,
+        )
+        normalized["id"] = normalized.get("session_id") or str(normalized.pop("_id"))
+        if "session_id" in normalized and normalized["id"] == normalized["session_id"]:
+            normalized.pop("_id", None)
+        return Session(**normalized)
 
     async def create(
         self,
@@ -73,11 +93,7 @@ class SessionStorage:
         if not session_dict:
             return None
 
-        # 优先使用自定义 session_id 作为 id
-        session_dict["id"] = session_dict.get("session_id") or str(session_dict.pop("_id"))
-        if "session_id" in session_dict and session_dict["id"] == session_dict["session_id"]:
-            session_dict.pop("_id", None)
-        return Session(**session_dict)
+        return self._build_session(session_dict)
 
     async def get_by_session_ids(self, session_ids: list[str]) -> Dict[str, Session]:
         """通过 session_id 列表批量获取会话，返回 {session_id: Session} 映射"""
@@ -87,10 +103,7 @@ class SessionStorage:
         cursor = self.collection.find({"session_id": {"$in": unique_ids}})
         result: Dict[str, Session] = {}
         async for doc in cursor:
-            doc["id"] = doc.get("session_id") or str(doc.pop("_id"))
-            if "session_id" in doc and doc["id"] == doc["session_id"]:
-                doc.pop("_id", None)
-            session = Session(**doc)
+            session = self._build_session(doc)
             result[session.id] = session
         return result
 
@@ -112,8 +125,7 @@ class SessionStorage:
         if not session_dict:
             return None
 
-        session_dict["id"] = str(session_dict.pop("_id"))
-        return Session(**session_dict)
+        return self._build_session(session_dict)
 
     async def update(self, session_id: str, session_data: SessionUpdate) -> Optional[Session]:
         """更新会话（支持自定义 session_id 或 ObjectId）"""
@@ -148,8 +160,7 @@ class SessionStorage:
         if not result:
             return None
 
-        result["id"] = result.get("session_id") or str(result.pop("_id"))
-        return Session(**result)
+        return self._build_session(result)
 
     async def delete(self, session_id: str) -> bool:
         """删除会话（支持自定义 session_id 或 ObjectId）"""
@@ -172,6 +183,8 @@ class SessionStorage:
         is_active: Optional[bool] = None,
         project_id: Optional[str] = None,
         search: Optional[str] = None,
+        favorites_only: bool = False,
+        favorites_project_id: str | None = None,
     ) -> tuple[list[Session], int]:
         """列出会话，返回 (sessions, total_count)
 
@@ -201,6 +214,21 @@ class SessionStorage:
         elif project_id is not None:
             query["metadata.project_id"] = project_id
 
+        if favorites_only:
+            favorite_query: list[dict[str, Any]] = [{"metadata.is_favorite": True}]
+            if favorites_project_id:
+                favorite_query.append({"metadata.project_id": favorites_project_id})
+            if "$or" in query:
+                query = {
+                    "$and": [
+                        {k: v for k, v in query.items() if k != "$or"},
+                        {"$or": query["$or"]},
+                        {"$or": favorite_query},
+                    ]
+                }
+            else:
+                query["$or"] = favorite_query
+
         # Get total count
         total = await self.collection.count_documents(query)
 
@@ -208,9 +236,7 @@ class SessionStorage:
         sessions = []
 
         for session_dict in await cursor.to_list(length=limit):
-            # 优先使用自定义 session_id 作为 id
-            session_dict["id"] = session_dict.get("session_id") or str(session_dict.pop("_id"))
-            sessions.append(Session(**session_dict))
+            sessions.append(self._build_session(session_dict, favorites_project_id))
 
         return sessions, total
 
@@ -304,5 +330,59 @@ class SessionStorage:
         if not result:
             return None
 
-        result["id"] = result.get("session_id") or str(result.pop("_id"))
-        return Session(**result)
+        return self._build_session(result)
+
+    async def toggle_favorite(
+        self,
+        session_id: str,
+        user_id: str,
+        favorites_project_id: str | None = None,
+    ) -> Optional[Session]:
+        """Toggle a session's independent favorite state."""
+
+        session = await self.get_by_session_id(session_id)
+        if not session:
+            try:
+                session = await self.get_by_id(session_id)
+            except Exception:
+                session = None
+
+        if not session or session.user_id != user_id:
+            return None
+
+        current_favorite = is_session_favorite(
+            session.metadata,
+            favorites_project_id,
+        )
+        next_favorite = not current_favorite
+        update_dict: dict[str, Any] = {
+            "updated_at": datetime.now(),
+            "metadata.is_favorite": next_favorite,
+        }
+        if (
+            not next_favorite
+            and favorites_project_id
+            and session.metadata.get("project_id") == favorites_project_id
+        ):
+            update_dict["metadata.project_id"] = None
+
+        result = await self.collection.find_one_and_update(
+            {"session_id": session_id, "user_id": user_id},
+            {"$set": update_dict},
+            return_document=True,
+        )
+
+        if not result:
+            try:
+                result = await self.collection.find_one_and_update(
+                    {"_id": ObjectId(session_id), "user_id": user_id},
+                    {"$set": update_dict},
+                    return_document=True,
+                )
+            except Exception:
+                return None
+
+        if not result:
+            return None
+
+        return self._build_session(result, favorites_project_id)

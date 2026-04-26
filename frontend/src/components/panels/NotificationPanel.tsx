@@ -655,7 +655,7 @@ export function NotificationPanel() {
                             }`,
                           )}
                         </span>
-                        <p className="font-medium text-stone-900 dark:text-stone-100 break-words">
+                        <p className="font-medium text-stone-900 dark:text-stone-100 break-words line-clamp-1">
                           {getLocalizedTitle(notification)}
                         </p>
                       </div>

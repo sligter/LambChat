@@ -29,6 +29,8 @@ interface SettingsContextValue {
   savingKeys: Set<string>;
   availableModels: AvailableModel[] | null;
   defaultModel: string;
+  pinnedModelIds: string[];
+  togglePinnedModel: (modelId: string) => void;
   updateSetting: (
     key: string,
     value: string | number | boolean | object,
@@ -66,6 +68,9 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   // 从 DB 的 model_configs 读取可用模型
   const [dbModels, setDbModels] = useState<AvailableModel[] | null>(null);
 
+  // 置顶模型 ID
+  const [pinnedModelIds, setPinnedModelIds] = useState<string[]>([]);
+
   const fetchModels = useCallback(() => {
     modelApi
       .listAvailable()
@@ -87,11 +92,43 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       .catch(() => setDbModels(null));
   }, []);
 
+  const fetchPinnedModels = useCallback(() => {
+    modelApi
+      .getPinnedModelIds()
+      .then(setPinnedModelIds)
+      .catch(() => {});
+  }, []);
+
   useEffect(() => {
     if (isAuthenticated) {
       fetchModels();
+      fetchPinnedModels();
     }
-  }, [isAuthenticated, fetchModels]);
+  }, [isAuthenticated, fetchModels, fetchPinnedModels]);
+
+  const togglePinnedModel = useCallback((modelId: string) => {
+    setPinnedModelIds((prev) => {
+      const next = prev.includes(modelId)
+        ? prev.filter((id) => id !== modelId)
+        : [...prev, modelId];
+      modelApi.updatePinnedModelIds(next).catch(() => {});
+      return next;
+    });
+  }, []);
+
+  // Auto-clean orphaned pinned IDs (models that were deleted)
+  const cleanedPinnedIds = useMemo(() => {
+    if (!dbModels || pinnedModelIds.length === 0) return pinnedModelIds;
+    const validIds = new Set(dbModels.map((m) => m.id));
+    const cleaned = pinnedModelIds.filter((id) => validIds.has(id));
+    return cleaned;
+  }, [dbModels, pinnedModelIds]);
+
+  useEffect(() => {
+    if (cleanedPinnedIds.length === pinnedModelIds.length) return;
+    setPinnedModelIds(cleanedPinnedIds);
+    modelApi.updatePinnedModelIds(cleanedPinnedIds).catch(() => {});
+  }, [cleanedPinnedIds.length, pinnedModelIds.length]);
 
   // 从 DB 读取模型
   const availableModels = useMemo(() => {
@@ -110,6 +147,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     enableMemory: getBooleanSetting("ENABLE_MEMORY"),
     availableModels,
     defaultModel,
+    pinnedModelIds: cleanedPinnedIds,
+    togglePinnedModel,
     isLoading,
     error,
     savingKeys,

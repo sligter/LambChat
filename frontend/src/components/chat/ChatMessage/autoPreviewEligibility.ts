@@ -51,6 +51,17 @@ export function getLatestAutoPreviewTarget(
   return null;
 }
 
+export function getLatestChatAutoPreviewTarget(input: {
+  messages: AutoPreviewMessageLike[];
+  suppressAutoPreview?: boolean;
+}): AutoPreviewTarget | null {
+  if (input.suppressAutoPreview) {
+    return null;
+  }
+
+  return getLatestAutoPreviewTarget(input.messages);
+}
+
 export function shouldAllowAutoPreviewForPart(input: {
   messageId: string;
   partIndex: number;

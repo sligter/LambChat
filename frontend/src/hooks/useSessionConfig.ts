@@ -101,6 +101,13 @@ export interface UseSessionConfigReturn {
 export function useSessionConfig(
   options: UseSessionConfigOptions,
 ): UseSessionConfigReturn {
+  // Track the latest default agent options (derived from agent definitions + stored thinking preference)
+  // This is the source of truth for what "defaults" means right now.
+  const defaultAgentOptionsRef = useRef<
+    Record<string, boolean | string | number>
+  >(options.getDefaultAgentOptions());
+  defaultAgentOptionsRef.current = options.getDefaultAgentOptions();
+
   // 对话级别的配置状态
   // 优先从 localStorage 恢复（跨路由持久化），否则用默认值
   const [config, setConfig] = useState<SessionConfigState>(() => {
@@ -119,19 +126,34 @@ export function useSessionConfig(
   // 记录是否已经初始化（避免重复初始化）
   const initializedRef = useRef(!!loadPersistedConfig());
 
-  // Re-sync defaults when getter results change (only if no persisted data)
+  // Whether the current config was restored from a session's saved metadata.
+  // When true, the re-sync effect must NOT overwrite agentOptions with defaults,
+  // because the session had its own specific thinking level / model choice.
+  const isRestoredRef = useRef(false);
+
+  // Re-sync agentOptions defaults when they change (e.g., user changes default thinking preference).
+  // agentOptions are never persisted to localStorage, so they must always be re-derived.
+  // Skipped when config was restored from a session — that session's specific options take precedence.
   useEffect(() => {
-    if (!initializedRef.current) {
+    if (initializedRef.current && isRestoredRef.current) return;
+
+    const nextAgentOptions = defaultAgentOptionsRef.current;
+    if (initializedRef.current) {
+      setConfig((prev) => ({
+        ...prev,
+        agentOptions: nextAgentOptions,
+      }));
+    } else {
       const defaults = {
         disabledSkills: options.getDefaultDisabledSkills?.() || [],
         disabledMcpTools: options.getDefaultDisabledMcpTools?.() || [],
-        agentOptions: options.getDefaultAgentOptions(),
+        agentOptions: nextAgentOptions,
       };
       setConfig(defaults);
       persistConfig(defaults);
       initializedRef.current = true;
     }
-  }, [options]);
+  }, [defaultAgentOptionsRef.current]);
 
   // Persist to localStorage whenever config changes
   useEffect(() => {
@@ -216,10 +238,11 @@ export function useSessionConfig(
 
   // Reset to defaults (new conversation)
   const resetToDefaults = useCallback(() => {
+    isRestoredRef.current = false;
     const defaults = {
       disabledSkills: options.getDefaultDisabledSkills?.() || [],
       disabledMcpTools: options.getDefaultDisabledMcpTools?.() || [],
-      agentOptions: options.getDefaultAgentOptions(),
+      agentOptions: defaultAgentOptionsRef.current,
     };
     setConfig(defaults);
     persistConfig(defaults);
@@ -230,6 +253,7 @@ export function useSessionConfig(
     (sessionConfig: SessionConfig) => {
       console.log("[useSessionConfig] Restoring config:", sessionConfig);
 
+      isRestoredRef.current = true;
       const restored = {
         disabledSkills: sessionConfig.disabled_skills || [],
         // disabled_tools is a legacy field (pre-split); treat as disabled_mcp_tools if present
@@ -239,7 +263,7 @@ export function useSessionConfig(
           [],
         agentOptions:
           normalizeAgentOptionValues(sessionConfig.agent_options) ||
-          options.getDefaultAgentOptions(),
+          defaultAgentOptionsRef.current,
       };
       setConfig(restored);
       persistConfig(restored);

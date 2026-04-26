@@ -11,7 +11,9 @@ from typing import Any, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from src.api.deps import get_current_user_required
+from src.infra.folder.storage import get_project_storage
 from src.infra.logging import get_logger
+from src.infra.session.favorites import is_session_favorite, normalize_session_metadata
 from src.infra.session.manager import SessionManager
 from src.infra.session.storage import SessionStorage
 from src.kernel.config import settings
@@ -77,6 +79,26 @@ def verify_session_ownership(session: Session, user: TokenPayload) -> None:
         )
 
 
+async def _get_favorites_project_id(user_id: str) -> str | None:
+    project_storage = get_project_storage()
+    favorites_project = await project_storage.get_by_type(user_id, "favorites")
+    return favorites_project.id if favorites_project else None
+
+
+def _normalize_session(
+    session: Session,
+    favorites_project_id: str | None,
+) -> Session:
+    return session.model_copy(
+        update={
+            "metadata": normalize_session_metadata(
+                session.metadata,
+                favorites_project_id,
+            )
+        }
+    )
+
+
 @router.get("")
 async def list_sessions(
     skip: int = Query(0, ge=0, description="跳过的会话数量"),
@@ -84,6 +106,7 @@ async def list_sessions(
     status: Optional[str] = Query(None, description="状态过滤: active 或 archived"),
     project_id: Optional[str] = Query(None, description="项目过滤: 项目ID 或 'none'(未分类)"),
     search: Optional[str] = Query(None, description="搜索关键词，模糊匹配会话名称"),
+    favorites_only: bool = Query(False, description="仅返回已收藏会话"),
     user: TokenPayload = Depends(get_current_user_required),
 ):
     """
@@ -117,6 +140,7 @@ async def list_sessions(
 
     # 所有用户只能查看自己的会话
     filter_user_id = user.sub
+    favorites_project_id = await _get_favorites_project_id(user.sub)
 
     sessions, total = await manager.list_sessions(
         user_id=filter_user_id,
@@ -125,6 +149,8 @@ async def list_sessions(
         is_active=is_active,
         project_id=project_id,
         search=search,
+        favorites_only=favorites_only,
+        favorites_project_id=favorites_project_id,
     )
 
     return {
@@ -166,7 +192,8 @@ async def get_session(
         raise HTTPException(status_code=404, detail="会话不存在")
 
     verify_session_ownership(session, user)
-    return session
+    favorites_project_id = await _get_favorites_project_id(user.sub)
+    return _normalize_session(session, favorites_project_id)
 
 
 @router.delete("/{session_id}")
@@ -473,7 +500,44 @@ async def update_session(
     updated_session = await manager.update_session(session_id, session_data)
     if not updated_session:
         raise HTTPException(status_code=500, detail="更新失败")
+    favorites_project_id = await _get_favorites_project_id(user.sub)
+    updated_session = _normalize_session(updated_session, favorites_project_id)
     return {"status": "updated", "session": updated_session}
+
+
+@router.post("/{session_id}/favorite")
+async def toggle_session_favorite(
+    session_id: str,
+    user: TokenPayload = Depends(get_current_user_required),
+):
+    """Toggle a session's favorite state without changing its project."""
+
+    manager = SessionManager()
+    storage = SessionStorage()
+    session = await manager.get_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="会话不存在")
+
+    verify_session_ownership(session, user)
+
+    favorites_project_id = await _get_favorites_project_id(user.sub)
+    updated_session = await storage.toggle_favorite(
+        session_id,
+        user.sub,
+        favorites_project_id=favorites_project_id,
+    )
+    if not updated_session:
+        raise HTTPException(status_code=500, detail="收藏状态更新失败")
+
+    updated_session = _normalize_session(updated_session, favorites_project_id)
+    return {
+        "status": "updated",
+        "is_favorite": is_session_favorite(
+            updated_session.metadata,
+            favorites_project_id,
+        ),
+        "session": updated_session,
+    }
 
 
 @router.post("/{session_id}/generate-title")
@@ -576,8 +640,6 @@ async def move_session(
     Returns:
         {"status": "moved", "session": updated_session}
     """
-    from src.infra.folder.storage import get_project_storage
-
     manager = SessionManager()
     storage = SessionStorage()
 
@@ -587,6 +649,8 @@ async def move_session(
         raise HTTPException(status_code=404, detail="会话不存在")
 
     verify_session_ownership(session, user)
+    favorites_project_id = await _get_favorites_project_id(user.sub)
+    was_favorite = is_session_favorite(session.metadata, favorites_project_id)
 
     # Get project_id from body
     project_id = body.get("project_id")
@@ -603,6 +667,17 @@ async def move_session(
     if not updated_session:
         raise HTTPException(status_code=500, detail="移动失败")
 
+    if was_favorite and not is_session_favorite(
+        updated_session.metadata,
+        favorites_project_id,
+    ):
+        updated_session = await storage.update(
+            session_id,
+            SessionUpdate(metadata={"is_favorite": True}),
+        )
+        if not updated_session:
+            raise HTTPException(status_code=500, detail="移动后收藏状态同步失败")
+
     # Sync revealed files' project_id
     try:
         from src.infra.revealed_file.storage import get_revealed_file_storage
@@ -612,4 +687,5 @@ async def move_session(
     except Exception as e:
         logger.warning(f"Failed to sync revealed files project_id: {e}")
 
+    updated_session = _normalize_session(updated_session, favorites_project_id)
     return {"status": "moved", "session": updated_session}

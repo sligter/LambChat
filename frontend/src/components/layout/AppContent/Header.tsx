@@ -21,6 +21,7 @@ import { UserMenu } from "../UserMenu";
 import { ShareDialog } from "../../share/ShareDialog";
 import { useAuth } from "../../../hooks/useAuth";
 import { useTheme } from "../../../contexts/ThemeContext";
+import { useSettingsContext } from "../../../contexts/SettingsContext";
 import { authApi } from "../../../services/api";
 import { notificationApi } from "../../../services/api/notification";
 import { NotificationDialog } from "../../notification/NotificationDialog";
@@ -75,6 +76,7 @@ export function Header({
   const navigate = useNavigate();
   const { user } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const { pinnedModelIds, togglePinnedModel } = useSettingsContext();
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [langMenuOpen, setLangMenuOpen] = useState(false);
@@ -175,6 +177,8 @@ export function Header({
                   <ModelSelector
                     models={availableModels}
                     currentModelId={currentModelId || ""}
+                    pinnedModelIds={pinnedModelIds}
+                    onTogglePinnedModel={togglePinnedModel}
                     onSelectModel={onSelectModel}
                   />
                 )}

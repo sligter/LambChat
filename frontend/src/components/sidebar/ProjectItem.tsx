@@ -16,14 +16,16 @@ import toast from "react-hot-toast";
 import type { BackendSession } from "../../services/api/session";
 import type { Project } from "../../types";
 import { projectApi } from "../../services/api";
-import { useProjectSessionList } from "../../hooks/useSession";
+import { useFilteredSessionList } from "../../hooks/useSession";
 import { SessionItem } from "./SessionItem";
 import { ProjectMenu } from "./ProjectMenu";
 import { LoadingSpinner } from "../common/LoadingSpinner";
 import { DynamicIcon } from "../common/DynamicIcon";
+import { isSessionFavorite } from "./sessionFavorites";
 import { shouldAutoExpandProject } from "./autoExpandProject";
 import {
   formatUnreadCount,
+  getUnreadCountForFavorites,
   getUnreadCountForProject,
   type UnreadBySession,
 } from "./unreadCounts";
@@ -44,6 +46,8 @@ interface ProjectItemProps {
   onSelectSession: (sessionId: string) => void;
   onDeleteSession: (sessionId: string) => void;
   onMoveSession: (sessionId: string, projectId: string | null) => void;
+  onToggleFavorite?: (sessionId: string) => void;
+  onShareSession?: (sessionId: string) => void;
   onRenameProject: (projectId: string, name: string) => void;
   onDeleteProject: (projectId: string) => void;
   onUpdateIcon?: (projectId: string, icon: string) => void;
@@ -53,6 +57,7 @@ interface ProjectItemProps {
   forceExpandProjectId?: string | null;
   onConsumeAutoExpand?: (projectId: string) => void;
   unreadBySession?: UnreadBySession;
+  favoritesOnly?: boolean;
 }
 
 export const ProjectItem = forwardRef<ProjectItemHandle, ProjectItemProps>(
@@ -64,6 +69,8 @@ export const ProjectItem = forwardRef<ProjectItemHandle, ProjectItemProps>(
       onSelectSession,
       onDeleteSession,
       onMoveSession,
+      onToggleFavorite,
+      onShareSession,
       onRenameProject,
       onDeleteProject,
       draggingSessionId,
@@ -73,6 +80,7 @@ export const ProjectItem = forwardRef<ProjectItemHandle, ProjectItemProps>(
       unreadBySession = new Map(),
       onUpdateIcon,
       scrollRoot,
+      favoritesOnly = false,
     },
     ref,
   ) {
@@ -93,6 +101,10 @@ export const ProjectItem = forwardRef<ProjectItemHandle, ProjectItemProps>(
     const isFavorites = project.type === "favorites";
 
     // ─── Per-project session list ──────────────────────────────────
+    const listState = useFilteredSessionList(
+      favoritesOnly ? { favoritesOnly: true } : { projectId: project.id },
+      scrollRoot,
+    );
     const {
       sessions,
       isLoading,
@@ -104,12 +116,14 @@ export const ProjectItem = forwardRef<ProjectItemHandle, ProjectItemProps>(
       prependSession,
       removeSession,
       updateSession,
-    } = useProjectSessionList(project.id, scrollRoot);
-    const unreadCount = getUnreadCountForProject({
-      projectId: project.id,
-      loadedSessions: sessions,
-      unreadBySession,
-    });
+    } = listState;
+    const unreadCount = favoritesOnly
+      ? getUnreadCountForFavorites(sessions, unreadBySession)
+      : getUnreadCountForProject({
+          projectId: project.id,
+          loadedSessions: sessions,
+          unreadBySession,
+        });
 
     // Only fetch when expanded (lazy loading)
     const hasLoadedRef = useRef(false);
@@ -256,12 +270,14 @@ export const ProjectItem = forwardRef<ProjectItemHandle, ProjectItemProps>(
 
     // Drag and drop handlers
     const handleDragOver = (e: React.DragEvent) => {
+      if (favoritesOnly) return;
       e.preventDefault();
       e.dataTransfer.dropEffect = "move";
       setIsDragOver(true);
     };
 
     const handleDragLeave = (e: React.DragEvent) => {
+      if (favoritesOnly) return;
       // Only set dragOver to false if we're leaving the project entirely
       const relatedTarget = e.relatedTarget as Node;
       if (!e.currentTarget.contains(relatedTarget)) {
@@ -270,6 +286,7 @@ export const ProjectItem = forwardRef<ProjectItemHandle, ProjectItemProps>(
     };
 
     const handleDrop = (e: React.DragEvent) => {
+      if (favoritesOnly) return;
       e.preventDefault();
       setIsDragOver(false);
 
@@ -288,10 +305,11 @@ export const ProjectItem = forwardRef<ProjectItemHandle, ProjectItemProps>(
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
-          data-project-drop
-          data-project-id={project.id}
+          data-project-drop={favoritesOnly ? undefined : true}
+          data-project-id={favoritesOnly ? undefined : project.id}
           className={`group relative flex cursor-pointer items-center gap-3 h-10 rounded-[10px] px-[9px] transition-colors ${
-            isDragOver || draggingSessionId
+            (!favoritesOnly && isDragOver) ||
+            (!favoritesOnly && draggingSessionId)
               ? "bg-stone-200/60 dark:bg-stone-700/40 ring-1 ring-inset ring-stone-300 dark:ring-stone-600"
               : isExpanded
                 ? "bg-stone-100/60 dark:bg-stone-800/40"
@@ -390,8 +408,19 @@ export const ProjectItem = forwardRef<ProjectItemHandle, ProjectItemProps>(
                     onMoveToProject={(projectId) =>
                       onMoveSession(session.id, projectId)
                     }
+                    currentProjectId={project.id}
+                    onShare={
+                      onShareSession
+                        ? () => onShareSession(session.id)
+                        : undefined
+                    }
+                    onToggleFavorite={
+                      onToggleFavorite
+                        ? () => onToggleFavorite(session.id)
+                        : undefined
+                    }
                     onSessionUpdate={updateSession}
-                    isFavorite={isFavorites}
+                    isFavorite={isSessionFavorite(session)}
                     onDragStartTouch={undefined}
                     isDraggingTouch={draggingSessionId === session.id}
                   />

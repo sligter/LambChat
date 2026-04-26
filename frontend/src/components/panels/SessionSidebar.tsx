@@ -40,8 +40,10 @@ import {
   mergeUnreadUpdate,
   type UnreadBySession,
 } from "../sidebar/unreadCounts";
+import { isSessionFavorite } from "../sidebar/sessionFavorites";
 import { getSessionTitle, groupSessionsByTime } from "./sessionHelpers";
 import { SearchDialog } from "./SearchDialog";
+import { ShareDialog } from "../share/ShareDialog";
 
 interface SessionSidebarProps {
   currentSessionId: string | null;
@@ -65,6 +67,7 @@ export interface SessionSidebarHandle {
     sessionId: string,
     unreadCount: number,
     projectId?: string | null,
+    isFavorite?: boolean,
   ) => void;
 }
 
@@ -103,6 +106,10 @@ export const SessionSidebar = forwardRef<
   const [unreadBySession, setUnreadBySession] = useState<UnreadBySession>(
     () => new Map(),
   );
+  const [shareDialogSessionId, setShareDialogSessionId] = useState<
+    string | null
+  >(null);
+  const [shareDialogSessionName, setShareDialogSessionName] = useState("");
 
   // Track mobile breakpoint to avoid ref conflicts — both sidebars render
   // sessionListContent in the DOM, causing shared refs (scrollEl, loadMoreRef)
@@ -136,24 +143,28 @@ export const SessionSidebar = forwardRef<
 
   // Handle WebSocket-driven unread count updates
   const handleSessionUnread = useCallback(
-    (sid: string, count: number, projectId?: string | null) => {
+    (
+      sid: string,
+      count: number,
+      projectId?: string | null,
+      isFavorite?: boolean,
+    ) => {
       setUnreadBySession((prev) =>
         mergeUnreadUpdate(prev, {
           sessionId: sid,
           unreadCount: count,
           projectId,
+          isFavorite,
         }),
       );
       const session = uncategorizedList.sessions.find((s) => s.id === sid);
       if (session) {
         uncategorizedList.updateSession({ ...session, unread_count: count });
-        return;
       }
       for (const [, handle] of projectRefs.current) {
         const s = handle.sessions.find((s) => s.id === sid);
         if (s) {
           handle.updateSession({ ...s, unread_count: count });
-          return;
         }
       }
     },
@@ -199,21 +210,28 @@ export const SessionSidebar = forwardRef<
       try {
         const response = await sessionApi.moveToProject(sessionId, projectId);
         if (response.session) {
-          // Remove from whichever list currently owns this session
+          const favorite = isSessionFavorite(response.session);
+
+          // Remove from every list before re-inserting into the right places.
           for (const [, handle] of projectRefs.current) {
-            if (handle.sessions.some((s) => s.id === sessionId)) {
-              handle.removeSession(sessionId);
-              break;
-            }
+            handle.removeSession(sessionId);
           }
-          if (uncategorizedList.sessions.some((s) => s.id === sessionId)) {
-            uncategorizedList.removeSession(sessionId);
-          }
-          // Add to target
+          uncategorizedList.removeSession(sessionId);
+
           if (projectId) {
             getProjectRef(projectId)?.prependSession(response.session);
           } else {
             uncategorizedList.prependSession(response.session);
+          }
+          if (favorite) {
+            const favoritesProject = projects.find(
+              (p) => p.type === "favorites",
+            );
+            if (favoritesProject) {
+              getProjectRef(favoritesProject.id)?.prependSession(
+                response.session,
+              );
+            }
           }
           setUnreadBySession((prev) =>
             mergeUnreadUpdate(prev, {
@@ -224,6 +242,7 @@ export const SessionSidebar = forwardRef<
                   | string
                   | null
                   | undefined) ?? null,
+              isFavorite: favorite,
             }),
           );
         }
@@ -232,15 +251,91 @@ export const SessionSidebar = forwardRef<
         toast.error(t("sidebar.sessionMoveFailed"));
       }
     },
-    [getProjectRef, uncategorizedList, t],
+    [getProjectRef, projects, uncategorizedList, t],
   );
 
   const handleMoveSessionRef = useRef(handleMoveSession);
   handleMoveSessionRef.current = handleMoveSession;
 
+  const handleShareSession = useCallback(
+    (sessionId: string) => {
+      let title = "";
+      for (const [, handle] of projectRefs.current) {
+        const s = handle.sessions.find((s) => s.id === sessionId);
+        if (s) {
+          title = getSessionTitle(s, t);
+          break;
+        }
+      }
+      if (!title) {
+        const s = uncategorizedList.sessions.find((s) => s.id === sessionId);
+        if (s) title = getSessionTitle(s, t);
+      }
+      setShareDialogSessionId(sessionId);
+      setShareDialogSessionName(title || t("sidebar.newChat"));
+    },
+    [uncategorizedList, t],
+  );
+
   const touchDrag = useTouchDrag([], (sessionId, projectId) => {
     handleMoveSessionRef.current(sessionId, projectId);
   });
+
+  const handleToggleFavorite = useCallback(
+    async (sessionId: string) => {
+      try {
+        const response = await sessionApi.toggleFavorite(sessionId);
+        const updatedSession = response.session;
+        const favoritesProject = projects.find((p) => p.type === "favorites");
+        const favoritesRef = favoritesProject
+          ? getProjectRef(favoritesProject.id)
+          : null;
+
+        if (
+          uncategorizedList.sessions.some((session) => session.id === sessionId)
+        ) {
+          uncategorizedList.updateSession(updatedSession);
+        }
+
+        for (const [, handle] of projectRefs.current) {
+          const exists = handle.sessions.some(
+            (session) => session.id === sessionId,
+          );
+          if (!exists) continue;
+          if (
+            favoritesRef &&
+            handle === favoritesRef &&
+            !response.is_favorite
+          ) {
+            handle.removeSession(sessionId);
+            continue;
+          }
+          handle.updateSession(updatedSession);
+        }
+
+        if (response.is_favorite && favoritesRef) {
+          favoritesRef.prependSession(updatedSession);
+          favoritesRef.updateSession(updatedSession);
+        }
+        setUnreadBySession((prev) =>
+          mergeUnreadUpdate(prev, {
+            sessionId,
+            unreadCount: updatedSession.unread_count ?? 0,
+            projectId:
+              (updatedSession.metadata?.project_id as
+                | string
+                | null
+                | undefined) ?? null,
+            isFavorite: response.is_favorite,
+          }),
+        );
+      } catch (err) {
+        console.error("Failed to toggle favorite:", err);
+        toast.error(t("sidebar.favoriteToggleFailed", "收藏状态更新失败"));
+      }
+    },
+    [getProjectRef, projects, t, uncategorizedList],
+  );
 
   // ─── Delete confirmation ────────────────────────────────────────
 
@@ -325,10 +420,18 @@ export const SessionSidebar = forwardRef<
       if (list) {
         list.prependSession(newSession);
         list.updateSession(newSession);
-        lastAppliedNewSessionKeyRef.current = sessionKey;
       }
+      if (isSessionFavorite(newSession)) {
+        const favoritesProject = projects.find((p) => p.type === "favorites");
+        if (favoritesProject) {
+          const favoritesRef = getProjectRef(favoritesProject.id);
+          favoritesRef?.prependSession(newSession);
+          favoritesRef?.updateSession(newSession);
+        }
+      }
+      lastAppliedNewSessionKeyRef.current = sessionKey;
     }
-  }, [newSession, getProjectRef, projectCount, uncategorizedList]);
+  }, [newSession, getProjectRef, projectCount, projects, uncategorizedList]);
 
   // ─── Keyboard shortcuts ──────────────────────────────────────────
 
@@ -354,7 +457,21 @@ export const SessionSidebar = forwardRef<
   // ─── Select session helper (mobile close) ───────────────────────
 
   const selectAndClose = (sessionId: string) => {
-    handleSessionUnread(sessionId, 0);
+    const uncategorizedSession = uncategorizedList.sessions.find(
+      (session) => session.id === sessionId,
+    );
+    const existingSession =
+      uncategorizedSession ??
+      Array.from(projectRefs.current.values())
+        .flatMap((handle) => handle.sessions)
+        .find((session) => session.id === sessionId);
+    handleSessionUnread(
+      sessionId,
+      0,
+      (existingSession?.metadata?.project_id as string | null | undefined) ??
+        null,
+      existingSession ? isSessionFavorite(existingSession) : undefined,
+    );
     onSelectSession(sessionId);
     onMobileClose?.();
   };
@@ -510,6 +627,8 @@ export const SessionSidebar = forwardRef<
                     setDeleteConfirm({ isOpen: true, sessionId });
                   }}
                   onMoveSession={handleMoveSession}
+                  onToggleFavorite={handleToggleFavorite}
+                  onShareSession={handleShareSession}
                   onRenameProject={projectManager.handleRenameProject}
                   onDeleteProject={(id) => {
                     const proj = projects.find((p) => p.id === id);
@@ -527,6 +646,7 @@ export const SessionSidebar = forwardRef<
                       : null
                   }
                   unreadBySession={unreadBySession}
+                  favoritesOnly
                 />
               );
             })()}
@@ -548,6 +668,8 @@ export const SessionSidebar = forwardRef<
                     setDeleteConfirm({ isOpen: true, sessionId });
                   }}
                   onMoveSession={handleMoveSession}
+                  onToggleFavorite={handleToggleFavorite}
+                  onShareSession={handleShareSession}
                   onRenameProject={projectManager.handleRenameProject}
                   onDeleteProject={(id) => {
                     const proj = projects.find((p) => p.id === id);
@@ -653,10 +775,15 @@ export const SessionSidebar = forwardRef<
                                   onMoveToProject={(projectId) =>
                                     handleMoveSession(session.id, projectId)
                                   }
+                                  currentProjectId={null}
+                                  onShare={() => handleShareSession(session.id)}
+                                  onToggleFavorite={() =>
+                                    handleToggleFavorite(session.id)
+                                  }
                                   onSessionUpdate={(s) =>
                                     uncategorizedList.updateSession(s)
                                   }
-                                  isFavorite={false}
+                                  isFavorite={isSessionFavorite(session)}
                                   onDragStartTouch={
                                     touchDrag.handleDragStartTouch
                                   }
@@ -694,29 +821,37 @@ export const SessionSidebar = forwardRef<
       </div>
 
       {/* Footer */}
-      <div className="h-px bg-stone-200/60 dark:bg-stone-700/40 mx-2 my-1" />
-      <div className="px-2 pb-2">
+      <div className="shrink-0 px-2 pt-2 pb-1 border-t border-gray-200/60 dark:border-gray-800">
         <div
           onClick={onShowProfile}
-          className="flex items-center gap-3 px-[9px] h-9 rounded-[10px] hover:bg-stone-100 dark:hover:bg-stone-800/60 transition-colors cursor-pointer"
+          className="group flex items-center rounded-xl py-2 px-2 w-full hover:bg-gray-100 dark:hover:bg-gray-850 transition cursor-pointer"
         >
-          {user?.avatar_url && !imgError ? (
-            <img
-              src={user.avatar_url}
-              alt={user?.username || "User"}
-              className="size-5 rounded-full object-cover flex-shrink-0"
-              onError={() => setImgError(true)}
-            />
-          ) : (
-            <div className="flex size-5 items-center justify-center bg-gradient-to-br from-stone-500 to-stone-700 rounded-full">
-              <span className="text-[10px] font-semibold text-white">
-                {user?.username?.charAt(0).toUpperCase() || "U"}
-              </span>
+          <div className="shrink-0 w-8 h-8 rounded-full overflow-hidden ring-1 ring-gray-200 dark:ring-gray-700 group-hover:ring-[var(--theme-primary)] transition mr-3">
+            {user?.avatar_url && !imgError ? (
+              <img
+                src={user.avatar_url}
+                alt={user?.username || "User"}
+                className="w-full h-full object-cover rounded-full"
+                onError={() => setImgError(true)}
+                draggable={false}
+              />
+            ) : (
+              <div className="flex w-full h-full items-center justify-center bg-gradient-to-br from-stone-500 to-stone-700 rounded-full">
+                <span className="text-xs font-semibold text-white">
+                  {user?.username?.charAt(0).toUpperCase() || "U"}
+                </span>
+              </div>
+            )}
+          </div>
+          <div className="flex-1 text-left min-w-0">
+            <div className="text-sm font-medium text-gray-800 dark:text-gray-100 truncate">
+              {user?.username || "User"}
             </div>
-          )}
-          <span className="text-sm text-stone-600 dark:text-stone-400 truncate">
-            {user?.username || "User"}
-          </span>
+            <div className="text-xs text-gray-400 dark:text-gray-500 whitespace-nowrap">
+              User
+            </div>
+          </div>
+          <ChevronDown className="size-4 text-gray-400 shrink-0" />
         </div>
       </div>
     </>
@@ -875,6 +1010,12 @@ export const SessionSidebar = forwardRef<
           </div>,
           document.body,
         )}
+      <ShareDialog
+        isOpen={shareDialogSessionId !== null}
+        onClose={() => setShareDialogSessionId(null)}
+        sessionId={shareDialogSessionId ?? ""}
+        sessionName={shareDialogSessionName || t("sidebar.newChat")}
+      />
     </>
   );
 });

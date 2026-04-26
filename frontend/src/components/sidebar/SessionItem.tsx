@@ -19,8 +19,11 @@ interface SessionItemProps {
   onSelect: () => void;
   onDelete: () => void;
   onMoveToProject: (projectId: string | null) => void;
+  onShare?: () => void;
+  onToggleFavorite?: () => void;
   onSessionUpdate: (session: BackendSession) => void;
   isFavorite?: boolean;
+  currentProjectId?: string | null;
   onDragStart?: (session: BackendSession) => void;
   onDragEnd?: () => void;
   onDragStartTouch?: (
@@ -38,8 +41,11 @@ export function SessionItem({
   onSelect,
   onDelete,
   onMoveToProject,
+  onShare,
+  onToggleFavorite,
   onSessionUpdate,
   isFavorite = false,
+  currentProjectId,
   onDragStart,
   onDragEnd,
   onDragStartTouch,
@@ -303,8 +309,11 @@ export function SessionItem({
         onRename={handleStartEdit}
         onDelete={onDelete}
         onMoveToProject={onMoveToProject}
+        onShare={onShare}
+        onToggleFavorite={onToggleFavorite}
         anchorEl={menuAnchor}
         isFavorite={isFavorite}
+        currentProjectId={currentProjectId}
       />
     </>
   );

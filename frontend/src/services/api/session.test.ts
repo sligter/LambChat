@@ -2,6 +2,15 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { buildSessionRunsUrl } from "./session.ts";
 
+test("builds a session list url with favorites_only", () => {
+  const searchParams = new URLSearchParams();
+  searchParams.set("favorites_only", "true");
+  assert.equal(
+    `/api/sessions?${searchParams.toString()}`,
+    "/api/sessions?favorites_only=true",
+  );
+});
+
 test("builds the default session runs url", () => {
   assert.equal(
     buildSessionRunsUrl("session-1"),

@@ -65,6 +65,7 @@ export const sessionApi = {
     skip?: number;
     project_id?: string;
     search?: string;
+    favorites_only?: boolean;
   }): Promise<SessionListResponse | BackendSession[]> {
     const searchParams = new URLSearchParams();
     if (params?.status) searchParams.set("status", params.status);
@@ -72,6 +73,7 @@ export const sessionApi = {
     if (params?.skip) searchParams.set("skip", params.skip.toString());
     if (params?.project_id) searchParams.set("project_id", params.project_id);
     if (params?.search) searchParams.set("search", params.search);
+    if (params?.favorites_only) searchParams.set("favorites_only", "true");
 
     const url = `${API_BASE}/api/sessions${
       searchParams.toString() ? `?${searchParams}` : ""
@@ -256,6 +258,19 @@ export const sessionApi = {
     return authFetch(`${API_BASE}/api/sessions/${sessionId}/move`, {
       method: "POST",
       body: JSON.stringify({ project_id: projectId }),
+    });
+  },
+
+  /**
+   * Toggle session favorite state
+   */
+  async toggleFavorite(sessionId: string): Promise<{
+    status: string;
+    is_favorite: boolean;
+    session: BackendSession;
+  }> {
+    return authFetch(`${API_BASE}/api/sessions/${sessionId}/favorite`, {
+      method: "POST",
     });
   },
 

@@ -4,6 +4,7 @@ import {
   buildExternalNavigationPreviewRequest,
   getExternalNavigationPreviewRequest,
   getExternalNavigationTargetFile,
+  shouldOpenExternalNavigationPreview,
   shouldResetExternalNavigateFlag,
   shouldScrollToBottomAfterExternalNavigation,
 } from "./externalNavigationState.ts";
@@ -180,5 +181,37 @@ test("extracts the preview request only for external navigation", () => {
       },
     }),
     null,
+  );
+});
+
+test("reopens an external preview after the target session changes", () => {
+  assert.equal(
+    shouldOpenExternalNavigationPreview({
+      externalNavigationToken: "nav-1",
+      externalNavigationPreview: {
+        kind: "file",
+        previewKey: "external-file:file-1",
+        filePath: "/tmp/demo.txt",
+      },
+      handledToken: "nav-1",
+      handledSessionId: "session-old",
+      sessionId: "session-new",
+    }),
+    true,
+  );
+
+  assert.equal(
+    shouldOpenExternalNavigationPreview({
+      externalNavigationToken: "nav-1",
+      externalNavigationPreview: {
+        kind: "file",
+        previewKey: "external-file:file-1",
+        filePath: "/tmp/demo.txt",
+      },
+      handledToken: "nav-1",
+      handledSessionId: "session-new",
+      sessionId: "session-new",
+    }),
+    false,
   );
 });

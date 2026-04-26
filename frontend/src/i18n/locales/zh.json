@@ -438,6 +438,7 @@
     },
     "noPermission": "没有发送消息的权限",
     "noPermissionHint": "您没有发送消息的权限",
+    "outline": "大纲",
     "placeholder": "问我任何问题...",
     "queueFull": "排队已满，请稍后再试",
     "queueStart": "任务开始处理",
@@ -463,6 +464,7 @@
     "stop": "停止生成",
     "stopConfirmMessage": "确定要停止当前生成吗？已生成的内容将保留。",
     "stopConfirmTitle": "停止生成",
+    "textAutoUploaded": "长文本已自动转为文件上传",
     "title": "对话",
     "todo": {
       "progress": "{{completed}}/{{total}} 已完成"
@@ -472,8 +474,7 @@
     "waitingForUpload": "请等待文件上传完成",
     "welcomeRefresh": "换一批",
     "welcomeSubtitle": "✨ 我能为你做什么？",
-    "welcomeSuggestions": "建议",
-    "outline": "大纲"
+    "welcomeSuggestions": "建议"
   },
   "common": {
     "about": "关于",
@@ -526,6 +527,14 @@
     "selectAll": "全选",
     "showing": "显示第 {{start}}-{{end}} 条",
     "skip": "跳过"
+  },
+  "contactAdmin": {
+    "emailActivationDesc": "您的邮箱尚未验证或验证链接已过期，请联系管理员获取帮助。",
+    "emailActivationTitle": "邮箱验证问题",
+    "noContactInfo": "暂无管理员联系方式，请联系系统管理员。",
+    "noPermissionDesc": "您当前没有发送消息的权限。如需开通，请联系管理员。",
+    "noPermissionTitle": "权限不足",
+    "supportLink": "联系管理员"
   },
   "documents": {
     "ascending": "升序",
@@ -1224,6 +1233,9 @@
     "sendWithEnter": "Enter 发送，Shift+Enter 换行",
     "sendWithEnterCtrl": "Ctrl+Enter 发送，Enter 换行",
     "setDefault": "设为默认",
+    "unpinModel": "取消置顶",
+    "pinModel": "置顶",
+    "maxPinnedModels": "最多置顶 {{max}} 个模型",
     "supported": "已支持",
     "termsItem1": "根据 <a>生成式人工智能服务管理暂行办法</a> 根据规定，生成式人工智能生成的内容应反映社会主义价值观，不得产生非法或不合规的信息，如政治言论、色情、枪支暴力、'科学上网'、军事和战争内容等。该平台上的内容由 AI 生成。用户应辨别信息的真实性。严禁使用生成式 AI 进行基于种族、民族、信仰、国籍、地区、性别、年龄或职业的诱导、欺骗或歧视。尊重知识产权和商业道德，不利用算法、数据或平台优势进行不正当竞争。用户应尊重他人的合法权益，防止损害他人身心健康、损害肖像权、名誉、个人隐私或侵犯知识产权的内容。",
     "termsItem2": "该平台上的内容由 AI 生成，用户应独立验证大型 AI 模型生成的真伪信息！",
@@ -1591,6 +1603,7 @@
     "sessionMoved": "会话已移动",
     "sessionOptions": "操作",
     "sessionRemoved": "会话已从文件夹移除",
+    "share": "分享",
     "today": "今天",
     "uncategorized": "未分类",
     "yesterday": "昨天"

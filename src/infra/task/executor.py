@@ -12,6 +12,7 @@ from typing import Any, Callable, Dict, List, Optional
 
 from src.infra.logging import get_logger
 from src.infra.session.dual_writer import get_dual_writer
+from src.infra.session.favorites import is_session_favorite
 from src.infra.session.storage import SessionStorage
 from src.kernel.schemas.session import SessionCreate, SessionUpdate
 
@@ -372,9 +373,22 @@ class TaskExecutor:
 
                 session = await SessionManager().get_session(session_id)
                 if session:
+                    favorites_project_id = None
+                    if session.user_id:
+                        from src.infra.folder.storage import get_project_storage
+
+                        favorites_project = await get_project_storage().get_by_type(
+                            session.user_id,
+                            "favorites",
+                        )
+                        favorites_project_id = favorites_project.id if favorites_project else None
                     notification["data"]["unread_count"] = getattr(session, "unread_count", 0)
                     notification["data"]["project_id"] = (
                         session.metadata.get("project_id") if session.metadata else None
+                    )
+                    notification["data"]["is_favorite"] = is_session_favorite(
+                        session.metadata,
+                        favorites_project_id,
                     )
             except Exception:
                 pass

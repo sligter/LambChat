@@ -2,7 +2,7 @@
  * Session management hooks
  */
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useInView } from "react-intersection-observer";
 import { sessionApi, type BackendSession } from "../services/api";
 
@@ -15,6 +15,28 @@ function dedup(sessions: BackendSession[]): BackendSession[] {
     seen.add(s.id);
     return true;
   });
+}
+
+export function reconcileSessionList(input: {
+  previous: BackendSession[];
+  latest: BackendSession[];
+  removeMissing: boolean;
+}): BackendSession[] {
+  const { previous, latest, removeMissing } = input;
+  const latestIds = new Set(latest.map((session) => session.id));
+  const merged = latest.map((session) => session);
+
+  if (removeMissing) {
+    return dedup(merged);
+  }
+
+  for (const session of previous) {
+    if (!latestIds.has(session.id)) {
+      merged.push(session);
+    }
+  }
+
+  return dedup(merged);
 }
 
 // ─── Per-project paginated session list ─────────────────────────────
@@ -33,8 +55,13 @@ interface UseProjectSessionListReturn {
   updateSession: (session: BackendSession) => void;
 }
 
-export function useProjectSessionList(
-  projectId: string,
+interface SessionListFilter {
+  projectId?: string;
+  favoritesOnly?: boolean;
+}
+
+export function useFilteredSessionList(
+  filter: SessionListFilter,
   scrollRoot?: Element | null,
 ): UseProjectSessionListReturn {
   const [sessions, setSessions] = useState<BackendSession[]>([]);
@@ -43,6 +70,7 @@ export function useProjectSessionList(
   const [hasMore, setHasMore] = useState(false);
   const [skip, setSkip] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const loadedCountRef = useRef(PAGE_SIZE);
 
   const { ref: loadMoreRef, inView } = useInView({
     threshold: 0.1,
@@ -63,10 +91,11 @@ export function useProjectSessionList(
 
     try {
       const response = await sessionApi.list({
-        project_id: projectId,
+        project_id: filter.projectId,
         limit: PAGE_SIZE,
         skip: targetSkip,
         status: "active",
+        favorites_only: filter.favoritesOnly,
       });
 
       const newSessions =
@@ -80,9 +109,14 @@ export function useProjectSessionList(
       if (reset) {
         setSessions(dedup(newSessions));
         setSkip(newSessions.length);
+        loadedCountRef.current = Math.max(PAGE_SIZE, newSessions.length);
       } else {
         setSessions((prev) => dedup([...prev, ...newSessions]));
         setSkip(targetSkip + newSessions.length);
+        loadedCountRef.current = Math.max(
+          loadedCountRef.current,
+          targetSkip + newSessions.length,
+        );
       }
       setHasMore(newSessions.length > 0 ? newHasMore : false);
     } catch (err) {
@@ -106,22 +140,28 @@ export function useProjectSessionList(
     setSessions([]);
     setSkip(0);
     setHasMore(false);
+    loadedCountRef.current = PAGE_SIZE;
     fetchSessions(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectId]);
+  }, [filter.favoritesOnly, filter.projectId]);
 
   const refresh = useCallback(async () => {
     await fetchSessions(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectId]);
+  }, [filter.favoritesOnly, filter.projectId]);
 
   const softRefresh = useCallback(async () => {
     try {
+      const requestLimit = Math.min(
+        100,
+        Math.max(PAGE_SIZE, loadedCountRef.current),
+      );
       const response = await sessionApi.list({
-        project_id: projectId,
-        limit: PAGE_SIZE,
+        project_id: filter.projectId,
+        limit: requestLimit,
         skip: 0,
         status: "active",
+        favorites_only: filter.favoritesOnly,
       });
       const newSessions =
         "sessions" in response
@@ -129,19 +169,20 @@ export function useProjectSessionList(
           : Array.isArray(response)
             ? response
             : [];
-      const latest = new Map(newSessions.map((s) => [s.id, s]));
-      setSessions((prev) => {
-        const merged = prev.map((s) => latest.get(s.id) ?? s);
-        // prepend any brand-new sessions not yet in the list
-        for (const s of newSessions) {
-          if (!prev.some((p) => p.id === s.id)) merged.unshift(s);
-        }
-        return dedup(merged);
-      });
+      setSessions((prev) =>
+        reconcileSessionList({
+          previous: prev,
+          latest: newSessions,
+          removeMissing: filter.favoritesOnly || filter.projectId !== undefined,
+        }),
+      );
+      loadedCountRef.current = Math.max(PAGE_SIZE, newSessions.length);
+      setSkip(newSessions.length);
+      setHasMore("has_more" in response ? response.has_more : false);
     } catch {
       // silent — soft refresh is best-effort
     }
-  }, [projectId]);
+  }, [filter.favoritesOnly, filter.projectId]);
 
   const prependSession = useCallback((session: BackendSession) => {
     setSessions((prev) => {
@@ -171,6 +212,19 @@ export function useProjectSessionList(
     removeSession,
     updateSession,
   };
+}
+
+export function useProjectSessionList(
+  projectId: string,
+  scrollRoot?: Element | null,
+): UseProjectSessionListReturn {
+  return useFilteredSessionList({ projectId }, scrollRoot);
+}
+
+export function useFavoriteSessionList(
+  scrollRoot?: Element | null,
+): UseProjectSessionListReturn {
+  return useFilteredSessionList({ favoritesOnly: true }, scrollRoot);
 }
 
 // ─── Single session operations ──────────────────────────────────────

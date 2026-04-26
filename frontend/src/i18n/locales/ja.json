@@ -439,6 +439,7 @@
     },
     "noPermission": "メッセージを送信する権限がありません",
     "noPermissionHint": "メッセージを送信する権限がありません",
+    "outline": "アウトライン",
     "placeholder": "何でも質問してください...",
     "queueFull": "待ち行列が満杯です。しばらくしてからお試しください",
     "queueStart": "タスクの処理を開始しました",
@@ -464,6 +465,7 @@
     "stop": "生成を停止",
     "stopConfirmMessage": "本当に生成を停止しますか？生成された内容は保持されます。",
     "stopConfirmTitle": "生成を停止",
+    "textAutoUploaded": "長いテキストがファイルとして自動アップロードされました",
     "title": "チャット",
     "todo": {
       "progress": "{{completed}}/{{total}} 完了"
@@ -473,8 +475,7 @@
     "waitingForUpload": "ファイルのアップロードが完了するまでお待ちください",
     "welcomeRefresh": "更新",
     "welcomeSubtitle": "何かお手伝いできることはありますか？",
-    "welcomeSuggestions": "おすすめ",
-    "outline": "アウトライン"
+    "welcomeSuggestions": "おすすめ"
   },
   "common": {
     "about": "について",
@@ -527,6 +528,14 @@
     "selectAll": "すべて選択",
     "showing": "{{start}}〜{{end}}件を表示",
     "skip": "スキップ"
+  },
+  "contactAdmin": {
+    "emailActivationDesc": "メールアドレスが未認証か、認証リンクの有効期限が切れています。管理者にお問い合わせください。",
+    "emailActivationTitle": "メール認証の問題",
+    "noContactInfo": "管理者の連絡先情報がありません。システム管理者にお問い合わせください。",
+    "noPermissionDesc": "メッセージを送信する権限がありません。管理者にアクセス許可を申請してください。",
+    "noPermissionTitle": "アクセス権限がありません",
+    "supportLink": "管理者に問い合わせる"
   },
   "documents": {
     "ascending": "昇順",
@@ -1222,6 +1231,9 @@
     "sendWithEnter": "Enter で送信、Shift+Enter で改行",
     "sendWithEnterCtrl": "Ctrl+Enter で送信、Enter で改行",
     "setDefault": "デフォルトに設定",
+    "unpinModel": "ピン留め解除",
+    "pinModel": "ピン留め",
+    "maxPinnedModels": "最大{{max}}個のモデルをピン留めできます",
     "supported": "対応",
     "termsItem1": "<a>生成人工知能サービス管理暫定弁法</a>に基づき、生成AIが生成するコンテンツは社会主義的核心価値観を反映し、政治的発言、ポルノ、銃器暴力、「科学上网」、軍事・戦争コンテンツなどの違法または不適切な情報を生成してはなりません。本プラットフォームのコンテンツはAIによって生成されます。ユーザーは情報の真実性を判断する必要があります。人種、民族、信仰、国籍、地域、性別、年齢、職業に基づく誘導、欺瞞、差別を行う生成AIの使用は厳禁です。知的財産権と商業道徳を尊重し、アルゴリズム、データ、プラットフォームの優位性を利用した不正競争を行わないでください。",
     "termsItem2": "本プラットフォームのコンテンツはAIによって生成されます。ユーザーは大型AIモデルが生成する情報の真偽を独自に検証してください！",
@@ -1589,6 +1601,7 @@
     "sessionMoved": "セッションが移動されました",
     "sessionOptions": "操作",
     "sessionRemoved": "セッションがフォルダから削除されました",
+    "share": "共有",
     "today": "今日",
     "uncategorized": "未分類",
     "yesterday": "昨日"

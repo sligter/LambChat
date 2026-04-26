@@ -18,6 +18,30 @@ export interface ExternalNavigationState {
   targetPreview?: RevealPreviewRequest | null;
 }
 
+export function shouldOpenExternalNavigationPreview(input: {
+  externalNavigationToken?: string | null;
+  externalNavigationPreview?: RevealPreviewRequest | null;
+  handledToken?: string | null;
+  handledSessionId?: string | null;
+  sessionId?: string | null;
+}): boolean {
+  const {
+    externalNavigationToken,
+    externalNavigationPreview,
+    handledToken,
+    handledSessionId,
+    sessionId,
+  } = input;
+
+  if (!externalNavigationToken || !externalNavigationPreview) {
+    return false;
+  }
+
+  return (
+    handledToken !== externalNavigationToken || handledSessionId !== sessionId
+  );
+}
+
 export function shouldResetExternalNavigateFlag(
   locationState: ExternalNavigationState | null | undefined,
 ): boolean {

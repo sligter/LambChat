@@ -1,23 +1,32 @@
-import { memo, useState, useCallback, useEffect, useRef } from "react";
+import { memo, useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { createPortal } from "react-dom";
-import { ChevronDown, Check, Info } from "lucide-react";
+import { ChevronDown, Check, Info, Pin, PinOff } from "lucide-react";
 import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 import { ModelIconImg } from "./modelIcon.tsx";
 import { shouldCloseModelSelector } from "./modelSelectorGuards";
 import type { ModelOption } from "../../services/api/model";
 
+const MAX_PINNED = 10;
+
 interface ModelItemProps {
   model: ModelOption;
   isSelected: boolean;
+  isPinned: boolean;
   onSelect: () => void;
+  onTogglePin: () => void;
+  canPin: boolean;
 }
 
 const ModelItem = memo(function ModelItem({
   model,
   isSelected,
+  isPinned,
   onSelect,
+  onTogglePin,
+  canPin,
 }: ModelItemProps) {
+  const { t } = useTranslation();
   const [showTip, setShowTip] = useState(false);
   const tipTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const iconRef = useRef<HTMLSpanElement>(null);
@@ -53,7 +62,6 @@ const ModelItem = memo(function ModelItem({
   const tipStyle = (() => {
     if (!showTip || !iconRef.current) return undefined;
     const rect = iconRef.current.getBoundingClientRect();
-    // Estimate tooltip height (rough: ~20px per line, max ~4 lines)
     const estimatedHeight = Math.min(model.description!.length * 0.6, 120) + 24;
     const showAbove = rect.top > estimatedHeight + 8;
     tipPlacement.current = showAbove ? "top" : "bottom";
@@ -72,62 +80,111 @@ const ModelItem = memo(function ModelItem({
   })();
 
   return (
-    <button
-      onClick={onSelect}
-      className="w-full px-3 py-2.5 text-left hover:bg-stone-100/80 dark:hover:bg-stone-700/50 transition-colors"
-    >
-      <div className="flex items-center gap-2.5">
-        <ModelIconImg model={model.value} provider={model.provider} size={22} />
-        <div className="flex items-center gap-1 flex-1 min-w-0">
-          <span className="text-sm text-stone-700 dark:text-stone-200 truncate">
-            {model.label}
-          </span>
-          {model.description && (
-            <span
-              ref={iconRef}
-              className="inline-flex items-center shrink-0 cursor-pointer ml-0.5"
-              onMouseEnter={show}
-              onMouseLeave={hide}
-              onTouchStart={toggle}
-            >
-              <Info
-                size={14}
-                className="text-stone-400 hover:text-stone-600 dark:text-stone-500 dark:hover:text-stone-300 transition-colors"
-              />
-              {showTip && (
-                <span
-                  className="fixed z-[60] max-w-[240px] w-max rounded-lg bg-stone-700 dark:bg-stone-900 px-2.5 py-1.5 text-xs leading-relaxed text-white shadow-lg whitespace-normal"
-                  style={tipStyle}
-                  onTouchStart={(e) => e.stopPropagation()}
-                >
-                  {model.description}
-                  {tipPlacement.current === "top" ? (
-                    <span className="absolute left-1/2 -translate-x-1/2 top-full border-[5px] border-transparent border-t-stone-700 dark:border-t-stone-900" />
-                  ) : (
-                    <span className="absolute left-1/2 -translate-x-1/2 bottom-full border-[5px] border-transparent border-b-stone-700 dark:border-b-stone-900" />
-                  )}
-                </span>
-              )}
+    <div className="group/model-item relative">
+      <div className="flex items-center gap-2.5 px-3 py-2.5 hover:bg-stone-100/80 dark:hover:bg-stone-700/50 transition-colors">
+        <button
+          type="button"
+          onClick={onSelect}
+          className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
+        >
+          <ModelIconImg
+            model={model.value}
+            provider={model.provider}
+            size={22}
+          />
+          <div className="flex items-center gap-1 flex-1 min-w-0">
+            <span className="text-sm text-stone-700 dark:text-stone-200 truncate">
+              {model.label}
             </span>
+            {model.description && (
+              <span
+                ref={iconRef}
+                className="inline-flex items-center shrink-0 cursor-pointer ml-0.5"
+                onMouseEnter={show}
+                onMouseLeave={hide}
+                onTouchStart={toggle}
+              >
+                <Info
+                  size={14}
+                  className="text-stone-400 hover:text-stone-600 dark:text-stone-500 dark:hover:text-stone-300 transition-colors"
+                />
+                {showTip && (
+                  <span
+                    className="fixed z-[60] max-w-[240px] w-max rounded-lg bg-stone-700 dark:bg-stone-900 px-2.5 py-1.5 text-xs leading-relaxed text-white shadow-lg whitespace-normal"
+                    style={tipStyle}
+                    onTouchStart={(e) => e.stopPropagation()}
+                  >
+                    {model.description}
+                    {tipPlacement.current === "top" ? (
+                      <span className="absolute left-1/2 -translate-x-1/2 top-full border-[5px] border-transparent border-t-stone-700 dark:border-t-stone-900" />
+                    ) : (
+                      <span className="absolute left-1/2 -translate-x-1/2 bottom-full border-[5px] border-transparent border-b-stone-700 dark:border-b-stone-900" />
+                    )}
+                  </span>
+                )}
+              </span>
+            )}
+          </div>
+          {isSelected && (
+            <Check
+              size={16}
+              className="text-stone-500 dark:text-stone-400 shrink-0"
+            />
           )}
-        </div>
-        {isSelected && (
-          <Check size={16} className="text-stone-500 dark:text-stone-400" />
-        )}
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            if (canPin || isPinned) onTogglePin();
+          }}
+          className={`shrink-0 p-0.5 rounded transition-opacity ${
+            isPinned
+              ? "opacity-100"
+              : "opacity-0 group-hover/model-item:opacity-100"
+          } ${!canPin && !isPinned ? "cursor-not-allowed" : "cursor-pointer"}`}
+          title={
+            isPinned
+              ? t("profile.unpinModel")
+              : canPin
+                ? t("profile.pinModel")
+                : t("profile.maxPinnedModels", { max: MAX_PINNED })
+          }
+        >
+          {isPinned ? (
+            <Pin
+              size={14}
+              className="text-stone-500 dark:text-stone-400"
+              fill="currentColor"
+            />
+          ) : (
+            <PinOff
+              size={14}
+              className={
+                canPin
+                  ? "text-stone-400 hover:text-stone-600 dark:text-stone-500 dark:hover:text-stone-300"
+                  : "text-stone-300 dark:text-stone-600"
+              }
+            />
+          )}
+        </button>
       </div>
-    </button>
+    </div>
   );
 });
 
 interface ModelSelectorProps {
   models: ModelOption[];
   currentModelId: string;
+  pinnedModelIds?: string[];
+  onTogglePinnedModel?: (modelId: string) => void;
   onSelectModel: (modelId: string, modelValue: string) => void;
 }
 
 const ModelSelector = memo(function ModelSelector({
   models,
   currentModelId,
+  pinnedModelIds = [],
+  onTogglePinnedModel,
   onSelectModel,
 }: ModelSelectorProps) {
   const { t } = useTranslation();
@@ -139,7 +196,7 @@ const ModelSelector = memo(function ModelSelector({
   const currentModelInfo = models.find((m) => m.id === currentModelId);
 
   const isDefault = (() => {
-    void defaultTick; // re-read localStorage on tick change
+    void defaultTick;
     return localStorage.getItem("defaultModelId") === currentModelId;
   })();
 
@@ -156,7 +213,6 @@ const ModelSelector = memo(function ModelSelector({
     toast.success(t("profile.defaultModelSet"));
   }, [currentModelId, currentModelInfo, t]);
 
-  // Re-render when default model changes externally (e.g. from profile)
   useEffect(() => {
     const handler = () => setDefaultTick((t) => t + 1);
     window.addEventListener("model-preference-updated", handler);
@@ -204,6 +260,20 @@ const ModelSelector = memo(function ModelSelector({
     };
   })();
 
+  // Sort models: pinned first (in pinned order), then unpinned (original order)
+  const sortedModels = useMemo(() => {
+    const pinnedSet = new Set(pinnedModelIds);
+    const pinned = models.filter((m) => pinnedSet.has(m.id));
+    const pinnedOrdered = pinned.sort(
+      (a, b) => pinnedModelIds.indexOf(a.id) - pinnedModelIds.indexOf(b.id),
+    );
+    const unpinned = models.filter((m) => !pinnedSet.has(m.id));
+    return { pinned: pinnedOrdered, unpinned };
+  }, [models, pinnedModelIds]);
+
+  const hasPinned = sortedModels.pinned.length > 0;
+  const hasUnpinned = sortedModels.unpinned.length > 0;
+
   if (models.length === 0) return null;
 
   return (
@@ -244,12 +314,32 @@ const ModelSelector = memo(function ModelSelector({
             style={dropdownStyle}
           >
             <div className="overflow-y-auto overscroll-contain max-h-full">
-              {models.map((model) => (
+              {sortedModels.pinned.map((model) => (
                 <ModelItem
                   key={model.id}
                   model={model}
                   isSelected={model.id === currentModelId}
+                  isPinned={true}
                   onSelect={() => handleSelectModel(model.id, model.value)}
+                  onTogglePin={() => onTogglePinnedModel?.(model.id)}
+                  canPin={true}
+                />
+              ))}
+              {hasPinned && hasUnpinned && (
+                <div
+                  className="mx-3 border-t"
+                  style={{ borderColor: "var(--theme-border)" }}
+                />
+              )}
+              {sortedModels.unpinned.map((model) => (
+                <ModelItem
+                  key={model.id}
+                  model={model}
+                  isSelected={model.id === currentModelId}
+                  isPinned={false}
+                  onSelect={() => handleSelectModel(model.id, model.value)}
+                  onTogglePin={() => onTogglePinnedModel?.(model.id)}
+                  canPin={pinnedModelIds.length < MAX_PINNED}
                 />
               ))}
             </div>

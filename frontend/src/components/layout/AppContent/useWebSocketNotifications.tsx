@@ -17,6 +17,7 @@ interface UseWebSocketNotificationsOptions {
     sessionId: string,
     unreadCount: number,
     projectId?: string | null,
+    isFavorite?: boolean,
   ) => void;
 }
 
@@ -50,14 +51,27 @@ export function useWebSocketNotifications({
         message?: string;
         unread_count?: number;
         project_id?: string | null;
+        is_favorite?: boolean;
       };
     }) => {
-      const { session_id, run_id, status, message, unread_count, project_id } =
-        notification.data;
+      const {
+        session_id,
+        run_id,
+        status,
+        message,
+        unread_count,
+        project_id,
+        is_favorite,
+      } = notification.data;
 
       // 通知侧边栏更新 unread_count（仅非当前 session）
       if (session_id !== sessionId && unread_count !== undefined) {
-        onSessionUnreadRef.current?.(session_id, unread_count, project_id);
+        onSessionUnreadRef.current?.(
+          session_id,
+          unread_count,
+          project_id,
+          is_favorite,
+        );
       }
 
       const visibilityState =
@@ -70,7 +84,7 @@ export function useWebSocketNotifications({
 
       if (!shouldSurface) {
         sessionApi.markRead(session_id).catch(() => {});
-        onSessionUnreadRef.current?.(session_id, 0, project_id);
+        onSessionUnreadRef.current?.(session_id, 0, project_id, is_favorite);
         return;
       }
 

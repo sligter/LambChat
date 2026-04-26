@@ -1,8 +1,8 @@
 import { memo, useState, useCallback, useRef } from "react";
-import { toast } from "react-hot-toast";
 import { RefreshCw, Sparkles } from "lucide-react";
 import { ChatInput } from "./ChatInput";
 import type { ChatInputProps } from "./ChatInput";
+import { ContactAdminDialog } from "../common/ContactAdminDialog";
 
 export interface Suggestion {
   icon: string;
@@ -17,7 +17,6 @@ interface WelcomePageProps {
   suggestions: Suggestion[] | undefined;
   canSendMessage: boolean;
   onSendMessage: (content: string) => void;
-  noPermissionHint: string;
   chatInputProps: ChatInputProps;
   onRefreshSuggestions?: () => void;
 }
@@ -30,17 +29,17 @@ export const WelcomePage = memo(function WelcomePage({
   suggestions,
   canSendMessage,
   onSendMessage,
-  noPermissionHint,
   chatInputProps,
   onRefreshSuggestions,
 }: WelcomePageProps) {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [animKey, setAnimKey] = useState(0);
+  const [contactAdminOpen, setContactAdminOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
   const handleSuggestionClick = (text: string) => {
     if (!canSendMessage) {
-      toast.error(noPermissionHint);
+      setContactAdminOpen(true);
       return;
     }
     onSendMessage(text);
@@ -97,7 +96,7 @@ export const WelcomePage = memo(function WelcomePage({
 
       {/* Suggestions with refresh */}
       {suggestions && suggestions.length > 0 && (
-        <div className="welcome-suggestions relative w-[19rem] sm:max-w-[36rem] lg:max-w-[42rem] sm:w-full px-2 sm:mt-5 lg:mt-8">
+        <div className="welcome-suggestions relative w-[19rem] sm:max-w-[32rem] lg:sm:max-w-[36rem] xl:max-w-[42rem] sm:w-full px-2 sm:px-4 sm:mt-5 lg:mt-8">
           <div className="flex items-center justify-between mb-2 sm:mb-3 lg:mb-4">
             <div
               className="flex items-center gap-1 text-xs sm:text-sm font-medium"
@@ -167,6 +166,12 @@ export const WelcomePage = memo(function WelcomePage({
           </div>
         </div>
       )}
+
+      <ContactAdminDialog
+        isOpen={contactAdminOpen}
+        onClose={() => setContactAdminOpen(false)}
+        reason="noPermission"
+      />
     </div>
   );
 });

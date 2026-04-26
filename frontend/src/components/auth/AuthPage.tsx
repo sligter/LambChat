@@ -12,6 +12,7 @@ import { Turnstile } from "react-turnstile";
 import { useAuth } from "../../hooks/useAuth";
 import { useTheme } from "../../contexts/ThemeContext";
 import { Loading, LoadingSpinner } from "../common/LoadingSpinner";
+import { ContactAdminDialog } from "../common/ContactAdminDialog";
 import { ThemeToggle } from "../common/ThemeToggle";
 import { LanguageToggle } from "../common/LanguageToggle";
 import { authApi } from "../../services/api";
@@ -57,6 +58,7 @@ export function AuthPage({ onSuccess, initialMode }: AuthPageProps) {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isRedirecting, setIsRedirecting] = useState(false);
+  const [contactAdminOpen, setContactAdminOpen] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [turnstileKey, setTurnstileKey] = useState(0); // 用于强制重新渲染 Turnstile
   const submitLabel = mode === "login" ? t("auth.login") : t("auth.register");
@@ -430,9 +432,22 @@ export function AuthPage({ onSuccess, initialMode }: AuthPageProps) {
             >
               {/* Error */}
               {error && (
-                <div className="flex items-center gap-2 rounded-lg border border-red-200/60 bg-red-50/80 px-3 py-2 text-xs text-red-600 dark:border-red-900/40 dark:bg-red-950/40 dark:text-red-400">
-                  <AlertCircle size={14} className="flex-shrink-0" />
-                  <span>{error}</span>
+                <div>
+                  <div className="flex items-center gap-2 rounded-lg border border-red-200/60 bg-red-50/80 px-3 py-2 text-xs text-red-600 dark:border-red-900/40 dark:bg-red-950/40 dark:text-red-400">
+                    <AlertCircle size={14} className="flex-shrink-0" />
+                    <span>{error}</span>
+                  </div>
+                  {(error.includes("邮箱") ||
+                    error.includes("激活") ||
+                    error.includes("verify") ||
+                    error.includes("activate")) && (
+                    <button
+                      onClick={() => setContactAdminOpen(true)}
+                      className="mt-1.5 text-xs text-stone-400 dark:text-stone-500 hover:text-stone-600 dark:hover:text-stone-300 transition-colors"
+                    >
+                      {t("contactAdmin.supportLink", "联系管理员")}
+                    </button>
+                  )}
                 </div>
               )}
 
@@ -640,6 +655,12 @@ export function AuthPage({ onSuccess, initialMode }: AuthPageProps) {
           </div>
         </div>
       </div>
+
+      <ContactAdminDialog
+        isOpen={contactAdminOpen}
+        onClose={() => setContactAdminOpen(false)}
+        reason="emailActivation"
+      />
     </div>
   );
 }

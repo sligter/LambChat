@@ -5,6 +5,7 @@ import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 import { authApi } from "../../services/api";
 import { LoadingSpinner } from "../common/LoadingSpinner";
+import { ContactAdminDialog } from "../common/ContactAdminDialog";
 import { AuthLayout } from "./AuthLayout";
 
 export function RegistrationPending() {
@@ -13,6 +14,7 @@ export function RegistrationPending() {
   const navigate = useNavigate();
   const [isResending, setIsResending] = useState(false);
   const [resendSuccess, setResendSuccess] = useState(false);
+  const [contactAdminOpen, setContactAdminOpen] = useState(false);
   const email = searchParams.get("email");
 
   useEffect(() => {
@@ -116,6 +118,19 @@ export function RegistrationPending() {
       >
         {t("auth.backToLogin")}
       </button>
+
+      <button
+        onClick={() => setContactAdminOpen(true)}
+        className="mt-2 w-full text-center text-xs text-stone-400 dark:text-stone-500 hover:text-stone-600 dark:hover:text-stone-300 transition-colors"
+      >
+        {t("contactAdmin.supportLink", "联系管理员")}
+      </button>
+
+      <ContactAdminDialog
+        isOpen={contactAdminOpen}
+        onClose={() => setContactAdminOpen(false)}
+        reason="emailActivation"
+      />
     </AuthLayout>
   );
 }

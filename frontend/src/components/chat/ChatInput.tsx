@@ -9,6 +9,7 @@ import {
   Brain,
   Zap,
   Settings,
+  FileText,
   type LucideIcon,
 } from "lucide-react";
 import TurndownService from "turndown";
@@ -23,6 +24,7 @@ import { DelayedUnmount } from "../common/DelayedUnmount";
 import { AttachmentCard } from "../common/AttachmentCard";
 import { ImageViewer } from "../common";
 import { ConfirmDialog } from "../common/ConfirmDialog";
+import { ContactAdminDialog } from "../common/ContactAdminDialog";
 import { useFileUpload } from "../../hooks/useFileUpload";
 import {
   getTextareaMaxHeightPx,
@@ -174,6 +176,9 @@ const ICON_MAP: Record<string, LucideIcon> = {
   Settings,
 };
 
+/** When pasted text exceeds this length, auto-convert to a .txt file upload. */
+const PASTE_TEXT_THRESHOLD = 3000;
+
 const THINKING_LEVEL_COLOR: Record<
   string,
   { border: string; bg: string; text: string }
@@ -318,8 +323,9 @@ const AgentOptionButton = memo(function AgentOptionButton({
   }
 
   // Select/dropdown for string/number options
-  if (option.options && option.options.length > 0) {
-    const selectedOption = option.options.find((opt) => opt.value === value);
+  const options = option.options;
+  if (options && options.length > 0) {
+    const selectedOption = options.find((opt) => opt.value === value);
     const selectedLabel = selectedOption?.label_key
       ? t(selectedOption.label_key)
       : selectedOption?.label || String(value);
@@ -327,11 +333,14 @@ const AgentOptionButton = memo(function AgentOptionButton({
     const getDropdownStyle = (): React.CSSProperties => {
       const rect = dropdownRef.current?.getBoundingClientRect();
       if (!rect) return { display: "none" };
+      const vw = window.innerWidth;
+      const dropdownW = Math.min(288, vw - 16);
+      const left = Math.max(8, Math.min(rect.left, vw - dropdownW - 8));
       return {
         position: "fixed",
         bottom: window.innerHeight - rect.top + 4,
-        left: rect.left,
-        minWidth: Math.max(120, rect.width),
+        left,
+        width: dropdownW,
         zIndex: 9999,
       };
     };
@@ -363,38 +372,224 @@ const AgentOptionButton = memo(function AgentOptionButton({
 
         {showDropdown &&
           createPortal(
-            <div
-              ref={portalRef}
-              className="rounded-lg shadow-lg border overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-200"
-              style={{
-                ...getDropdownStyle(),
-                background: "var(--theme-bg-card)",
-                borderColor: "var(--theme-border)",
-              }}
-            >
-              {option.options.map((opt) => (
-                <button
-                  key={String(opt.value)}
-                  type="button"
-                  onClick={() => {
-                    onChange(opt.value);
-                    setShowDropdown(false);
+            <>
+              {/* Mobile: bottom sheet modal */}
+              <div
+                className="sm:hidden fixed inset-0 z-[9999] flex flex-col justify-end"
+                onClick={() => setShowDropdown(false)}
+              >
+                <div className="absolute inset-0 bg-black/40" />
+                <div
+                  className="relative rounded-t-2xl px-4 pt-3 pb-6 animate-in fade-in slide-in-from-bottom-4 duration-200"
+                  style={{
+                    background: "var(--theme-bg-card)",
+                    maxHeight: "60vh",
                   }}
-                  className={`w-full px-3 py-2 text-left text-sm transition-colors ${
-                    value === opt.value ? "chat-tool-btn-active" : ""
-                  }`}
-                  style={
-                    value === opt.value
-                      ? undefined
-                      : { color: "var(--theme-text)" }
-                  }
+                  onClick={(e) => e.stopPropagation()}
                 >
-                  {opt.label_key
-                    ? t(opt.label_key)
-                    : opt.label || String(opt.value)}
-                </button>
-              ))}
-            </div>,
+                  {/* Handle */}
+                  <div
+                    className="mx-auto mb-3 w-9 h-1 rounded-full"
+                    style={{ background: "var(--theme-border)" }}
+                  />
+                  {/* Title */}
+                  <div
+                    className="text-sm font-medium mb-3"
+                    style={{ color: "var(--theme-text)" }}
+                  >
+                    {description}
+                  </div>
+                  {/* Options */}
+                  <div className="flex flex-col gap-1">
+                    {options.map((opt) => {
+                      const isActive = opt.value === value;
+                      const optColor =
+                        THINKING_LEVEL_COLOR[String(opt.value)] ??
+                        THINKING_LEVEL_COLOR.off;
+                      return (
+                        <button
+                          key={String(opt.value)}
+                          type="button"
+                          onClick={() => {
+                            onChange(opt.value);
+                            setShowDropdown(false);
+                          }}
+                          className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors text-left active:scale-[0.98]"
+                          style={{
+                            background: isActive
+                              ? `color-mix(in srgb, ${optColor.text} 12%, transparent)`
+                              : "transparent",
+                            color: isActive
+                              ? optColor.text
+                              : "var(--theme-text)",
+                          }}
+                        >
+                          <span
+                            className="w-2.5 h-2.5 rounded-full shrink-0"
+                            style={{
+                              background: isActive
+                                ? optColor.text
+                                : "var(--theme-border)",
+                            }}
+                          />
+                          {opt.label_key
+                            ? t(opt.label_key)
+                            : opt.label || String(opt.value)}
+                          {isActive && (
+                            <span
+                              className="ml-auto text-xs"
+                              style={{ color: optColor.text }}
+                            >
+                              ✓
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              {/* Desktop: dropdown with stepped slider */}
+              <div
+                ref={portalRef}
+                className="hidden sm:block w-72 rounded-xl px-2 py-1.5 border shadow-sm animate-in fade-in slide-in-from-bottom-2 duration-200"
+                style={{
+                  ...getDropdownStyle(),
+                  background: "var(--theme-bg-card)",
+                  borderColor: "var(--theme-border)",
+                }}
+              >
+                {/* Title */}
+                <div
+                  className="px-2.5 py-1.5 text-xs font-medium"
+                  style={{ color: "var(--theme-text-secondary)" }}
+                >
+                  {description}
+                </div>
+
+                {/* Stepped slider */}
+                <div className="mx-2 mb-1">
+                  <div className="stepped-slider select-none">
+                    <div
+                      className="relative h-10 flex items-center cursor-pointer"
+                      role="slider"
+                      tabIndex={0}
+                      aria-valuemin={0}
+                      aria-valuemax={options.length - 1}
+                      aria-valuenow={options.findIndex(
+                        (opt) => opt.value === value,
+                      )}
+                      onClick={(e) => {
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        const clientX = (e.nativeEvent as MouseEvent).clientX;
+                        const ratio = Math.max(
+                          0,
+                          Math.min(1, (clientX - rect.left) / rect.width),
+                        );
+                        const idx = Math.round(ratio * (options.length - 1));
+                        const opt = options[idx];
+                        if (opt) onChange(opt.value);
+                      }}
+                      onKeyDown={(e) => {
+                        const currentIdx = options.findIndex(
+                          (opt) => opt.value === value,
+                        );
+                        if (
+                          e.key === "ArrowRight" &&
+                          currentIdx < options.length - 1
+                        ) {
+                          onChange(options[currentIdx + 1].value);
+                        } else if (e.key === "ArrowLeft" && currentIdx > 0) {
+                          onChange(options[currentIdx - 1].value);
+                        }
+                      }}
+                    >
+                      {/* Track background */}
+                      <div
+                        className="absolute left-0 right-0 h-1 rounded-full"
+                        style={{
+                          background: "var(--theme-border)",
+                        }}
+                      />
+                      {/* Active track — fills up to current dot */}
+                      <div
+                        className="absolute left-0 h-1 rounded-full transition-all duration-150"
+                        style={{
+                          width: `${
+                            (options.findIndex((opt) => opt.value === value) /
+                              (options.length - 1)) *
+                            100
+                          }%`,
+                          background:
+                            levelColor.text ?? "var(--theme-text-secondary)",
+                        }}
+                      />
+                      {/* Step dots */}
+                      {options.map((opt, idx) => {
+                        const pos = (idx / (options.length - 1)) * 100;
+                        const isActive = opt.value === value;
+                        return (
+                          <div
+                            key={String(opt.value)}
+                            className="absolute w-1.5 h-1.5 rounded-full -translate-x-1/2 transition-colors duration-150"
+                            style={{
+                              left: `${pos}%`,
+                              background: isActive
+                                ? levelColor.text ??
+                                  "var(--theme-text-secondary)"
+                                : "var(--theme-text-secondary)",
+                              opacity: isActive ? 1 : 0.5,
+                            }}
+                          />
+                        );
+                      })}
+                      {/* Active thumb */}
+                      <div
+                        className="absolute w-4 h-4 rounded-full -translate-x-1/2 transition-all duration-150 shadow-sm hover:scale-105"
+                        style={{
+                          left: `${
+                            (options.findIndex((opt) => opt.value === value) /
+                              (options.length - 1)) *
+                            100
+                          }%`,
+                          background:
+                            levelColor.text ?? "var(--theme-text-secondary)",
+                          border: "2px solid var(--theme-bg-card)",
+                        }}
+                      />
+                    </div>
+                    {/* Step labels */}
+                    <div className="relative h-4 -mt-1">
+                      {options.map((opt, idx) => {
+                        const pos = (idx / (options.length - 1)) * 100;
+                        const isActive = opt.value === value;
+                        return (
+                          <button
+                            key={String(opt.value)}
+                            type="button"
+                            onClick={() => onChange(opt.value)}
+                            className="absolute text-[10px] leading-tight text-center transition-all duration-150 cursor-pointer -translate-x-1/2 whitespace-nowrap"
+                            style={{
+                              left: `${pos}%`,
+                              color: isActive
+                                ? levelColor.text ??
+                                  "var(--theme-text-secondary)"
+                                : "var(--theme-text-secondary)",
+                              fontWeight: isActive ? 500 : 400,
+                            }}
+                          >
+                            {opt.label_key
+                              ? t(opt.label_key)
+                              : opt.label || String(opt.value)}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </>,
             document.body,
           )}
       </div>
@@ -464,6 +659,7 @@ export const ChatInput = memo(function ChatInput({
   const [imageViewerSrc, setImageViewerSrc] = useState<string | null>(null);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const [stopConfirmOpen, setStopConfirmOpen] = useState(false);
+  const [contactAdminOpen, setContactAdminOpen] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const resizeRafRef = useRef<number>(0);
   const [history, setHistory] = useState<string[]>(() => {
@@ -542,6 +738,40 @@ export const ChatInput = memo(function ChatInput({
     };
   }, []);
 
+  const textAsFile = useCallback(
+    (text: string, mimeType: string, ext: string) => {
+      if (!validateCount(1)) return;
+      const now = new Date();
+      const ts = [
+        now.getFullYear(),
+        String(now.getMonth() + 1).padStart(2, "0"),
+        String(now.getDate()).padStart(2, "0"),
+        String(now.getHours()).padStart(2, "0"),
+        String(now.getMinutes()).padStart(2, "0"),
+        String(now.getSeconds()).padStart(2, "0"),
+      ].join("");
+      const name = `clipboard-${ts}.${ext}`;
+      const file = new File([text], name, { type: mimeType });
+      uploadFiles([file], "document");
+      toast.custom(() => (
+        <div
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium"
+          style={{
+            background:
+              "color-mix(in srgb, var(--theme-primary) 10%, transparent)",
+            border:
+              "1px solid color-mix(in srgb, var(--theme-primary) 20%, transparent)",
+            color: "var(--theme-primary)",
+          }}
+        >
+          <FileText size={16} className="shrink-0" />
+          <span>{t("chat.textAutoUploaded", "长文本已自动转为文件上传")}</span>
+        </div>
+      ));
+    },
+    [validateCount, uploadFiles, t],
+  );
+
   // Handle paste to convert rich text to plain text or upload pasted files
   const handlePaste = (e: React.ClipboardEvent) => {
     const clipboardData = e.clipboardData;
@@ -570,6 +800,11 @@ export const ChatInput = memo(function ChatInput({
 
       const markdownText = turndown.turndown(tempDiv);
 
+      if (markdownText.length > PASTE_TEXT_THRESHOLD) {
+        textAsFile(markdownText, "text/markdown", "md");
+        return;
+      }
+
       const textarea = textareaRef.current;
       if (textarea) {
         const start = textarea.selectionStart;
@@ -585,6 +820,14 @@ export const ChatInput = memo(function ChatInput({
           scheduleTextareaResize();
         }, 0);
       }
+      return;
+    }
+
+    // Plain text paste — check length before inserting
+    const plainText = clipboardData.getData("text/plain");
+    if (plainText && plainText.length > PASTE_TEXT_THRESHOLD) {
+      e.preventDefault();
+      textAsFile(plainText, "text/plain", "txt");
     }
   };
 
@@ -742,7 +985,7 @@ export const ChatInput = memo(function ChatInput({
         >
           {/* Attachment preview - top area (ChatGPT style) */}
           {attachments.length > 0 && (
-            <div className="mx-2 mt-2 -mb-1 flex gap-2 overflow-x-auto">
+            <div className="mx-3 mt-2.5 -mb-1 flex gap-3 overflow-x-auto attachment-scroll pb-1">
               {attachments.map((attachment) => {
                 const isImage =
                   attachment.mimeType?.startsWith("image/") && attachment.url;
@@ -869,8 +1112,14 @@ export const ChatInput = memo(function ChatInput({
             {/* Right side - Send/Stop button */}
             <div className="self-end flex space-x-1.5 flex-shrink-0">
               {!canSend ? (
-                <div
-                  className="flex items-center justify-center rounded-full p-2"
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setContactAdminOpen(true);
+                  }}
+                  className="flex items-center justify-center rounded-full p-2 cursor-pointer transition-all duration-200 hover:scale-105"
                   style={{
                     backgroundColor: "var(--theme-primary-light)",
                     color: "var(--theme-text-secondary)",
@@ -878,7 +1127,7 @@ export const ChatInput = memo(function ChatInput({
                   title={t("chat.noPermission")}
                 >
                   <Lock size={18} />
-                </div>
+                </button>
               ) : isLoading ? (
                 <button
                   type="button"
@@ -993,6 +1242,13 @@ export const ChatInput = memo(function ChatInput({
           ));
         }}
         onCancel={() => setStopConfirmOpen(false)}
+      />
+
+      {/* 联系管理员弹窗 */}
+      <ContactAdminDialog
+        isOpen={contactAdminOpen}
+        onClose={() => setContactAdminOpen(false)}
+        reason="noPermission"
       />
     </div>
   );

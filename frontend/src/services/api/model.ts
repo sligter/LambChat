@@ -189,4 +189,23 @@ export const modelApi = {
   > {
     return authFetch(`${API_BASE}/api/agent/models/providers/list`);
   },
+
+  /** 获取当前用户的置顶模型 ID 列表 */
+  async getPinnedModelIds(): Promise<string[]> {
+    const user = await authFetch<{
+      metadata?: { pinned_model_ids?: string[] };
+    }>(`${API_BASE}/api/auth/profile`);
+    return user.metadata?.pinned_model_ids ?? [];
+  },
+
+  /** 更新当前用户的置顶模型 ID 列表 */
+  async updatePinnedModelIds(ids: string[]): Promise<string[]> {
+    const user = await authFetch<{
+      metadata?: { pinned_model_ids?: string[] };
+    }>(`${API_BASE}/api/auth/profile/metadata`, {
+      method: "PUT",
+      body: JSON.stringify({ metadata: { pinned_model_ids: ids } }),
+    });
+    return user.metadata?.pinned_model_ids ?? [];
+  },
 };

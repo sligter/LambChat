@@ -148,9 +148,20 @@ class SessionManager:
         is_active: Optional[bool] = None,
         project_id: Optional[str] = None,
         search: Optional[str] = None,
+        favorites_only: bool = False,
+        favorites_project_id: str | None = None,
     ) -> tuple[list[Session], int]:
         """列出会话，返回 (sessions, total_count)"""
-        return await self.storage.list_sessions(user_id, skip, limit, is_active, project_id, search)
+        return await self.storage.list_sessions(
+            user_id,
+            skip,
+            limit,
+            is_active,
+            project_id,
+            search,
+            favorites_only,
+            favorites_project_id,
+        )
 
     async def increment_unread_count(self, session_id: str) -> bool:
         """递增会话未读计数"""
