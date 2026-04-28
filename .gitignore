@@ -82,3 +82,4 @@ claude-code
 
 # YubbChat (external project, not part of this repo)
 YubbChat/
+.codex

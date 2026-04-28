@@ -63,6 +63,7 @@ class TaskExecutor:
         user_message_written: bool = False,
         disabled_skills: Optional[List[str]] = None,
         disabled_mcp_tools: Optional[List[str]] = None,
+        display_message: Optional[str] = None,
     ) -> None:
         """执行任务"""
         from src.infra.writer.present import Presenter, PresenterConfig
@@ -117,7 +118,9 @@ class TaskExecutor:
 
             # 立即发送 user:message 事件（任务开始时固定发送）
             if message and not already_written:
-                await presenter.emit_user_message(message, attachments=attachments)
+                await presenter.emit_user_message(
+                    display_message or message, attachments=attachments
+                )
 
             # 保存 trace_id 和 agent_id 到 run_info，保留已有的 flag
             run_info_entry: dict[str, Any] = {

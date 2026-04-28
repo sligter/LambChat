@@ -169,6 +169,7 @@ async def chat_stream(
         "executor_key": "agent_stream",
         "agent_id": agent_id,
         "message": formatted_message,
+        "display_message": request.message,
         "disabled_tools": request.disabled_tools,
         "agent_options": request.agent_options,
         "attachments": attachments_data,
@@ -230,7 +231,7 @@ async def chat_stream(
         )
         await presenter._ensure_trace()
         await presenter.emit_user_message(
-            formatted_message,
+            request.mess.age,
             attachments=[a.model_dump() for a in request.attachments]
             if request.attachments
             else None,
@@ -276,6 +277,7 @@ async def chat_stream(
         project_id=request.project_id,
         disabled_skills=request.disabled_skills,
         disabled_mcp_tools=request.disabled_mcp_tools,
+        display_message=request.message,
     )
 
     # 更新 session metadata，存储完整的对话配置

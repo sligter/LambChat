@@ -163,6 +163,7 @@ class BackgroundTaskManager:
         disabled_skills: Optional[List[str]] = None,
         disabled_mcp_tools: Optional[List[str]] = None,
         session_name: Optional[str] = None,
+        display_message: Optional[str] = None,
     ) -> Tuple[str, str]:
         """
         提交后台任务
@@ -216,6 +217,7 @@ class BackgroundTaskManager:
                     attachments,
                     disabled_skills=disabled_skills,
                     disabled_mcp_tools=disabled_mcp_tools,
+                    display_message=display_message,
                 )
             )
             self._tasks[run_id] = task
