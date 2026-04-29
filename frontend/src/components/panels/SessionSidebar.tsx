@@ -437,6 +437,10 @@ export const SessionSidebar = forwardRef<
         e.preventDefault();
         onNewSession();
       }
+      if (modifier && e.shiftKey && (e.key === "O" || e.key === "o")) {
+        e.preventDefault();
+        onNewSession();
+      }
     };
 
     document.addEventListener("keydown", handleKeyDown);
@@ -502,10 +506,13 @@ export const SessionSidebar = forwardRef<
       <div className="flex flex-col gap-px px-2 py-2 space-y-1">
         <button
           onClick={onNewSession}
-          className="w-full h-9 rounded-[10px] flex items-center gap-3 px-[9px] text-sm font-medium text-stone-600 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-800/60 focus:outline-none transition-colors"
+          className="w-full h-9 rounded-[10px] flex items-center gap-3 px-[9px] text-sm font-medium text-stone-600 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-800/60 focus:outline-none transition-colors group"
         >
           <MessageSquarePlus size={18} />
-          <span>{t("sidebar.newChat")}</span>
+          <span className="flex-1 text-left">{t("sidebar.newChat")}</span>
+          <kbd className="hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-medium text-stone-400 dark:text-stone-500 rounded opacity-0 group-hover:opacity-100 transition-opacity">
+            {t("sidebar.newChatShortcut")}
+          </kbd>
         </button>
 
         <button
