@@ -231,7 +231,7 @@ async def chat_stream(
         )
         await presenter._ensure_trace()
         await presenter.emit_user_message(
-            request.mess.age,
+            request.message,
             attachments=[a.model_dump() for a in request.attachments]
             if request.attachments
             else None,

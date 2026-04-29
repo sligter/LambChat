@@ -507,9 +507,7 @@ class UserConcurrencyLimiter:
                         else False,
                         disabled_skills=disabled_skills,
                         disabled_mcp_tools=disabled_mcp_tools,
-                        display_message=task_ctx.get("display_message")
-                        if task_ctx
-                        else None,
+                        display_message=task_ctx.get("display_message") if task_ctx else None,
                     )
                 )
                 task_manager._tasks[run_id] = task
