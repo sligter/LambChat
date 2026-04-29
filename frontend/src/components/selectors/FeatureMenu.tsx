@@ -9,6 +9,7 @@ import {
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { Wrench, Sparkles, Bot, Brain, Wand2, ChevronDown } from "lucide-react";
+import { THINKING_LEVEL_COLOR } from "../chat/chatInputConstants";
 
 export type FeaturePanel = "tools" | "skills" | "agent" | "thinking" | null;
 
@@ -22,12 +23,14 @@ interface FeatureMenuProps {
   hasAgentSelector: boolean;
   hasThinkingOption: boolean;
   thinkingLabel?: string;
+  thinkingLevel?: string;
 }
 
 function MenuItem({
   icon,
   label,
   badge,
+  badgeColor,
   active,
   onClick,
   divider,
@@ -35,10 +38,12 @@ function MenuItem({
   icon: ReactNode;
   label: string;
   badge?: string;
+  badgeColor?: string;
   active?: boolean;
   onClick: () => void;
   divider?: boolean;
 }) {
+  const color = THINKING_LEVEL_COLOR[badgeColor ?? ""];
   return (
     <>
       {divider && <div className="feature-menu-divider" />}
@@ -50,7 +55,21 @@ function MenuItem({
       >
         <span className="feature-menu-icon">{icon}</span>
         <span className="flex-1 text-left">{label}</span>
-        {badge && <span className="feature-menu-badge">{badge}</span>}
+        {badge && (
+          <span
+            className="feature-menu-badge"
+            style={
+              color
+                ? {
+                    color: color.text,
+                    background: color.bg,
+                  }
+                : undefined
+            }
+          >
+            {badge}
+          </span>
+        )}
       </button>
     </>
   );
@@ -66,6 +85,7 @@ export const FeatureMenu = memo(function FeatureMenu({
   hasAgentSelector,
   hasThinkingOption,
   thinkingLabel,
+  thinkingLevel,
 }: FeatureMenuProps) {
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
@@ -91,7 +111,7 @@ export const FeatureMenu = memo(function FeatureMenu({
     const rect = triggerRef.current?.getBoundingClientRect();
     if (!rect) return { display: "none" };
     const vw = window.innerWidth;
-    const dropdownW = Math.min(248, vw - 16);
+    const dropdownW = Math.min(vw < 480 ? 208 : 248, vw - 16);
     const left = Math.max(8, Math.min(rect.left, vw - dropdownW - 8));
     return {
       position: "fixed",
@@ -180,6 +200,7 @@ export const FeatureMenu = memo(function FeatureMenu({
                 icon={<Brain size={15} />}
                 label={t("chat.thinkingIntensity", "思考强度")}
                 badge={thinkingLabel}
+                badgeColor={thinkingLevel}
                 active={activePanel === "thinking"}
                 onClick={() => onOpen("thinking")}
                 divider={

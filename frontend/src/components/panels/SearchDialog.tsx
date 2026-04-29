@@ -281,7 +281,7 @@ export function SearchDialog({
 
         {/* Results list */}
         <div
-          className="h-[50vh] overflow-y-auto scroll-smooth"
+          className="h-[50vh] overflow-y-auto scroll-smooth py-2"
           style={{
             scrollbarWidth: "thin",
             scrollbarColor: "transparent transparent",
@@ -314,7 +314,7 @@ export function SearchDialog({
 
             {/* Session items — fades in when skeleton fades out */}
             <div
-              className={`[grid-area:1/1] transition-opacity duration-150 ease-out ${
+              className={`[grid-area:1/1] pb-4 transition-opacity duration-150 ease-out ${
                 !isLoading ? "opacity-100" : "opacity-0 pointer-events-none"
               }`}
             >

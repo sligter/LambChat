@@ -42,6 +42,7 @@ export function DesktopMoreMenu({
         top: position.top,
         left: position.left,
       }}
+      onMouseDown={(e) => e.stopPropagation()}
     >
       {visibleUser.length > 0 && (
         <div>

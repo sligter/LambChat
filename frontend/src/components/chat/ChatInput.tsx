@@ -540,6 +540,23 @@ export const ChatInput = memo(function ChatInput({
                         })[0]
                     : undefined
                 }
+                thinkingLevel={
+                  agentOptions
+                    ? Object.entries(agentOptions)
+                        .filter(
+                          ([, opt]) => opt.options && opt.options.length > 0,
+                        )
+                        .map(([, opt]) => {
+                          const val =
+                            agentOptionValues[
+                              Object.keys(agentOptions).find(
+                                (k) => agentOptions[k] === opt,
+                              )!
+                            ] ?? opt.default;
+                          return String(val);
+                        })[0]
+                    : undefined
+                }
               />
             </div>
 

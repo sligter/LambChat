@@ -203,8 +203,8 @@ export const SessionSidebar = forwardRef<
       if (moreMenuRef.current?.contains(e.target as Node)) return;
       setIsMoreMenuOpen(false);
     };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener("click", handleClickOutside);
+    return () => document.removeEventListener("click", handleClickOutside);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isMoreMenuOpen]);
 
@@ -741,11 +741,20 @@ export const SessionSidebar = forwardRef<
             imgError={imgError}
             onImgError={() => setImgError(true)}
             onExpand={() => setIsCollapsed(false)}
-            onNewSession={onNewSession}
-            onOpenSearch={() => setIsSearchOpen(true)}
+            onNewSession={() => {
+              onNewSession();
+              setIsRecentChatsOpen(false);
+            }}
+            onOpenSearch={() => {
+              setIsSearchOpen(true);
+              setIsRecentChatsOpen(false);
+            }}
             onOpenRecentChats={() => setIsRecentChatsOpen(true)}
             hasMoreMenuItems={hasMoreMenuItems}
-            onToggleMoreMenu={() => setIsMoreMenuOpen((prev) => !prev)}
+            onToggleMoreMenu={() => {
+              setIsMoreMenuOpen((prev) => !prev);
+              setIsRecentChatsOpen(false);
+            }}
             moreMenuBtnRef={moreMenuBtnRef}
             recentChatsBtnRef={recentChatsBtnRef}
             onShowProfile={onShowProfile!}
@@ -830,14 +839,16 @@ export const SessionSidebar = forwardRef<
         anchorEl={recentChatsBtnRef.current}
       />
 
-      <DesktopMoreMenu
-        userItems={moreMenuUserItems}
-        sysItems={moreMenuSysItems}
-        isOpen={isMoreMenuOpen}
-        onClose={() => setIsMoreMenuOpen(false)}
-        menuRef={moreMenuRef}
-        position={moreMenuPosition}
-      />
+      {!isMobile && (
+        <DesktopMoreMenu
+          userItems={moreMenuUserItems}
+          sysItems={moreMenuSysItems}
+          isOpen={isMoreMenuOpen}
+          onClose={() => setIsMoreMenuOpen(false)}
+          menuRef={moreMenuRef}
+          position={moreMenuPosition}
+        />
+      )}
     </>
   );
 });
