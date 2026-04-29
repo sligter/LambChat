@@ -105,6 +105,7 @@ export const SessionSidebar = forwardRef<
   const [isProjectsCollapsed, setIsProjectsCollapsed] = useState(false);
   const [isChatsCollapsed, setIsChatsCollapsed] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+  const [isScrolledToBottom, setIsScrolledToBottom] = useState(false);
   const [scrollEl, setScrollEl] = useState<HTMLDivElement | null>(null);
   const [unreadBySession, setUnreadBySession] = useState<UnreadBySession>(
     () => new Map(),
@@ -535,23 +536,26 @@ export const SessionSidebar = forwardRef<
         data-sidebar-scroll
         className="flex-1 overflow-y-auto px-2 relative [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         onScroll={(e) => {
-          setIsScrolled(e.currentTarget.scrollTop > 100);
+          const el = e.currentTarget;
+          setIsScrolled(el.scrollTop > 10);
+          setIsScrolledToBottom(
+            el.scrollHeight - el.scrollTop - el.clientHeight < 10,
+          );
         }}
       >
-        {isScrolled && (
-          <button
-            onClick={() =>
-              scrollEl?.scrollTo({
-                top: 0,
-                behavior: "smooth",
-              })
-            }
-            className="absolute top-16 right-3 z-10 flex items-center justify-center w-7 h-7 rounded-full bg-white dark:bg-stone-800 border border-stone-200/80 dark:border-stone-700/60 shadow-sm hover:bg-stone-50 dark:hover:bg-stone-700 transition-all"
-            title={t("common.scrollToTop")}
-          >
-            <ChevronDown size={14} className="rotate-180 text-stone-500" />
-          </button>
-        )}
+        {/* Top scroll fade indicator */}
+        <div
+          className={`sidebar-scroll-fade-top ${
+            isScrolled ? "is-scrolled" : ""
+          }`}
+        />
+
+        {/* Bottom scroll fade indicator */}
+        <div
+          className={`sidebar-scroll-fade-bottom transition-opacity duration-150 ${
+            isScrolledToBottom ? "opacity-0" : "opacity-100"
+          }`}
+        />
 
         <div className="flex flex-col gap-px">
           {/* Project section header */}
