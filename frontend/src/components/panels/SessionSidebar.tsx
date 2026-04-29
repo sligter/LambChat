@@ -20,6 +20,9 @@ import {
   FolderPlus,
   FolderOpen,
   MessageSquarePlus,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Clock,
 } from "lucide-react";
 import { LoadingSpinner } from "../common/LoadingSpinner";
 import { sessionApi, type BackendSession } from "../../services/api";
@@ -490,19 +493,7 @@ export const SessionSidebar = forwardRef<
           className="flex h-8 w-8 items-center justify-center rounded-lg text-stone-600 hover:bg-stone-100 dark:text-stone-300 dark:hover:bg-stone-800 transition-colors"
           title={t("sidebar.collapseSidebar")}
         >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-            className="w-5 h-5"
-          >
-            <path
-              fillRule="evenodd"
-              clipRule="evenodd"
-              d="M8.85719 3H15.1428C16.2266 2.99999 17.1007 2.99998 17.8086 3.05782C18.5375 3.11737 19.1777 3.24318 19.77 3.54497C20.7108 4.02433 21.4757 4.78924 21.955 5.73005C22.2568 6.32234 22.3826 6.96253 22.4422 7.69138C22.5 8.39925 22.5 9.27339 22.5 10.3572V13.6428c0 1.0838 0 1.958-.0578 2.6658-.0596.7289-.1854 1.3691-.4872 1.9612-.4794.9408-1.2443 1.7057-2.185 2.185-.6073.3018-1.2475.4276-1.9764.4872C17.1008 21 16.2266 21 15.1428 21H8.85717c-1.08378 0-1.95792 0-2.66579-.0578-.72885-.0596-1.36904-.1854-1.96133-.4872-.94081-.4794-1.70572-1.2443-2.18508-2.185-.30179-.6073-.4276-1.2475-.48715-1.9764C1.49998 15.6007 1.49999 14.7266 1.5 13.6428V10.3572c0-1.08379 0-1.95794.05782-2.66582.05955-.72885.18536-1.36904.48715-1.96133.47936-.94081 1.24427-1.70572 2.18508-2.18508.59229-.30179 1.23248-.4276 1.96133-.48715C6.89926 2.99998 7.77341 2.99999 8.85719 3ZM6.35424 5.05118c-.60517.04944-.95286.14161-1.21621.2758-.56449.28762-1.02343.74656-1.31105 1.31105-.13419.26335-.22636.61104-.2758 1.21621C3.50078 8.47108 3.5 9.26339 3.5 10.4v3.2c0 1.1366.00078 1.9289.05118 2.5458.04944.6051.14161.9528.2758 1.2162.28762.5645.74656 1.0234 1.31105 1.311.26335.1342.61104.2264 1.21621.2758C6.97108 18.9992 7.76339 19 8.9 19h.6V5h-.6c-1.13661 0-1.92892.00078-2.54576.05118ZM11.5 5v14h3.6c1.1366 0 1.9289-.0008 2.5458-.0512.6051-.0494.9528-.1416 1.2162-.2758.5645-.2876 1.0234-.7466 1.311-1.311.1342-.2634.2264-.6111.2758-1.2162.0494-.6169.05-1.4092.05-2.5458V10.4c0-1.13661-.0008-1.92892-.0512-2.54576-.0494-.60517-.1416-.95286-.2758-1.21621-.2876-.56449-.7466-1.02343-1.311-1.31105-.2634-.13419-.6111-.22636-1.2162-.2758C17.0289 5.00078 16.2366 5 15.1 5h-3.6ZM5 8.5C5 7.94772 5.44772 7.5 6 7.5h1c.55228 0 1 .44772 1 1S7.55228 9.5 7 9.5H6c-.55228 0-1-.44772-1-1Zm0 3.5c0-.5523.44772-1 1-1h1c.55228 0 1 .4477 1 1s-.44772 1-1 1H6c-.55228 0-1-.4477-1-1Z"
-              fill="currentColor"
-            />
-          </svg>
+          <PanelLeftClose size={18} />
         </button>
       </div>
 
@@ -820,12 +811,12 @@ export const SessionSidebar = forwardRef<
               </div>
             )}
           </div>
-          <div className="flex-1 text-left min-w-0">
+          <div className="flex-1 text-left min-w-0 space-y-0.5">
             <div className="text-sm font-medium text-gray-800 dark:text-gray-100 truncate">
               {user?.username || "User"}
             </div>
-            <div className="text-xs text-gray-400 dark:text-gray-500 whitespace-nowrap">
-              User
+            <div className="text-xs text-gray-400 dark:text-gray-500 whitespace-nowrap ">
+              {(user?.roles[0] || "User").replace(/^./, (c) => c.toUpperCase())}
             </div>
           </div>
           <ChevronDown className="size-4 text-gray-400 shrink-0" />
@@ -851,11 +842,88 @@ export const SessionSidebar = forwardRef<
         {isMobile ? sessionListContent : <div className="flex-1" />}
       </div>
 
-      {!isCollapsed && (
-        <div className="hidden h-full w-64 flex-col rounded-r-lg border-r border-stone-200/60 dark:border-stone-800/60 sm:flex">
-          {!isMobile ? sessionListContent : <div className="flex-1" />}
+      {/* Desktop: always render sidebar container */}
+      <div className="hidden sm:flex h-full relative">
+        {/* Collapsed rail */}
+        <nav
+          className="flex h-full w-[--sidebar-rail-width] flex-col items-start bg-transparent pb-1.5 shrink-0 select-none"
+          aria-label={t("sidebarView")}
+        >
+          <div className="flex h-11 items-center justify-center w-full">
+            <button
+              onClick={() => setIsCollapsed(false)}
+              className="flex h-9 w-9 items-center justify-center rounded-lg text-stone-600 hover:bg-stone-100 dark:text-stone-300 dark:hover:bg-stone-800 transition-colors"
+              aria-label={t("sidebar.expandSidebar")}
+            >
+              <PanelLeftOpen size={18} />
+            </button>
+          </div>
+
+          <div className="mt-4 flex flex-col items-center w-full gap-0.5">
+            <button
+              onClick={onNewSession}
+              className="flex h-9 w-9 items-center justify-center rounded-lg text-stone-600 hover:bg-stone-100 dark:text-stone-300 dark:hover:bg-stone-800 transition-colors"
+              aria-label={t("sidebar.newChat")}
+            >
+              <MessageSquarePlus size={18} />
+            </button>
+            <button
+              onClick={() => setIsSearchOpen(true)}
+              className="flex h-9 w-9 items-center justify-center rounded-lg text-stone-600 hover:bg-stone-100 dark:text-stone-300 dark:hover:bg-stone-800 transition-colors"
+              aria-label={t("sidebar.searchSessions")}
+            >
+              <Search size={18} />
+            </button>
+            <button
+              onClick={() => setIsCollapsed(false)}
+              className="flex h-9 w-9 items-center justify-center rounded-lg text-stone-600 hover:bg-stone-100 dark:text-stone-300 dark:hover:bg-stone-800 transition-colors"
+              aria-label={t("sidebar.recentChats")}
+            >
+              <Clock size={18} />
+            </button>
+          </div>
+
+          <div className="pointer-events-none flex-grow" />
+
+          <div className="mb-1 flex items-center justify-center w-full">
+            <button
+              onClick={onShowProfile}
+              className="flex h-9 w-9 items-center justify-center rounded-lg overflow-hidden transition-colors"
+              aria-label={t("sidebar.expandSidebar")}
+            >
+              {user?.avatar_url && !imgError ? (
+                <img
+                  src={user.avatar_url}
+                  alt={user?.username || "User"}
+                  className="w-6 h-6 rounded-full object-cover"
+                  onError={() => setImgError(true)}
+                  draggable={false}
+                />
+              ) : (
+                <div className="w-6 h-6 rounded-full bg-stone-500/30 bg-[var(--theme-bg-card)] flex items-center justify-center">
+                  <span className="text-[10px] font-semibold text-stone-400">
+                    {user?.username?.charAt(0).toUpperCase() || "U"}
+                  </span>
+                </div>
+              )}
+            </button>
+          </div>
+        </nav>
+
+        {/* Full sidebar panel */}
+        <div
+          className="sidebar-panel h-full overflow-hidden bg-[var(--theme-bg-sidebar)] border-r border-stone-200/60 dark:border-stone-800/60"
+          data-collapsed={isCollapsed ? "true" : "false"}
+          style={{ width: isCollapsed ? 0 : "var(--sidebar-width)" }}
+        >
+          <div
+            className="h-full flex flex-col overflow-hidden"
+            style={{ width: "var(--sidebar-width)" }}
+          >
+            {!isMobile ? sessionListContent : <div className="flex-1" />}
+          </div>
         </div>
-      )}
+      </div>
 
       {touchDrag.dragIndicatorPos && (
         <div

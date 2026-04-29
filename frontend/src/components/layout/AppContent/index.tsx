@@ -62,7 +62,6 @@ interface AppShellProps {
   onCloseProfileModal: () => void;
   versionInfo: VersionInfo | null;
   sidebarCollapsed: boolean;
-  setSidebarCollapsed: (collapsed: boolean) => void;
   setMobileSidebarOpen: (open: boolean) => void;
   currentProjectId: string | null;
   projectManager: { projects: Project[] };
@@ -96,7 +95,6 @@ function AppShell({
   onCloseProfileModal,
   versionInfo,
   sidebarCollapsed,
-  setSidebarCollapsed,
   setMobileSidebarOpen,
   currentProjectId,
   projectManager,
@@ -180,7 +178,6 @@ function AppShell({
           <Header
             activeTab={activeTab}
             sidebarCollapsed={sidebarCollapsed}
-            setSidebarCollapsed={setSidebarCollapsed}
             setMobileSidebarOpen={setMobileSidebarOpen}
             currentProjectId={currentProjectId}
             projectManager={projectManager}
@@ -312,6 +309,18 @@ function ChatAppContent({
       );
       setTimeout(() => fetchSkills(), 500);
     },
+    onStreamDone: () => {
+      if (sessionId) {
+        import("../../../services/api").then(({ sessionApi }) => {
+          sessionApi
+            .get(sessionId)
+            .then((session) => {
+              if (session?.name) setSessionName(session.name);
+            })
+            .catch(() => {});
+        });
+      }
+    },
   });
 
   const prevAgentRef = useRef(currentAgent);
@@ -399,7 +408,12 @@ function ChatAppContent({
       handleToggleAgentOption("model_id", currentModelId);
       setSessionAgentOption("model_id", currentModelId);
     }
-  }, [currentModelValue, currentModelId, handleToggleAgentOption, setSessionAgentOption]);
+  }, [
+    currentModelValue,
+    currentModelId,
+    handleToggleAgentOption,
+    setSessionAgentOption,
+  ]);
 
   const handleSelectModel = useCallback(
     (modelId: string, modelValue: string) => {
@@ -540,7 +554,6 @@ function ChatAppContent({
     },
     [effectiveSkills, sessionConfig.disabledSkills, toggleSessionSkill],
   );
-
 
   // Compute effective counts
   const effectiveEnabledToolsCount = useMemo(
@@ -759,7 +772,6 @@ function ChatAppContent({
       onCloseProfileModal={onCloseProfileModal}
       versionInfo={versionInfo}
       sidebarCollapsed={sidebarCollapsed}
-      setSidebarCollapsed={setSidebarCollapsed}
       setMobileSidebarOpen={setMobileSidebarOpen}
       currentProjectId={currentProjectId}
       projectManager={projectManager}
@@ -918,7 +930,6 @@ function NonChatAppContent({
       onCloseProfileModal={onCloseProfileModal}
       versionInfo={versionInfo}
       sidebarCollapsed={sidebarCollapsed}
-      setSidebarCollapsed={setSidebarCollapsed}
       setMobileSidebarOpen={setMobileSidebarOpen}
       currentProjectId={null}
       projectManager={{ projects: [] }}
