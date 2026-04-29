@@ -864,7 +864,7 @@ export const SessionSidebar = forwardRef<
       >
         {/* Full sidebar panel */}
         <div
-          className={`h-full w-[--sidebar-width] bg-[var(--theme-bg-sidebar)] border-r border-stone-200/60 dark:border-stone-800/60 transition-opacity duration-150 ease-linear overflow-x-clip overflow-y-auto text-clip whitespace-nowrap ${
+          className={`h-full w-[--sidebar-width] bg-[var(--theme-bg-sidebar)] border-r border-stone-200/60 dark:border-stone-800/60 transition-opacity duration-150 ease-linear ${
             isCollapsed ? "opacity-0 pointer-events-none" : "opacity-100"
           }`}
           inert={isCollapsed || undefined}
@@ -882,7 +882,7 @@ export const SessionSidebar = forwardRef<
           aria-label={t("sidebarView")}
         >
           {/* Expand button — aligns with header close button position */}
-          <div className="h-11 flex items-center justify-center w-full">
+          <div className="h-11 flex items-center justify-center w-full pt-3">
             <button
               onClick={() => setIsCollapsed(false)}
               className="flex h-9 w-9 items-center justify-center rounded-lg text-stone-600 hover:bg-stone-100 dark:text-stone-300 dark:hover:bg-stone-800 transition-colors mx-2 cursor-e-resize rtl:cursor-w-resize"
