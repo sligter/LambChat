@@ -498,7 +498,7 @@ export const SessionSidebar = forwardRef<
           className="flex h-8 w-8 items-center justify-center rounded-lg text-stone-600 hover:bg-stone-100 dark:text-stone-300 dark:hover:bg-stone-800 transition-colors cursor-w-resize rtl:cursor-e-resize"
           title={t("sidebar.collapseSidebar")}
         >
-          <PanelLeftClose size={20} />
+          <PanelLeftClose size={18} />
         </button>
       </div>
 
@@ -881,7 +881,8 @@ export const SessionSidebar = forwardRef<
           }`}
           aria-label={t("sidebarView")}
         >
-          <div className="flex h-11 items-center justify-center w-full">
+          {/* Expand button — aligns with header close button position */}
+          <div className="h-11 flex items-center justify-center w-full">
             <button
               onClick={() => setIsCollapsed(false)}
               className="flex h-9 w-9 items-center justify-center rounded-lg text-stone-600 hover:bg-stone-100 dark:text-stone-300 dark:hover:bg-stone-800 transition-colors mx-2 cursor-e-resize rtl:cursor-w-resize"
@@ -891,53 +892,57 @@ export const SessionSidebar = forwardRef<
             </button>
           </div>
 
-          <div className="mt-4 flex flex-col items-center w-full gap-0.5">
+          {/* Action icons — align with expanded sidebar action buttons (px-2 + px-[9px]) */}
+          <div className="flex flex-col items-center w-full gap-px">
             <button
               onClick={onNewSession}
-              className="flex h-9 w-9 items-center justify-center rounded-lg text-stone-600 hover:bg-stone-100 dark:text-stone-300 dark:hover:bg-stone-800 transition-colors mx-2"
+              className="flex h-9 w-9 items-center justify-center rounded-lg text-stone-600 hover:bg-stone-100 dark:text-stone-300 dark:hover:bg-stone-800 transition-colors mx-[9px]"
               aria-label={t("sidebar.newChat")}
             >
-              <MessageSquarePlus size={20} />
+              <MessageSquarePlus size={18} />
             </button>
             <button
               onClick={() => setIsSearchOpen(true)}
-              className="flex h-9 w-9 items-center justify-center rounded-lg text-stone-600 hover:bg-stone-100 dark:text-stone-300 dark:hover:bg-stone-800 transition-colors mx-2"
+              className="flex h-9 w-9 items-center justify-center rounded-lg text-stone-600 hover:bg-stone-100 dark:text-stone-300 dark:hover:bg-stone-800 transition-colors mx-[9px]"
               aria-label={t("sidebar.searchSessions")}
             >
-              <Search size={20} />
+              <Search size={18} />
             </button>
             <button
               onClick={() => setIsCollapsed(false)}
-              className="flex h-9 w-9 items-center justify-center rounded-lg text-stone-600 hover:bg-stone-100 dark:text-stone-300 dark:hover:bg-stone-800 transition-colors mx-2"
+              className="flex h-9 w-9 items-center justify-center rounded-lg text-stone-600 hover:bg-stone-100 dark:text-stone-300 dark:hover:bg-stone-800 transition-colors mx-[9px]"
               aria-label={t("sidebar.recentChats")}
             >
-              <Clock size={20} />
+              <Clock size={18} />
             </button>
           </div>
 
           <div className="pointer-events-none flex-grow" />
 
-          <div className="mb-1 flex items-center justify-center w-full px-2">
+          {/* Profile avatar — aligns with expanded sidebar footer (px-2 + px-2 + mr-3) */}
+          <div className="mb-1 w-full px-2">
             <button
               onClick={onShowProfile}
-              className="flex h-9 w-full items-center justify-center rounded-lg overflow-hidden transition-colors gap-2 pe-1.5"
+              className="flex h-9 w-full items-center rounded-lg overflow-hidden transition-colors"
               aria-label={t("sidebar.expandSidebar")}
             >
-              {user?.avatar_url && !imgError ? (
-                <img
-                  src={user.avatar_url}
-                  alt={user?.username || "User"}
-                  className="w-6 h-6 rounded-full object-cover"
-                  onError={() => setImgError(true)}
-                  draggable={false}
-                />
-              ) : (
-                <div className="w-6 h-6 rounded-full bg-stone-500/30 bg-[var(--theme-bg-card)] flex items-center justify-center">
-                  <span className="text-[10px] font-semibold text-stone-400">
-                    {user?.username?.charAt(0).toUpperCase() || "U"}
-                  </span>
-                </div>
-              )}
+              <div className="shrink-0 w-8 h-8 rounded-full overflow-hidden ring-1 ring-gray-200 dark:ring-gray-700">
+                {user?.avatar_url && !imgError ? (
+                  <img
+                    src={user.avatar_url}
+                    alt={user?.username || "User"}
+                    className="w-full h-full object-cover rounded-full"
+                    onError={() => setImgError(true)}
+                    draggable={false}
+                  />
+                ) : (
+                  <div className="flex w-full h-full items-center justify-center bg-gradient-to-br from-stone-500 to-stone-700 rounded-full">
+                    <span className="text-xs font-semibold text-white">
+                      {user?.username?.charAt(0).toUpperCase() || "U"}
+                    </span>
+                  </div>
+                )}
+              </div>
             </button>
           </div>
         </nav>
