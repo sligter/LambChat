@@ -203,8 +203,16 @@ export const SessionSidebar = forwardRef<
       if (moreMenuRef.current?.contains(e.target as Node)) return;
       setIsMoreMenuOpen(false);
     };
-    document.addEventListener("click", handleClickOutside);
-    return () => document.removeEventListener("click", handleClickOutside);
+    // Defer by one frame so the opening click event has finished bubbling
+    // and the menu DOM is mounted (important on mobile where the same
+    // click can re-trigger the listener before the menu renders).
+    const id = requestAnimationFrame(() => {
+      document.addEventListener("click", handleClickOutside);
+    });
+    return () => {
+      cancelAnimationFrame(id);
+      document.removeEventListener("click", handleClickOutside);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isMoreMenuOpen]);
 
