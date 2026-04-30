@@ -79,43 +79,35 @@ function renderHighlightText(
   switch (highlight.kind) {
     case "status":
       if (highlight.status === "suspected_leak") {
-        return t(
-          "systemHealth.statusSuspectedLeak",
-          `Suspected sustained memory growth: RSS=${
-            overview.rss ?? "-"
-          }, Growth=${overview.growth ?? "-"}`,
-        );
+        return t("systemHealth.statusSuspectedLeak", {
+          rss: overview.rss ?? "-",
+          growth: overview.growth ?? "-",
+        });
       }
-      return t(
-        "systemHealth.statusStable",
-        `Memory looks stable: RSS=${overview.rss ?? "-"}, Growth=${
-          overview.growth ?? "-"
-        }`,
-      );
+      return t("systemHealth.statusStable", {
+        rss: overview.rss ?? "-",
+        growth: overview.growth ?? "-",
+      });
     case "unavailable":
       return t(
         "systemHealth.statusUnavailableReason",
         `Memory monitoring is unavailable: ${highlight.reason}`,
       );
     case "top_growth":
-      return t(
-        "systemHealth.highlightTopGrowth",
-        `Largest growth hotspot: ${highlight.location} (+${
-          highlight.size_diff ?? "-"
-        })`,
-      );
+      return t("systemHealth.highlightTopGrowth", {
+        location: highlight.location,
+        size_diff: highlight.size_diff ?? "-",
+      });
     case "top_allocation":
-      return t(
-        "systemHealth.highlightTopAllocation",
-        `Largest live allocation: ${highlight.location} (${
-          highlight.size ?? "-"
-        })`,
-      );
+      return t("systemHealth.highlightTopAllocation", {
+        location: highlight.location,
+        size: highlight.size ?? "-",
+      });
     case "top_object_type":
-      return t(
-        "systemHealth.highlightTopObjectType",
-        `Most common object type: ${highlight.type}=${highlight.count}`,
-      );
+      return t("systemHealth.highlightTopObjectType", {
+        type: highlight.type,
+        count: highlight.count,
+      });
   }
 }
 
