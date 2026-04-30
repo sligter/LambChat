@@ -1,5 +1,4 @@
 import { Suspense, lazy } from "react";
-import { Loading } from "../../common";
 import type { TabType } from "./types";
 
 const SkillsPanel = lazy(() =>
@@ -80,7 +79,10 @@ const panelMap: Record<
 function PanelLoader() {
   return (
     <div className="flex h-full items-center justify-center">
-      <Loading size="lg" />
+      <div className="relative h-8 w-8">
+        <div className="absolute inset-0 rounded-full border-2 border-stone-200 dark:border-stone-700" />
+        <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-stone-500 dark:border-t-stone-400 animate-spin will-change-transform" />
+      </div>
     </div>
   );
 }
