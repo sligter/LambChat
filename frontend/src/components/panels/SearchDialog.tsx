@@ -384,7 +384,10 @@ export function SearchDialog({
               {hasMore && (
                 <div ref={sentinelRef} className="flex justify-center py-3">
                   {isLoadingMore && (
-                    <div className="w-4 h-4 border-2 border-stone-300 dark:border-stone-600 border-t-stone-500 dark:border-t-stone-400 rounded-full animate-spin" />
+                    <div className="relative w-4 h-4">
+                      <div className="absolute inset-0 rounded-full border-2 border-stone-200 dark:border-stone-700" />
+                      <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-stone-500 dark:border-t-stone-400 animate-spin will-change-transform" />
+                    </div>
                   )}
                 </div>
               )}

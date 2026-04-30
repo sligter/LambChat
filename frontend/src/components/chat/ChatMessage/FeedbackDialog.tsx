@@ -141,7 +141,10 @@ export function FeedbackDialog({
               className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-stone-900 hover:bg-stone-800 dark:bg-stone-600 dark:hover:bg-stone-500 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isSubmitting ? (
-                <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent dark:border-stone-900" />
+                <span className="relative h-4 w-4">
+                  <span className="absolute inset-0 rounded-full border-2 border-white/30 dark:border-stone-700" />
+                  <span className="absolute inset-0 rounded-full border-2 border-transparent border-t-white dark:border-t-stone-300 animate-spin will-change-transform" />
+                </span>
               ) : (
                 <Send size={14} />
               )}

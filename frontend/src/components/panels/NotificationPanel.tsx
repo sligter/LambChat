@@ -608,7 +608,10 @@ export function NotificationPanel() {
       <div className="flex-1 overflow-y-auto p-4 sm:p-6">
         {isLoading && notifications.length === 0 ? (
           <div className="flex h-40 items-center justify-center">
-            <div className="h-8 w-8 animate-spin rounded-full border-2 border-stone-300 border-t-stone-600 dark:border-stone-600 dark:border-t-stone-300" />
+            <div className="relative h-8 w-8">
+              <div className="absolute inset-0 rounded-full border-2 border-stone-200 dark:border-stone-700" />
+              <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-stone-600 dark:border-t-stone-300 animate-spin will-change-transform" />
+            </div>
           </div>
         ) : !isLoading && notifications.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center text-center">

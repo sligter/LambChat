@@ -1,5 +1,55 @@
-/** Sidebar skeleton — matches real SessionSidebar layout (w-64, no circle icons on items) */
+import { SIDEBAR_COLLAPSED_STORAGE_KEY } from "../../hooks/useAuth";
+
+/** Sidebar skeleton — matches real SessionSidebar layout */
 export function SidebarSkeleton() {
+  const collapsed = (() => {
+    const saved = localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY);
+    return saved !== null ? saved === "true" : true;
+  })();
+
+  if (collapsed) {
+    return <SidebarRailSkeleton />;
+  }
+
+  return <SidebarExpandedSkeleton />;
+}
+
+/** Skeleton for the collapsed sidebar rail */
+function SidebarRailSkeleton() {
+  return (
+    <div
+      className="hidden sm:flex h-full relative shrink-0 overflow-hidden"
+      style={{ width: "var(--sidebar-rail-width)" }}
+    >
+      <nav className="absolute inset-0 flex h-full w-full flex-col items-start bg-[var(--theme-bg-sidebar)] border-r border-stone-200/60 dark:border-stone-800/60 pb-1.5">
+        {/* Expand button area */}
+        <div className="h-11 flex items-center justify-center w-full pt-3">
+          <div className="skeleton-line size-9 rounded-lg mx-2" />
+        </div>
+
+        {/* Action icons */}
+        <div className="mt-3 flex flex-col items-center w-full gap-px space-y-1">
+          <div className="skeleton-line size-9 rounded-lg mx-2" />
+          <div className="skeleton-line size-9 rounded-lg mx-2" />
+          <div className="skeleton-line size-9 rounded-lg mx-2" />
+          <div className="skeleton-line size-9 rounded-lg mx-2" />
+        </div>
+
+        <div className="flex-grow" />
+
+        {/* Profile avatar */}
+        <div className="mb-1 w-full px-2">
+          <div className="flex h-9 w-full items-center justify-center">
+            <div className="skeleton-line size-8 rounded-full shrink-0" />
+          </div>
+        </div>
+      </nav>
+    </div>
+  );
+}
+
+/** Skeleton for the expanded sidebar */
+function SidebarExpandedSkeleton() {
   return (
     <div
       className="hidden sm:flex w-64 shrink-0 flex-col rounded-r-lg overflow-hidden"

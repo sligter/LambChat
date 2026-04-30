@@ -16,6 +16,8 @@ import { useSettingsContext } from "../../../contexts/SettingsContext";
 import { useAgent } from "../../../hooks/useAgent";
 import { useApprovals } from "../../../hooks/useApprovals";
 import { useAuth } from "../../../hooks/useAuth";
+import { SIDEBAR_COLLAPSED_STORAGE_KEY } from "../../../hooks/useAuth";
+import { authApi } from "../../../services/api";
 import { useTools } from "../../../hooks/useTools";
 import { useSkills } from "../../../hooks/useSkills";
 import { useVersion } from "../../../hooks/useVersion";
@@ -950,8 +952,36 @@ function NonChatAppContent({
 export function AppContent({ activeTab }: AppContentProps) {
   const { versionInfo } = useVersion();
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    const saved = localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY);
+    return saved !== null ? saved === "true" : true;
+  });
   const [showProfileModal, setShowProfileModal] = useState(false);
+
+  const handleSetSidebarCollapsed = useCallback(
+    (collapsed: boolean | ((prev: boolean) => boolean)) => {
+      setSidebarCollapsed((prev) => {
+        const next =
+          typeof collapsed === "function" ? collapsed(prev) : collapsed;
+        localStorage.setItem(SIDEBAR_COLLAPSED_STORAGE_KEY, String(next));
+        authApi
+          .updateMetadata({ sidebarCollapsed: String(next) })
+          .catch(() => {});
+        return next;
+      });
+    },
+    [],
+  );
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const collapsed = (e as CustomEvent).detail as boolean;
+      setSidebarCollapsed(collapsed);
+    };
+    window.addEventListener("sidebar-collapsed-changed", handler);
+    return () =>
+      window.removeEventListener("sidebar-collapsed-changed", handler);
+  }, []);
 
   const handleCloseProfileModal = useCallback(
     () => setShowProfileModal(false),
@@ -966,7 +996,7 @@ export function AppContent({ activeTab }: AppContentProps) {
         onCloseProfileModal={handleCloseProfileModal}
         versionInfo={versionInfo}
         sidebarCollapsed={sidebarCollapsed}
-        setSidebarCollapsed={setSidebarCollapsed}
+        setSidebarCollapsed={handleSetSidebarCollapsed}
         mobileSidebarOpen={mobileSidebarOpen}
         setMobileSidebarOpen={setMobileSidebarOpen}
         onShowProfile={handleShowProfile}
@@ -981,7 +1011,7 @@ export function AppContent({ activeTab }: AppContentProps) {
       onCloseProfileModal={handleCloseProfileModal}
       versionInfo={versionInfo}
       sidebarCollapsed={sidebarCollapsed}
-      setSidebarCollapsed={setSidebarCollapsed}
+      setSidebarCollapsed={handleSetSidebarCollapsed}
       mobileSidebarOpen={mobileSidebarOpen}
       setMobileSidebarOpen={setMobileSidebarOpen}
       onShowProfile={handleShowProfile}

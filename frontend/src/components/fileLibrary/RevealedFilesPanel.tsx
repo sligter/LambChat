@@ -151,7 +151,7 @@ export function RevealedFilesPanel() {
                   {isLoadingMore && (
                     <div className="relative w-5 h-5">
                       <div className="absolute inset-0 rounded-full border-2 border-stone-200 dark:border-stone-700" />
-                      <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-stone-500 dark:border-t-stone-400 animate-spin" />
+                      <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-stone-500 dark:border-t-stone-400 animate-spin will-change-transform" />
                     </div>
                   )}
                 </div>
