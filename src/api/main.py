@@ -8,9 +8,9 @@ import asyncio
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from src.api.middleware.auth import AuthMiddleware
@@ -48,6 +48,11 @@ from src.infra.local_filesystem import ensure_local_filesystem_dirs
 from src.infra.logging import get_logger, setup_logging
 from src.infra.monitoring import get_memory_monitor
 from src.infra.runtime_services import start_runtime_services, stop_runtime_services
+from src.infra.share.seo import (
+    build_shared_page_error_seo,
+    build_shared_page_seo,
+    inject_share_seo_into_html,
+)
 from src.kernel.config import initialize_settings, settings
 
 logger = get_logger(__name__)
@@ -397,6 +402,43 @@ def create_app() -> FastAPI:
             if manifest_file.exists():
                 return FileResponse(str(manifest_file))
             return {"error": "manifest.json not found"}
+
+        @app.get("/shared/{share_id}", response_class=HTMLResponse)
+        async def serve_shared_page(share_id: str, request: Request):
+            """Serve shared pages with server-injected SEO metadata."""
+            index_file = static_dir / "index.html"
+            if not index_file.exists():
+                return {"error": "Frontend not built. Run 'npm run build' in frontend directory."}
+
+            base_url = getattr(settings, "APP_BASE_URL", "").rstrip("/") or str(
+                request.base_url
+            ).rstrip("/")
+            html_doc = index_file.read_text(encoding="utf-8")
+
+            try:
+                shared_content = await share.get_shared_content(share_id, user=None)
+            except HTTPException as exc:
+                reason = "auth_required" if exc.status_code == 401 else "not_found"
+                seo = build_shared_page_error_seo(
+                    base_url=base_url,
+                    share_id=share_id,
+                    app_name=settings.APP_NAME,
+                    reason=reason,
+                )
+                rendered = inject_share_seo_into_html(html_doc, seo)
+                return HTMLResponse(content=rendered, status_code=exc.status_code)
+
+            seo = build_shared_page_seo(
+                base_url=base_url,
+                share_id=share_id,
+                session=shared_content.session,
+                owner=shared_content.owner.model_dump(),
+                events=shared_content.events,
+                app_name=settings.APP_NAME,
+                indexable=False,
+            )
+            rendered = inject_share_seo_into_html(html_doc, seo)
+            return HTMLResponse(content=rendered)
 
         # SPA fallback - serve index.html for all unmatched routes
         @app.get("/{full_path:path}")
