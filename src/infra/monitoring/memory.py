@@ -168,6 +168,7 @@ class MemoryMonitor:
                 logger.warning("[MemoryMonitor] sampling failed: %s", exc, exc_info=True)
 
     async def _sample_once(self) -> None:
+        distributed_snapshot: dict[str, Any] | None = None
         async with self._state_lock:
             sample = await asyncio.to_thread(self._collect_process_sample)
             sample.setdefault("timestamp", _utc_now())
@@ -190,6 +191,9 @@ class MemoryMonitor:
                         self._format_allocation_summary(self._last_alert),
                         self._format_object_summary(self._last_alert),
                     )
+            distributed_snapshot = await self._build_distributed_snapshot_locked()
+
+        await self._publish_distributed_snapshot(distributed_snapshot)
 
     def _collect_process_sample(self) -> dict[str, Any]:
         if self._process is None:
@@ -220,6 +224,7 @@ class MemoryMonitor:
 
     async def reset_baseline(self) -> None:
         """Re-anchor growth tracking to the current process state."""
+        distributed_snapshot: dict[str, Any] | None = None
         async with self._state_lock:
             sample = await asyncio.to_thread(self._collect_process_sample)
             sample.setdefault("timestamp", _utc_now())
@@ -236,6 +241,9 @@ class MemoryMonitor:
             self._history = deque([sample], maxlen=max(1, self.history_limit))
             self._last_alert = None
             self._last_alert_at = None
+            distributed_snapshot = await self._build_distributed_snapshot_locked()
+
+        await self._publish_distributed_snapshot(distributed_snapshot)
 
     def _format_growth_summary(self, diagnostics: dict[str, Any] | None) -> str:
         if not diagnostics:
@@ -369,6 +377,58 @@ class MemoryMonitor:
             "last_error": self._last_error,
         }
 
+    def _build_disabled_current_snapshot_locked(self) -> dict[str, Any]:
+        return {
+            "captured_at": _utc_now().isoformat(),
+            "heavy_diagnostics_enabled": False,
+            "reason": "heavy_diagnostics_disabled",
+            "top_growth": [],
+            "top_allocations": [],
+            "top_object_types": [],
+        }
+
+    async def _resolve_snapshot_details_locked(self) -> dict[str, Any] | None:
+        if not self._history:
+            return None
+        if self._last_alert is not None:
+            return self._last_alert
+        if self.heavy_diagnostics_enabled:
+            return await asyncio.to_thread(self._capture_diagnostics_snapshot)
+        return self._build_disabled_current_snapshot_locked()
+
+    async def _build_distributed_snapshot_locked(self) -> dict[str, Any] | None:
+        if not self._history:
+            return None
+
+        from src.infra.monitoring.distributed_memory_health import build_instance_snapshot
+
+        summary = self._get_summary_locked()
+        details = await self._resolve_snapshot_details_locked()
+        captured_at = details.get("captured_at") if isinstance(details, dict) else None
+        return build_instance_snapshot(
+            captured_at=captured_at,
+            summary=summary,
+            details=details,
+        )
+
+    async def _publish_distributed_snapshot(
+        self,
+        snapshot: dict[str, Any] | None,
+    ) -> None:
+        if snapshot is None:
+            return
+
+        try:
+            from src.infra.monitoring.distributed_memory_health import publish_instance_snapshot
+
+            await publish_instance_snapshot(snapshot, interval_seconds=self.interval_seconds)
+        except Exception as exc:
+            logger.warning(
+                "[MemoryMonitor] failed to publish distributed snapshot: %s",
+                exc,
+                exc_info=True,
+            )
+
     async def get_summary(self) -> dict[str, Any]:
         async with self._state_lock:
             return self._get_summary_locked()
@@ -380,14 +440,7 @@ class MemoryMonitor:
             if refresh and self._history and self.heavy_diagnostics_enabled:
                 current_snapshot = await asyncio.to_thread(self._capture_diagnostics_snapshot)
             elif refresh and self._history and not self.heavy_diagnostics_enabled:
-                current_snapshot = {
-                    "captured_at": _utc_now().isoformat(),
-                    "heavy_diagnostics_enabled": False,
-                    "reason": "heavy_diagnostics_disabled",
-                    "top_growth": [],
-                    "top_allocations": [],
-                    "top_object_types": [],
-                }
+                current_snapshot = self._build_disabled_current_snapshot_locked()
 
         diagnostics = {
             "summary": summary,

@@ -813,6 +813,13 @@ class SessionSandboxManager:
         """清除内存缓存（用于测试或强制刷新）"""
         self._cache.pop(user_id, None)
 
+    def get_cached_backend(self, user_id: str):
+        """Return the currently cached backend for a user, if one exists."""
+        entry = self._cache.get(user_id)
+        if entry is None:
+            return None
+        return entry[1]
+
     async def close_all(self) -> None:
         """停止所有缓存中的沙箱并清理资源（应用关闭时调用）"""
         # 复制一份，避免迭代过程中修改

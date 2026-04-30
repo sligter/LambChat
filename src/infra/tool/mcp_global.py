@@ -6,6 +6,7 @@
 """
 
 import asyncio
+import json
 import time
 import uuid
 from dataclasses import dataclass, field
@@ -14,6 +15,7 @@ from typing import TYPE_CHECKING, Any, Optional, Set
 from langchain_core.tools import BaseTool
 
 from src.infra.logging import get_logger
+from src.infra.pubsub_hub import get_pubsub_hub
 from src.infra.storage.redis import get_redis_client
 
 if TYPE_CHECKING:
@@ -63,6 +65,72 @@ else
     return 0
 end
 """
+
+
+class MCPGlobalCachePubSub:
+    """Listen for distributed MCP cache invalidation messages."""
+
+    def __init__(self) -> None:
+        self._subscription_token: str | None = None
+        self._running = False
+        self._instance_id = _INSTANCE_ID
+
+    @property
+    def instance_id(self) -> str:
+        return self._instance_id
+
+    async def start_listener(self) -> None:
+        if self._running:
+            return
+
+        hub = get_pubsub_hub()
+        self._subscription_token = hub.subscribe(MCP_CACHE_INVALIDATE_CHANNEL, self._handle_message)
+        await hub.start()
+        self._running = True
+        logger.info(
+            "[Global MCP] Cache invalidation listener started on %s (instance=%s)",
+            MCP_CACHE_INVALIDATE_CHANNEL,
+            self._instance_id,
+        )
+
+    async def stop_listener(self) -> None:
+        self._running = False
+        if self._subscription_token:
+            hub = get_pubsub_hub()
+            hub.unsubscribe(self._subscription_token)
+            self._subscription_token = None
+            await hub.stop_if_idle()
+
+    async def _handle_message(self, message: dict[str, Any]) -> None:
+        try:
+            data = json.loads(message["data"])
+            if data.get("instance_id") == self._instance_id:
+                return
+
+            scope = data.get("scope")
+            if scope == "all":
+                await invalidate_all_global_cache(publish=False)
+                return
+
+            user_id = data.get("user_id")
+            if scope == "user" and user_id:
+                await invalidate_global_cache(user_id, publish=False)
+        except Exception as e:
+            logger.warning("[Global MCP] Failed to handle distributed invalidation: %s", e)
+
+    @property
+    def is_running(self) -> bool:
+        return self._running
+
+
+_mcp_cache_pubsub: MCPGlobalCachePubSub | None = None
+
+
+def get_mcp_cache_pubsub() -> MCPGlobalCachePubSub:
+    global _mcp_cache_pubsub
+    if _mcp_cache_pubsub is None:
+        _mcp_cache_pubsub = MCPGlobalCachePubSub()
+    return _mcp_cache_pubsub
 
 
 @dataclass
@@ -391,7 +459,22 @@ async def get_global_mcp_tools(
                 await release_distributed_lock(lock_key, lock_value)
 
 
-async def invalidate_global_cache(user_id: str) -> None:
+async def _publish_mcp_cache_invalidation(scope: str, *, user_id: str | None = None) -> None:
+    try:
+        redis_client = get_redis_client()
+        payload = json.dumps(
+            {
+                "instance_id": get_mcp_cache_pubsub().instance_id,
+                "scope": scope,
+                "user_id": user_id,
+            }
+        )
+        await redis_client.publish(MCP_CACHE_INVALIDATE_CHANNEL, payload)
+    except Exception as e:
+        logger.warning("[Global MCP] Failed to publish invalidation: %s", e)
+
+
+async def invalidate_global_cache(user_id: str, *, publish: bool = True) -> None:
     """
     使全局缓存失效
 
@@ -419,8 +502,11 @@ async def invalidate_global_cache(user_id: str) -> None:
     except Exception:
         pass
 
+    if publish:
+        await _publish_mcp_cache_invalidation("user", user_id=user_id)
 
-async def invalidate_all_global_cache() -> int:
+
+async def invalidate_all_global_cache(*, publish: bool = True) -> int:
     """
     使所有全局缓存失效
 
@@ -440,6 +526,8 @@ async def invalidate_all_global_cache() -> int:
     _local_locks.clear()
 
     logger.info(f"[Global MCP] Invalidated all cache, {count} entries")
+    if publish:
+        await _publish_mcp_cache_invalidation("all")
     return count
 
 

@@ -21,7 +21,7 @@ function SidebarRailSkeleton() {
       className="hidden sm:flex h-full relative shrink-0 overflow-hidden"
       style={{ width: "var(--sidebar-rail-width)" }}
     >
-      <nav className="absolute inset-0 flex h-full w-full flex-col items-start bg-[var(--theme-bg-sidebar)] border-r border-stone-200/60 dark:border-stone-800/60 pb-1.5">
+      <nav className="absolute inset-0 flex h-full w-full flex-col items-start bg-[var(--theme-bg-sidebar)] border-r border-stone-200/60 dark:border-stone-800/60">
         {/* Expand button area */}
         <div className="h-11 flex items-center justify-center w-full pt-3">
           <div className="skeleton-line size-9 rounded-lg mx-2" />
@@ -38,8 +38,8 @@ function SidebarRailSkeleton() {
         <div className="flex-grow" />
 
         {/* Profile avatar */}
-        <div className="mb-1 w-full px-2">
-          <div className="flex h-9 w-full items-center justify-center">
+        <div className="shrink-0 p-2 border-t border-stone-200/60 dark:border-stone-800/60">
+          <div className="flex items-center justify-center w-full py-[11px]">
             <div className="skeleton-line size-8 rounded-full shrink-0" />
           </div>
         </div>
@@ -136,16 +136,10 @@ function SidebarExpandedSkeleton() {
       </div>
 
       {/* Bottom user area */}
-      <div
-        className="px-2 pb-2 pt-1"
-        style={{
-          borderTop:
-            "1px solid color-mix(in srgb, var(--theme-border) 60%, transparent)",
-        }}
-      >
-        <div className="flex items-center gap-3 px-[9px] h-9 rounded-[10px]">
-          <div className="skeleton-line size-5 rounded-full shrink-0" />
-          <div className="skeleton-line h-[14px] w-16 rounded-md" />
+      <div className="shrink-0 p-2 border-t border-stone-200/60 dark:border-stone-800/60">
+        <div className="flex items-center gap-3 px-2 py-2 rounded-xl">
+          <div className="skeleton-line size-8 rounded-full shrink-0" />
+          <div className="skeleton-line h-3.5 w-16 rounded-md" />
         </div>
       </div>
     </div>

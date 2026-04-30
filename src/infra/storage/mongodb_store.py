@@ -396,9 +396,25 @@ def create_mongodb_store() -> MongoDBStore:
     return store
 
 
+async def acreate_mongodb_store() -> MongoDBStore:
+    """异步创建 MongoDBStore，避免在事件循环线程内同步建索引。"""
+    store = MongoDBStore()
+    await store.asetup()
+    logger.info("MongoDBStore created asynchronously (reusing motor connection pool)")
+    return store
+
+
 # 模块级单例缓存
 _store_instance: BaseStore | None = None
 _store_initialized = False
+_store_init_lock: asyncio.Lock | None = None
+
+
+def _get_store_init_lock() -> asyncio.Lock:
+    global _store_init_lock
+    if _store_init_lock is None:
+        _store_init_lock = asyncio.Lock()
+    return _store_init_lock
 
 
 def create_store() -> BaseStore | None:
@@ -432,3 +448,36 @@ def create_store() -> BaseStore | None:
     except Exception as e:
         logger.warning(f"MongoDBStore unavailable, no store will be used: {e}")
         return None
+
+
+async def acreate_store() -> BaseStore | None:
+    """异步创建 Store 实例（单例），避免在事件循环线程上执行同步初始化。"""
+    global _store_instance, _store_initialized
+    if _store_initialized and _store_instance is not None:
+        return _store_instance
+
+    async with _get_store_init_lock():
+        if _store_initialized:
+            return _store_instance
+
+        _store_initialized = True
+
+        if settings.ENABLE_POSTGRES_STORAGE:
+            try:
+                from src.infra.storage.postgres import create_postgres_store
+
+                _store_instance = await asyncio.to_thread(create_postgres_store)
+                logger.info("Store created asynchronously: PostgresStore")
+                return _store_instance
+            except Exception as e:
+                logger.warning(
+                    f"PostgresStore unavailable in async init, falling back to MongoDB: {e}"
+                )
+
+        try:
+            _store_instance = await acreate_mongodb_store()
+            logger.info("Store created asynchronously: MongoDBStore")
+            return _store_instance
+        except Exception as e:
+            logger.warning(f"MongoDBStore unavailable in async init, no store will be used: {e}")
+            return None

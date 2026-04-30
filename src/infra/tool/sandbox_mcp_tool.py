@@ -39,6 +39,7 @@ from src.infra.tool.backend_utils import (
     get_backend_from_runtime,
     get_user_id_from_runtime,
 )
+from src.infra.tool.cache_pubsub import publish_tool_cache_invalidation
 from src.infra.tool.sandbox_mcp_prompt import invalidate_sandbox_mcp_prompt_cache
 
 logger = get_logger(__name__)
@@ -141,6 +142,7 @@ async def sandbox_mcp_add(
         )
 
     invalidate_sandbox_mcp_prompt_cache(user_id)
+    await publish_tool_cache_invalidation("sandbox_mcp_prompt", user_id=user_id)
     return json.dumps(
         {
             "success": True,
@@ -213,6 +215,7 @@ async def sandbox_mcp_update(
         return json.dumps({"error": "mcporter updated but failed to persist to database"})
 
     invalidate_sandbox_mcp_prompt_cache(user_id)
+    await publish_tool_cache_invalidation("sandbox_mcp_prompt", user_id=user_id)
     return json.dumps(
         {
             "success": True,
@@ -246,6 +249,7 @@ async def sandbox_mcp_remove(
 
     if result.exit_code != 0 and deleted:
         invalidate_sandbox_mcp_prompt_cache(user_id)
+        await publish_tool_cache_invalidation("sandbox_mcp_prompt", user_id=user_id)
         return json.dumps(
             {
                 "success": True,
@@ -257,6 +261,7 @@ async def sandbox_mcp_remove(
         return json.dumps({"error": f"mcporter failed: {result.output}"})
 
     invalidate_sandbox_mcp_prompt_cache(user_id)
+    await publish_tool_cache_invalidation("sandbox_mcp_prompt", user_id=user_id)
     return json.dumps(
         {
             "success": True,

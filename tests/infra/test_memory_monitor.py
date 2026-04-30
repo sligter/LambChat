@@ -3,8 +3,20 @@ from __future__ import annotations
 import asyncio
 import time
 from datetime import datetime, timedelta, timezone
+from types import SimpleNamespace
 
 import pytest
+
+import src.infra.monitoring.distributed_memory_health as distributed_memory_health
+
+
+@pytest.fixture(autouse=True)
+def _enable_memory_monitor(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("src.infra.monitoring.memory.settings.MEMORY_MONITOR_ENABLED", True)
+    monkeypatch.setattr(
+        "src.infra.monitoring.memory.psutil",
+        SimpleNamespace(Process=lambda _pid: object()),
+    )
 
 
 @pytest.mark.asyncio
@@ -51,7 +63,7 @@ async def test_monitor_marks_suspicious_growth_when_rss_keeps_rising() -> None:
 
     assert summary["suspected_leak"] is True
     assert summary["growth_bytes"] == 130 * 1024 * 1024
-    assert diagnostics_calls == [1]
+    assert diagnostics_calls == [1, 1, 1]
     assert diagnostics["last_alert"]["top_growth"][0]["location"] == "src/example.py:10"
 
 
@@ -180,6 +192,398 @@ async def test_reset_baseline_clears_previous_alert_state() -> None:
 
     assert diagnostics["last_alert"] is None
     assert diagnostics["summary"]["baseline_reset_at"] == reset_timestamp
+
+
+@pytest.mark.asyncio
+async def test_reset_baseline_publishes_fresh_instance_snapshot(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from src.infra.monitoring.memory import MemoryMonitor
+
+    reset_timestamp = datetime(2026, 4, 30, 3, 25, tzinfo=timezone.utc)
+    published_calls: list[tuple[dict[str, object], float]] = []
+    built_snapshots: list[dict[str, object]] = []
+
+    monitor = MemoryMonitor(
+        interval_seconds=45.0,
+        history_limit=10,
+        heavy_diagnostics_enabled=True,
+    )
+    monitor._collect_process_sample = lambda: {  # type: ignore[method-assign]
+        "timestamp": reset_timestamp,
+        "rss_bytes": 220 * 1024 * 1024,
+        "vms_bytes": 440 * 1024 * 1024,
+        "thread_count": 12,
+        "open_file_count": 4,
+    }
+    monitor._capture_diagnostics_snapshot = lambda: {  # type: ignore[method-assign]
+        "captured_at": "2026-04-30T03:25:30+00:00",
+        "top_growth": [{"location": "src/reset.py:10", "size_diff_bytes": 1024}],
+        "top_allocations": [{"location": "src/reset.py:10", "size_bytes": 2048}],
+        "top_object_types": [{"type": "dict", "count": 10}],
+    }
+    monitor._last_alert = {"captured_at": "2026-04-30T03:24:00+00:00"}
+    monitor._last_alert_at = reset_timestamp - timedelta(minutes=1)
+
+    def _fake_build_instance_snapshot(
+        *,
+        instance_id: str | None = None,
+        captured_at: object | None = None,
+        summary: dict[str, object] | None = None,
+        details: dict[str, object] | None = None,
+    ) -> dict[str, object]:
+        snapshot = {
+            "instance_id": instance_id,
+            "captured_at": captured_at,
+            "summary": summary,
+            "details": details,
+        }
+        built_snapshots.append(snapshot)
+        return snapshot
+
+    async def _fake_publish_instance_snapshot(
+        snapshot: dict[str, object],
+        *,
+        interval_seconds: float,
+        redis_client: object | None = None,
+    ) -> dict[str, object]:
+        del redis_client
+        published_calls.append((snapshot, interval_seconds))
+        return snapshot
+
+    monkeypatch.setattr(
+        distributed_memory_health,
+        "build_instance_snapshot",
+        _fake_build_instance_snapshot,
+    )
+    monkeypatch.setattr(
+        distributed_memory_health,
+        "publish_instance_snapshot",
+        _fake_publish_instance_snapshot,
+    )
+
+    await monitor.reset_baseline()
+
+    assert len(built_snapshots) == 1
+    assert built_snapshots[0]["captured_at"] == "2026-04-30T03:25:30+00:00"
+    assert built_snapshots[0]["summary"] == {
+        "available": True,
+        "rss_bytes": 220 * 1024 * 1024,
+        "vms_bytes": 440 * 1024 * 1024,
+        "thread_count": 12,
+        "open_file_count": 4,
+        "history_size": 1,
+        "growth_bytes": 0,
+        "suspected_leak": False,
+        "heavy_diagnostics_enabled": True,
+        "tracemalloc_tracing": False,
+        "sample_interval_seconds": 45.0,
+        "baseline_reset_at": reset_timestamp,
+        "last_sample_at": reset_timestamp,
+        "last_error": None,
+    }
+    assert built_snapshots[0]["details"] == {
+        "captured_at": "2026-04-30T03:25:30+00:00",
+        "top_growth": [{"location": "src/reset.py:10", "size_diff_bytes": 1024}],
+        "top_allocations": [{"location": "src/reset.py:10", "size_bytes": 2048}],
+        "top_object_types": [{"type": "dict", "count": 10}],
+    }
+    assert published_calls == [(built_snapshots[0], 45.0)]
+
+
+@pytest.mark.asyncio
+async def test_sample_once_publishes_current_snapshot_when_no_alert(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from src.infra.monitoring.memory import MemoryMonitor
+
+    sample_timestamp = datetime(2026, 4, 30, 3, 25, tzinfo=timezone.utc)
+    published_calls: list[tuple[dict[str, object], float]] = []
+    built_snapshots: list[dict[str, object]] = []
+
+    monitor = MemoryMonitor(
+        interval_seconds=60.0,
+        history_limit=10,
+        leak_threshold_bytes=1024 * 1024 * 1024,
+        min_samples_for_alert=2,
+        heavy_diagnostics_enabled=True,
+    )
+    monitor._collect_process_sample = lambda: {  # type: ignore[method-assign]
+        "timestamp": sample_timestamp,
+        "rss_bytes": 220 * 1024 * 1024,
+        "vms_bytes": 440 * 1024 * 1024,
+        "thread_count": 12,
+        "open_file_count": 4,
+    }
+    monitor._capture_diagnostics_snapshot = lambda: {  # type: ignore[method-assign]
+        "captured_at": "2026-04-30T03:25:30+00:00",
+        "top_growth": [{"location": "src/current.py:10", "size_diff_bytes": 4096}],
+        "top_allocations": [{"location": "src/current.py:10", "size_bytes": 8192}],
+        "top_object_types": [{"type": "list", "count": 6}],
+    }
+
+    def _fake_build_instance_snapshot(
+        *,
+        instance_id: str | None = None,
+        captured_at: object | None = None,
+        summary: dict[str, object] | None = None,
+        details: dict[str, object] | None = None,
+    ) -> dict[str, object]:
+        snapshot = {
+            "instance_id": instance_id,
+            "captured_at": captured_at,
+            "summary": summary,
+            "details": details,
+        }
+        built_snapshots.append(snapshot)
+        return snapshot
+
+    async def _fake_publish_instance_snapshot(
+        snapshot: dict[str, object],
+        *,
+        interval_seconds: float,
+        redis_client: object | None = None,
+    ) -> dict[str, object]:
+        del redis_client
+        published_calls.append((snapshot, interval_seconds))
+        return snapshot
+
+    monkeypatch.setattr(
+        distributed_memory_health,
+        "build_instance_snapshot",
+        _fake_build_instance_snapshot,
+    )
+    monkeypatch.setattr(
+        distributed_memory_health,
+        "publish_instance_snapshot",
+        _fake_publish_instance_snapshot,
+    )
+
+    await monitor._sample_once()
+
+    assert len(built_snapshots) == 1
+    assert built_snapshots[0]["captured_at"] == "2026-04-30T03:25:30+00:00"
+    assert built_snapshots[0]["summary"] == {
+        "available": True,
+        "rss_bytes": 220 * 1024 * 1024,
+        "vms_bytes": 440 * 1024 * 1024,
+        "thread_count": 12,
+        "open_file_count": 4,
+        "history_size": 1,
+        "growth_bytes": 0,
+        "suspected_leak": False,
+        "heavy_diagnostics_enabled": True,
+        "tracemalloc_tracing": False,
+        "sample_interval_seconds": 60.0,
+        "baseline_reset_at": None,
+        "last_sample_at": sample_timestamp,
+        "last_error": None,
+    }
+    assert built_snapshots[0]["details"] == {
+        "captured_at": "2026-04-30T03:25:30+00:00",
+        "top_growth": [{"location": "src/current.py:10", "size_diff_bytes": 4096}],
+        "top_allocations": [{"location": "src/current.py:10", "size_bytes": 8192}],
+        "top_object_types": [{"type": "list", "count": 6}],
+    }
+    assert published_calls == [(built_snapshots[0], 60.0)]
+
+
+@pytest.mark.asyncio
+async def test_sample_once_publishes_last_alert_snapshot_when_alert_fires(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from src.infra.monitoring.memory import MemoryMonitor
+
+    first_timestamp = datetime(2026, 4, 30, 3, 25, tzinfo=timezone.utc)
+    second_timestamp = first_timestamp + timedelta(minutes=1)
+    samples = iter(
+        [
+            {
+                "timestamp": first_timestamp,
+                "rss_bytes": 100 * 1024 * 1024,
+                "vms_bytes": 400 * 1024 * 1024,
+                "thread_count": 12,
+                "open_file_count": 3,
+            },
+            {
+                "timestamp": second_timestamp,
+                "rss_bytes": 220 * 1024 * 1024,
+                "vms_bytes": 440 * 1024 * 1024,
+                "thread_count": 12,
+                "open_file_count": 4,
+            },
+        ]
+    )
+    alert_snapshot = {
+        "captured_at": "2026-04-30T03:26:30+00:00",
+        "top_growth": [{"location": "src/leaky.py:88", "size_diff_bytes": 64 * 1024 * 1024}],
+        "top_allocations": [{"location": "src/cache.py:21", "size_bytes": 32 * 1024 * 1024}],
+        "top_object_types": [{"type": "dict", "count": 4200}],
+    }
+    diagnostics_calls: list[int] = []
+    published_calls: list[tuple[dict[str, object], float]] = []
+    built_snapshots: list[dict[str, object]] = []
+
+    monitor = MemoryMonitor(
+        interval_seconds=60.0,
+        history_limit=10,
+        leak_threshold_bytes=64 * 1024 * 1024,
+        min_samples_for_alert=2,
+        alert_cooldown_seconds=0.0,
+        heavy_diagnostics_enabled=True,
+    )
+    monitor._collect_process_sample = lambda: next(samples)  # type: ignore[method-assign]
+
+    def _capture() -> dict[str, object]:
+        diagnostics_calls.append(1)
+        return alert_snapshot
+
+    monitor._capture_diagnostics_snapshot = _capture  # type: ignore[method-assign]
+
+    def _fake_build_instance_snapshot(
+        *,
+        instance_id: str | None = None,
+        captured_at: object | None = None,
+        summary: dict[str, object] | None = None,
+        details: dict[str, object] | None = None,
+    ) -> dict[str, object]:
+        snapshot = {
+            "instance_id": instance_id,
+            "captured_at": captured_at,
+            "summary": summary,
+            "details": details,
+        }
+        built_snapshots.append(snapshot)
+        return snapshot
+
+    async def _fake_publish_instance_snapshot(
+        snapshot: dict[str, object],
+        *,
+        interval_seconds: float,
+        redis_client: object | None = None,
+    ) -> dict[str, object]:
+        del redis_client
+        published_calls.append((snapshot, interval_seconds))
+        return snapshot
+
+    monkeypatch.setattr(
+        distributed_memory_health,
+        "build_instance_snapshot",
+        _fake_build_instance_snapshot,
+    )
+    monkeypatch.setattr(
+        distributed_memory_health,
+        "publish_instance_snapshot",
+        _fake_publish_instance_snapshot,
+    )
+
+    await monitor._sample_once()
+    await monitor._sample_once()
+
+    assert diagnostics_calls == [1, 1]
+    assert len(built_snapshots) == 2
+    assert built_snapshots[-1]["captured_at"] == "2026-04-30T03:26:30+00:00"
+    assert built_snapshots[-1]["summary"] == {
+        "available": True,
+        "rss_bytes": 220 * 1024 * 1024,
+        "vms_bytes": 440 * 1024 * 1024,
+        "thread_count": 12,
+        "open_file_count": 4,
+        "history_size": 2,
+        "growth_bytes": 120 * 1024 * 1024,
+        "suspected_leak": True,
+        "heavy_diagnostics_enabled": True,
+        "tracemalloc_tracing": False,
+        "sample_interval_seconds": 60.0,
+        "baseline_reset_at": None,
+        "last_sample_at": second_timestamp,
+        "last_error": None,
+    }
+    assert built_snapshots[-1]["details"] == alert_snapshot
+    assert published_calls[-1] == (built_snapshots[-1], 60.0)
+
+
+@pytest.mark.asyncio
+async def test_sample_once_swallow_publish_failures_without_breaking_sampling(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from src.infra.monitoring.memory import MemoryMonitor
+
+    sample_timestamp = datetime(2026, 4, 30, 3, 25, tzinfo=timezone.utc)
+    built_snapshots: list[dict[str, object]] = []
+    publish_attempts: list[tuple[dict[str, object], float]] = []
+
+    monitor = MemoryMonitor(
+        interval_seconds=30.0,
+        history_limit=10,
+        leak_threshold_bytes=1024 * 1024 * 1024,
+        min_samples_for_alert=2,
+        heavy_diagnostics_enabled=False,
+    )
+    monitor._collect_process_sample = lambda: {  # type: ignore[method-assign]
+        "timestamp": sample_timestamp,
+        "rss_bytes": 220 * 1024 * 1024,
+        "vms_bytes": 440 * 1024 * 1024,
+        "thread_count": 12,
+        "open_file_count": 4,
+    }
+
+    def _fake_build_instance_snapshot(
+        *,
+        instance_id: str | None = None,
+        captured_at: object | None = None,
+        summary: dict[str, object] | None = None,
+        details: dict[str, object] | None = None,
+    ) -> dict[str, object]:
+        snapshot = {
+            "instance_id": instance_id,
+            "captured_at": captured_at,
+            "summary": summary,
+            "details": details,
+        }
+        built_snapshots.append(snapshot)
+        return snapshot
+
+    async def _failing_publish_instance_snapshot(
+        snapshot: dict[str, object],
+        *,
+        interval_seconds: float,
+        redis_client: object | None = None,
+    ) -> dict[str, object]:
+        del snapshot, interval_seconds, redis_client
+        publish_attempts.append((built_snapshots[-1], 30.0))
+        raise RuntimeError("redis unavailable")
+
+    monkeypatch.setattr(
+        distributed_memory_health,
+        "build_instance_snapshot",
+        _fake_build_instance_snapshot,
+    )
+    monkeypatch.setattr(
+        distributed_memory_health,
+        "publish_instance_snapshot",
+        _failing_publish_instance_snapshot,
+    )
+
+    await monitor._sample_once()
+
+    summary = await monitor.get_summary()
+    diagnostics = await monitor.get_diagnostics(refresh=True)
+
+    assert len(built_snapshots) == 1
+    assert publish_attempts == [(built_snapshots[0], 30.0)]
+    assert summary["available"] is True
+    assert summary["rss_bytes"] == 220 * 1024 * 1024
+    assert summary["history_size"] == 1
+    assert diagnostics["last_alert"] is None
+    assert diagnostics["current_snapshot"] == {
+        "captured_at": diagnostics["current_snapshot"]["captured_at"],
+        "heavy_diagnostics_enabled": False,
+        "reason": "heavy_diagnostics_disabled",
+        "top_growth": [],
+        "top_allocations": [],
+        "top_object_types": [],
+    }
 
 
 @pytest.mark.asyncio

@@ -12,19 +12,18 @@
 from __future__ import annotations
 
 import re
+import weakref
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+
+from langchain_core.tools import BaseTool
 
 from src.infra.logging import get_logger
 
-if TYPE_CHECKING:
-    from langchain_core.tools import BaseTool
-
 logger = get_logger(__name__)
 
-# Module-level cache: _ParsedTool keyed by id(tool), safe because tool objects
-# are long-lived (created once per session and never mutated).
-_parse_cache: dict[int, _ParsedTool] = {}
+# Module-level cache keyed by object id with a weakref finalizer, so transient
+# tool objects do not accumulate in long-lived worker processes.
+_parse_cache: dict[int, tuple[weakref.ReferenceType[BaseTool], "_ParsedTool"]] = {}
 
 
 def _normalize_search_text(value: str) -> str:
@@ -53,7 +52,6 @@ class _ParsedTool:
     hint: str
     desc: str
     is_mcp: bool
-    tool: "BaseTool"
 
 
 def _parse_tool(tool: "BaseTool") -> _ParsedTool:
@@ -61,7 +59,10 @@ def _parse_tool(tool: "BaseTool") -> _ParsedTool:
     tid = id(tool)
     cached = _parse_cache.get(tid)
     if cached is not None:
-        return cached
+        cached_ref, cached_parsed = cached
+        if cached_ref() is tool:
+            return cached_parsed
+        _parse_cache.pop(tid, None)
     name = tool.name
     desc = getattr(tool, "description", "") or ""
     hint = desc.split("\n")[0].strip()
@@ -73,9 +74,19 @@ def _parse_tool(tool: "BaseTool") -> _ParsedTool:
         hint=hint.lower(),
         desc=desc.lower(),
         is_mcp=getattr(tool, "server", "") != "" or name.startswith("mcp"),
-        tool=tool,
     )
-    _parse_cache[tid] = pt
+    try:
+
+        def _on_finalize(_wref: weakref.ReferenceType[BaseTool], _tid: int = tid) -> None:
+            _parse_cache.pop(_tid, None)
+
+        ref = weakref.ref(tool, _on_finalize)
+        if ref is None:
+            return pt
+        tool_ref: weakref.ReferenceType[BaseTool] = ref
+    except TypeError:
+        return pt
+    _parse_cache[tid] = (tool_ref, pt)
     return pt
 
 
@@ -153,13 +164,13 @@ def search_tools_with_keywords(
     required_compiled = _compile_term_patterns(required_terms)
 
     # 解析所有工具（缓存友好）
-    parsed_tools = [_parse_tool(t) for t in tools]
+    parsed_tools = [(tool, _parse_tool(tool)) for tool in tools]
 
     # 必选词预过滤
-    candidates: list[_ParsedTool] = []
-    for pt in parsed_tools:
+    candidates: list[tuple["BaseTool", _ParsedTool]] = []
+    for tool, pt in parsed_tools:
         if not required_compiled:
-            candidates.append(pt)
+            candidates.append((tool, pt))
             continue
         all_match = True
         for _term, _tl, pattern in required_compiled:
@@ -172,11 +183,11 @@ def search_tools_with_keywords(
                 all_match = False
                 break
         if all_match:
-            candidates.append(pt)
+            candidates.append((tool, pt))
 
     # 评分
     scored: list[ToolSearchResult] = []
-    for pt in candidates:
+    for tool, pt in candidates:
         score = 0.0
         mcp_mult = 1.2 if pt.is_mcp else 1.0
 
@@ -204,9 +215,9 @@ def search_tools_with_keywords(
             scored.append(
                 ToolSearchResult(
                     name=pt.name,
-                    description=getattr(pt.tool, "description", "") or "",
+                    description=getattr(tool, "description", "") or "",
                     score=round(score, 1),
-                    tool=pt.tool,
+                    tool=tool,
                 )
             )
 

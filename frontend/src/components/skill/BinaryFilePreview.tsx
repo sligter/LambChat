@@ -131,14 +131,9 @@ export function BinaryFilePreview({
           >
             {!imageLoaded && (
               <div className="absolute inset-0 flex items-center justify-center bg-[var(--theme-bg-card)]/50 rounded-lg">
-                <div className="flex flex-col items-center gap-3">
-                  <Loader2
-                    size={28}
-                    className="animate-spin text-[var(--theme-text-secondary)]"
-                  />
-                  <span className="text-xs text-[var(--theme-text-secondary)]">
-                    Loading...
-                  </span>
+                <div className="flex items-center gap-2 rounded-xl bg-white/80 px-3 py-2 text-xs text-stone-500 shadow-sm dark:bg-stone-800/80 dark:text-stone-400">
+                  <Loader2 size={14} className="animate-spin" />
+                  <span>{t("documents.loadingImage")}</span>
                 </div>
               </div>
             )}
@@ -157,11 +152,9 @@ export function BinaryFilePreview({
           <div className="relative flex items-center justify-center bg-gradient-to-b from-stone-900 to-stone-950 p-4 sm:p-8 min-h-full">
             {!videoLoaded && (
               <div className="absolute inset-0 flex items-center justify-center">
-                <div className="flex flex-col items-center gap-3">
-                  <Loader2 size={28} className="animate-spin text-white/60" />
-                  <span className="text-xs text-white/50">
-                    Loading video...
-                  </span>
+                <div className="flex items-center gap-2 rounded-xl bg-white/10 px-3 py-2 text-xs text-white/60 shadow-sm">
+                  <Loader2 size={14} className="animate-spin" />
+                  <span>{t("documents.loadingVideo")}</span>
                 </div>
               </div>
             )}

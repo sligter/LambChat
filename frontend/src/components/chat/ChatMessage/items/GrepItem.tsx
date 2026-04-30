@@ -2,7 +2,7 @@ import { memo, useMemo } from "react";
 import { Search, FileText } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { CollapsiblePill } from "../../../common";
-import { CodeMirrorViewer } from "../../../common/CodeMirrorViewer";
+import { DeferredCodeMirrorViewer } from "../../../common/DeferredCodeMirrorViewer";
 import { extractText } from "./toolUtils";
 import { openPersistentToolPanel } from "./persistentToolPanelState";
 
@@ -115,7 +115,7 @@ const GrepItem = memo(function GrepItem({
       )}
       {outputMode === "content" && parsedResult.lines.length > 0 && (
         <div className="rounded-lg border border-stone-200/60 dark:border-stone-700/50 overflow-hidden">
-          <CodeMirrorViewer
+          <DeferredCodeMirrorViewer
             value={parsedResult.lines.join("\n")}
             lineNumbers={false}
             fontSize="0.8rem"
@@ -201,7 +201,7 @@ const GrepItem = memo(function GrepItem({
             )}
             {outputMode === "content" && parsedResult.lines.length > 0 && (
               <div className="max-h-48 overflow-y-auto rounded-md border border-stone-200/60 dark:border-stone-700/50">
-                <CodeMirrorViewer
+                <DeferredCodeMirrorViewer
                   value={parsedResult.lines.slice(0, 50).join("\n")}
                   lineNumbers={false}
                   fontSize="0.75rem"

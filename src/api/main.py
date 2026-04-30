@@ -294,9 +294,13 @@ async def lifespan(app: FastAPI):
             agent_discovery_task.cancel()
 
         # 关闭 PostgreSQL 连接池
-        from src.infra.storage.checkpoint import close_pg_checkpointer
+        from src.infra.storage.checkpoint import (
+            close_async_checkpointer,
+            close_pg_checkpointer,
+        )
         from src.infra.storage.postgres import close_connection_pool
 
+        close_async_checkpointer()
         close_connection_pool()
         await close_pg_checkpointer()
 

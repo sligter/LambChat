@@ -3,7 +3,7 @@ import { Code2, FolderTree, Download, Maximize } from "lucide-react";
 import { PreviewHeader } from "../../../common/FileIcon";
 import { useTranslation } from "react-i18next";
 import { LoadingSpinner } from "../../../common";
-import ProjectPreview from "../../../documents/previews/ProjectPreview";
+import { LazyProjectPreview } from "../../../documents/previews/LazyProjectPreview";
 import { exportProjectZip } from "../../../../utils/exportProjectZip";
 import {
   getProjectRevealAutoOpenKey,
@@ -306,7 +306,7 @@ export function ProjectRevealItem({
 
         {loadedFiles ? (
           <div className="h-[300px] sm:h-[600px] bg-stone-50 dark:bg-stone-900/95 rounded-b-2xl">
-            <ProjectPreview
+            <LazyProjectPreview
               name={projectName}
               template={template}
               files={loadedFiles}

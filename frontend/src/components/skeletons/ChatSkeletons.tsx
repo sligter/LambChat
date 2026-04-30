@@ -304,7 +304,7 @@ export function WelcomeSkeleton() {
             {[0, 1, 2, 3].map((i) => (
               <div
                 key={i}
-                className="flex items-center gap-3 rounded-xl border px-4 py-3"
+                className="flex items-center gap-3 rounded-xl border px-4 sm:px-8 py-3"
                 style={{
                   backgroundColor: "var(--theme-bg-card)",
                   borderColor: "var(--theme-border)",

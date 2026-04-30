@@ -43,7 +43,7 @@ export function SidebarRail({
 
   return (
     <nav
-      className="absolute inset-0 flex h-full w-[--sidebar-rail-width] flex-col items-start bg-[var(--theme-bg-sidebar)] border-r border-stone-200/60 dark:border-stone-800/60 pb-1.5 select-none transition-opacity duration-150 ease-[steps(1,end)] opacity-100 pointer-events-auto"
+      className="absolute inset-0 flex h-full w-[--sidebar-rail-width] flex-col items-start bg-[var(--theme-bg-sidebar)] border-r border-stone-200/60 dark:border-stone-800/60 select-none transition-opacity duration-150 ease-[steps(1,end)] opacity-100 pointer-events-auto"
       aria-label={t("sidebarView")}
     >
       {/* Expand button — default: app icon, hover: expand icon */}
@@ -130,13 +130,13 @@ export function SidebarRail({
       <div className="pointer-events-none flex-grow" />
 
       {/* Profile avatar */}
-      <div className="mb-1 w-full px-2">
+      <div className="shrink-0 p-2 border-t border-stone-200/60 dark:border-stone-800/60">
         <button
           onClick={onShowProfile}
-          className="flex h-9 w-full items-center justify-center rounded-lg overflow-hidden transition-colors"
+          className="group flex items-center justify-center rounded-xl py-[11px] w-full hover:bg-stone-100 dark:hover:bg-stone-800/60 transition cursor-pointer"
           aria-label={t("sidebar.expandSidebar")}
         >
-          <div className="shrink-0 w-8 h-8 rounded-full overflow-hidden ring-1 ring-gray-200 dark:ring-gray-700">
+          <div className="shrink-0 w-8 h-8 rounded-full overflow-hidden ring-1 ring-stone-200 dark:ring-stone-700 group-hover:ring-[var(--theme-primary)] transition">
             {user?.avatar_url && !imgError ? (
               <img
                 src={user.avatar_url}

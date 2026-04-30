@@ -142,15 +142,71 @@ async def memory_health_check(
     _=Depends(require_permissions("settings:manage")),
 ):
     """详细内存诊断"""
+    from src.infra.monitoring.distributed_memory_health import (
+        build_cluster_overview,
+        build_instance_snapshot,
+        get_instance_id,
+        load_cluster_snapshots,
+        publish_instance_snapshot,
+    )
+
     diagnostics = await get_memory_monitor().get_diagnostics(refresh=refresh)
     summary = diagnostics.get("summary", {})
     last_alert = diagnostics.get("last_alert") or diagnostics.get("current_snapshot") or {}
 
+    local_instance_id = get_instance_id()
+    local_snapshot = build_instance_snapshot(
+        instance_id=local_instance_id,
+        summary=summary,
+        details=last_alert,
+    )
+
+    try:
+        await publish_instance_snapshot(local_snapshot, interval_seconds=60.0)
+    except Exception:
+        pass
+
+    cluster_snapshots = await load_cluster_snapshots()
+
+    for snapshot in cluster_snapshots:
+        snapshot["is_local"] = snapshot.get("instance_id") == local_instance_id
+
+    local_in_cluster = any(s.get("is_local") for s in cluster_snapshots)
+    if not local_in_cluster:
+        local_snapshot["is_local"] = True
+        cluster_snapshots.append(local_snapshot)
+
+    cluster_overview = build_cluster_overview(
+        cluster_snapshots,
+        local_instance_id=local_instance_id,
+    )
+    selected_instance = cluster_overview["selected_instance"]
+
     return {
-        **diagnostics,
-        "overview": _build_memory_overview(summary),
-        "highlights": _build_highlight_items(summary, last_alert),
-        "top_growth": _format_growth_rows(last_alert.get("top_growth")),
-        "top_allocations": _format_allocation_rows(last_alert.get("top_allocations")),
-        "top_objects": _format_object_rows(last_alert.get("top_object_types")),
+        "local_instance_id": local_instance_id,
+        "cluster_overview": {
+            "instance_count": cluster_overview["instance_count"],
+            "available_instance_count": cluster_overview["available_instance_count"],
+            "suspected_leak_count": cluster_overview["suspected_leak_count"],
+            "selected_instance_id": cluster_overview["selected_instance_id"],
+        },
+        "instances": cluster_snapshots,
+        "selected_instance": selected_instance,
+        "summary": summary,
+        "last_alert": diagnostics.get("last_alert"),
+        "last_error": diagnostics.get("last_error"),
+        "current_snapshot": diagnostics.get("current_snapshot"),
+        "overview": selected_instance.get("overview", _build_memory_overview(summary)),
+        "highlights": selected_instance.get(
+            "highlights", _build_highlight_items(summary, last_alert)
+        ),
+        "top_growth": selected_instance.get(
+            "top_growth", _format_growth_rows(last_alert.get("top_growth"))
+        ),
+        "top_allocations": selected_instance.get(
+            "top_allocations", _format_allocation_rows(last_alert.get("top_allocations"))
+        ),
+        "top_objects": selected_instance.get(
+            "top_objects", _format_object_rows(last_alert.get("top_object_types"))
+        ),
     }

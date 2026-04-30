@@ -2,7 +2,7 @@ import { memo, useMemo } from "react";
 import { FileText } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { CollapsiblePill } from "../../../common";
-import { CodeMirrorViewer } from "../../../common/CodeMirrorViewer";
+import { DeferredCodeMirrorViewer } from "../../../common/DeferredCodeMirrorViewer";
 import {
   stripLineNumbers,
   extractText,
@@ -90,7 +90,7 @@ const ReadFileItem = memo(function ReadFileItem({
       )}
       {displayContent && (
         <div className="rounded-lg border border-stone-200/60 dark:border-stone-700/50 overflow-hidden">
-          <CodeMirrorViewer
+          <DeferredCodeMirrorViewer
             value={displayContent}
             filePath={filePath}
             lineNumbers={true}
@@ -151,7 +151,7 @@ const ReadFileItem = memo(function ReadFileItem({
             )}
             {displayContent && (
               <div className="rounded-md border border-stone-200/60 dark:border-stone-700/50">
-                <CodeMirrorViewer
+                <DeferredCodeMirrorViewer
                   value={displayContent}
                   filePath={filePath}
                   lineNumbers={true}

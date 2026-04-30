@@ -17,7 +17,10 @@ import os
 import shlex
 from typing import TYPE_CHECKING, Any, Callable, Literal
 
-from deepagents.backends.protocol import (
+from deepagents.backends.sandbox import BaseSandbox
+from deepagents.backends.utils import create_file_data, format_read_response
+
+from src.infra.backend.protocol_compat import (
     ExecuteResponse,
     FileDownloadResponse,
     FileInfo,
@@ -28,8 +31,6 @@ from deepagents.backends.protocol import (
     ReadResult,
     WriteResult,
 )
-from deepagents.backends.sandbox import BaseSandbox
-
 from src.infra.logging import get_logger
 from src.infra.sandbox_grep import (
     build_grep_command,
@@ -45,6 +46,12 @@ logger = get_logger(__name__)
 
 # 默认超时 30 分钟（秒）
 _DEFAULT_TIMEOUT = 30 * 60
+
+
+def _render_text_read(content: str, offset: int, limit: int) -> str:
+    if not content:
+        return ""
+    return format_read_response(create_file_data(content), offset, limit)
 
 
 class E2BBackend(BaseSandbox):
@@ -242,7 +249,7 @@ class E2BBackend(BaseSandbox):
                 pass
         return False
 
-    def ls(self, path: str) -> LsResult:
+    def ls_info(self, path: str) -> list[FileInfo]:
         """使用 E2B 原生 files.list() 列出目录"""
         try:
             entries = self._sandbox.files.list(path=path)
@@ -254,10 +261,19 @@ class E2BBackend(BaseSandbox):
                 if hasattr(entry, "size"):
                     info["size"] = entry.size
                 result.append(info)
-            return LsResult(entries=result)
+            return result
         except Exception as e:
             logger.warning(f"E2B files.list({path}) failed: {e}, falling back to execute()")
-            return super().ls(path)
+            return super().ls_info(path)
+
+    async def als_info(self, path: str) -> list[FileInfo]:
+        return await asyncio.to_thread(self.ls_info, path)
+
+    def ls(self, path: str) -> LsResult:
+        return LsResult(entries=self.ls_info(path))
+
+    async def als(self, path: str) -> LsResult:
+        return LsResult(entries=await self.als_info(path))
 
     # magic bytes → MIME
     _MAGIC: list[tuple[bytes, str]] = [
@@ -286,9 +302,12 @@ class E2BBackend(BaseSandbox):
         """将二进制数据包装为 data URI 返回"""
         mime = self._guess_mime_type(file_path, raw)
         data_uri = f"data:{mime};base64,{base64.standard_b64encode(raw).decode()}"
-        return ReadResult(file_data={"content": data_uri, "encoding": "data_uri"})
+        return ReadResult(
+            file_data={"content": data_uri, "encoding": "data_uri"},
+            rendered_content=data_uri,
+        )
 
-    def read(self, file_path: str, offset: int = 0, limit: int = 2000) -> ReadResult:
+    def read(self, file_path: str, offset: int = 0, limit: int = 2000) -> ReadResult:  # type: ignore[override]
         """使用 E2B 原生 files.read() 读取文件，middleware 负责行号格式化和截断
 
         自动检测二进制文件，返回 data URI 而非裸 base64。
@@ -311,13 +330,13 @@ class E2BBackend(BaseSandbox):
                     raw = self._sandbox.files.read(path=file_path, format="bytes")
                     return self._read_as_data_uri(file_path, raw)
 
-            if offset > 0:
-                lines = content.split("\n")
-                content = "\n".join(lines[offset:])
-            return ReadResult(file_data={"content": content, "encoding": "utf-8"})
+            return ReadResult(
+                file_data={"content": content, "encoding": "utf-8"},
+                rendered_content=_render_text_read(content, offset, limit),
+            )
         except Exception as e:
             logger.warning(f"E2B files.read({file_path}) failed: {e}, falling back to execute()")
-            return super().read(file_path, offset, limit)
+            return ReadResult(error=str(e))
 
     def write(self, file_path: str, content: str) -> WriteResult:
         """使用 E2B 原生 files.write() 写入文件"""
@@ -337,7 +356,7 @@ class E2BBackend(BaseSandbox):
             logger.error(f"E2B files.write({file_path}) failed: {e}")
             return WriteResult(path=file_path, error=error)
 
-    def glob(self, pattern: str, path: str = "/", *, _max_depth: int = 10) -> GlobResult:
+    def glob_info(self, pattern: str, path: str = "/", *, _max_depth: int = 10) -> list[FileInfo]:
         """使用 E2B 原生 files.list() 递归搜索匹配 glob 模式的文件
 
         E2B 没有 glob API，所以用 list 递归列出后在 Python 端过滤。
@@ -383,10 +402,19 @@ class E2BBackend(BaseSandbox):
                             pass
 
             _match_glob(entries, search_path, 0)
-            return GlobResult(matches=result)
+            return result
         except Exception as e:
             logger.warning(f"E2B glob({pattern}) failed: {e}, falling back to execute()")
-            return super().glob(pattern, path)
+            return super().glob_info(pattern, path)
+
+    async def aglob_info(self, pattern: str, path: str = "/") -> list[FileInfo]:
+        return await asyncio.to_thread(self.glob_info, pattern, path)
+
+    def glob(self, pattern: str, path: str = "/", _max_depth: int = 10) -> GlobResult:
+        return GlobResult(matches=self.glob_info(pattern, path, _max_depth=_max_depth))
+
+    async def aglob(self, pattern: str, path: str = "/") -> GlobResult:
+        return GlobResult(matches=await self.aglob_info(pattern, path))
 
     # =========================================================================
     # File upload / download (already native, no change needed to logic)

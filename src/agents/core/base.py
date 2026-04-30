@@ -258,6 +258,19 @@ class BaseGraphAgent(ABC):
                         pass
             self._stream_tasks.clear()
 
+            # 取消后台清理任务（MemorySaver fallback 时会创建）
+            cleanup_task = getattr(self, "_cleanup_task", None)
+            if cleanup_task is not None and not cleanup_task.done():
+                cleanup_task.cancel()
+                try:
+                    await cleanup_task
+                except asyncio.CancelledError:
+                    pass
+                except Exception:
+                    pass
+            if hasattr(self, "_cleanup_task"):
+                self._cleanup_task = None  # type: ignore[assignment]
+
             # 清理 graph 和 checkpointer
             self._graph = None
             self._checkpointer = None

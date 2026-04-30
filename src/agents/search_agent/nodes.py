@@ -43,7 +43,7 @@ from src.infra.logging import get_logger
 from src.infra.sandbox.session_manager import get_session_sandbox_manager
 from src.infra.skill.loader import build_skills_prompt
 from src.infra.storage.checkpoint import get_async_checkpointer
-from src.infra.storage.mongodb_store import create_store
+from src.infra.storage.mongodb_store import acreate_store
 from src.infra.writer.present import Presenter
 from src.kernel.config import settings
 
@@ -140,7 +140,7 @@ async def agent_node(state: Dict[str, Any], config: RunnableConfig) -> Dict[str,
 
     # 创建内层 graph (deep agent)
     checkpointer_start = time.time()
-    inner_checkpointer = await get_async_checkpointer()
+    inner_checkpointer = await get_async_checkpointer(thread_id=state.get("session_id"))
     checkpointer_init_time = time.time() - checkpointer_start
     logger.debug(f"[Agent] Checkpointer init: {checkpointer_init_time * 1000:.3f}ms")
 
@@ -233,6 +233,7 @@ async def agent_node(state: Dict[str, Any], config: RunnableConfig) -> Dict[str,
             "thread_id": state.get("session_id", str(uuid.uuid4())),
             "backend": backend_factory,
             "context": context,  # 传递 context 以便工具访问 user_id
+            "disabled_skills": configurable.get("disabled_skills"),
             "base_url": configurable.get("base_url", ""),  # 传递 base_url 给工具使用
             "presenter": presenter,  # 传递 presenter 给工具调用
         },
@@ -323,7 +324,7 @@ async def _create_backend_and_prompt(
         sandbox_backend 在沙箱模式下为 CompositeBackend 实例，否则为 None。
     """
     # 创建 store（优先 PostgreSQL → MongoDB fallback）
-    store = create_store()
+    store = await acreate_store()
 
     # 获取 user_id
     user_id = context.user_id or "default"

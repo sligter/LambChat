@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import DocumentPreview from "../documents/DocumentPreview";
 import { DelayedUnmount } from "../common/DelayedUnmount";
 import { getFullUrl } from "../../services/api";
+import { LazyDocumentPreview } from "../documents/LazyDocumentPreview";
 import {
   closeAttachmentPreview,
   getAttachmentPreviewState,
@@ -27,7 +27,7 @@ export function AttachmentPreviewHost() {
   return (
     <DelayedUnmount show={!!attachment}>
       {attachment && (
-        <DocumentPreview
+        <LazyDocumentPreview
           path={attachment.name}
           s3Key={attachment.key}
           fileSize={attachment.size}

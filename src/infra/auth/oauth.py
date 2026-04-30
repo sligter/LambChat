@@ -4,19 +4,21 @@ OAuth 认证服务
 支持 Google、GitHub、Apple OAuth 登录。
 """
 
+import asyncio
 import base64
 import json
-from typing import Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
 import httpx
-from authlib.integrations.httpx_client import AsyncOAuth2Client
-from authlib.jose import JsonWebKey, jwt
 from pydantic import BaseModel
 
 from src.infra.logging import get_logger
 from src.infra.user.storage import UserStorage
 from src.kernel.config import settings
 from src.kernel.schemas.user import OAuthProvider, Token, User, UserCreate
+
+if TYPE_CHECKING:
+    from authlib.integrations.httpx_client import AsyncOAuth2Client
 
 logger = get_logger(__name__)
 
@@ -43,9 +45,9 @@ class OAuthService:
 
     def __init__(self):
         self.storage = UserStorage()
-        self._oauth_clients: Dict[str, AsyncOAuth2Client] = {}
+        self._oauth_clients: Dict[str, "AsyncOAuth2Client"] = {}
 
-    def _get_client(self, provider: OAuthProvider) -> Optional[AsyncOAuth2Client]:
+    def _get_client(self, provider: OAuthProvider) -> Optional["AsyncOAuth2Client"]:
         """获取 OAuth 客户端"""
         if provider.value in self._oauth_clients:
             return self._oauth_clients[provider.value]
@@ -53,6 +55,8 @@ class OAuthService:
         client_id, client_secret = self._get_client_credentials(provider)
         if not client_id or not client_secret:
             return None
+
+        from authlib.integrations.httpx_client import AsyncOAuth2Client
 
         # 使用 AsyncOAuth2Client 直接创建客户端
         client = AsyncOAuth2Client(
@@ -333,15 +337,11 @@ class OAuthService:
                 logger.error(f"Apple OAuth: No matching public key found for kid={kid}")
                 return None
 
-            # 使用 authlib 验证 JWT
-            public_key = JsonWebKey.import_key(jwk)
-            claims = jwt.decode(
+            claims = await asyncio.to_thread(
+                _decode_apple_identity_token,
                 id_token,
-                public_key,
-                claims_options={
-                    "iss": {"essential": True, "values": ["https://appleid.apple.com"]},
-                    "aud": {"essential": True, "values": [settings.OAUTH_APPLE_CLIENT_ID]},
-                },
+                jwk,
+                settings.OAUTH_APPLE_CLIENT_ID,
             )
 
             if "sub" not in claims:
@@ -457,3 +457,20 @@ def get_oauth_service() -> OAuthService:
     if _oauth_service is None:
         _oauth_service = OAuthService()
     return _oauth_service
+
+
+def _decode_apple_identity_token(
+    id_token: str, jwk: dict[str, Any], client_id: str
+) -> dict[str, Any]:
+    """Decode and verify Apple identity token off the event loop."""
+    from authlib.jose import JsonWebKey, jwt
+
+    public_key = JsonWebKey.import_key(jwk)
+    return jwt.decode(
+        id_token,
+        public_key,
+        claims_options={
+            "iss": {"essential": True, "values": ["https://appleid.apple.com"]},
+            "aud": {"essential": True, "values": [client_id]},
+        },
+    )

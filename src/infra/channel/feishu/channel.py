@@ -5,6 +5,7 @@ Supports per-user bot configurations - each user can have their own Feishu bot.
 """
 
 import asyncio
+import importlib
 import importlib.util
 import json
 import re
@@ -279,15 +280,14 @@ class FeishuChannel(FeishuSenderMixin, BaseChannel):
             )
             return False
 
-        import lark_oapi as lark
-
         self._running = True
         self._loop = asyncio.get_running_loop()
         self._set_connection_state(ConnectionState.CONNECTING)
 
         # Build SDK clients in executor to avoid blocking the event loop
-        # (lark SDK constructors may make synchronous HTTP calls)
+        # (lark SDK import/constructors may make synchronous work)
         def _build_clients():
+            lark = importlib.import_module("lark_oapi")
             client = (
                 lark.Client.builder()
                 .app_id(self.config.app_id)

@@ -44,12 +44,24 @@ async def test_start_runtime_services_starts_all_distributed_listeners(
     model_config_pubsub = _FakeAsyncService()
     memory_pubsub = _FakeAsyncService()
     websocket_manager = _FakeWebSocketManager()
+    channel_pubsub = _FakeAsyncService()
+    tool_cache_pubsub = _FakeAsyncService()
+    mcp_cache_pubsub = _FakeAsyncService()
 
     monkeypatch.setattr(runtime_services, "get_task_manager", lambda: task_manager)
     monkeypatch.setattr(runtime_services, "get_settings_pubsub", lambda: settings_pubsub)
     monkeypatch.setattr(runtime_services, "get_model_config_pubsub", lambda: model_config_pubsub)
     monkeypatch.setattr(runtime_services, "get_memory_pubsub", lambda: memory_pubsub)
     monkeypatch.setattr(runtime_services, "get_connection_manager", lambda: websocket_manager)
+    monkeypatch.setattr(
+        runtime_services, "get_channel_config_pubsub", lambda: channel_pubsub, raising=False
+    )
+    monkeypatch.setattr(
+        runtime_services, "get_tool_cache_pubsub", lambda: tool_cache_pubsub, raising=False
+    )
+    monkeypatch.setattr(
+        runtime_services, "get_mcp_cache_pubsub", lambda: mcp_cache_pubsub, raising=False
+    )
 
     await runtime_services.start_runtime_services()
 
@@ -58,6 +70,9 @@ async def test_start_runtime_services_starts_all_distributed_listeners(
     assert model_config_pubsub.start_calls == 1
     assert memory_pubsub.start_calls == 1
     assert websocket_manager.start_calls == 1
+    assert channel_pubsub.start_calls == 1
+    assert tool_cache_pubsub.start_calls == 1
+    assert mcp_cache_pubsub.start_calls == 1
 
 
 @pytest.mark.asyncio
@@ -69,6 +84,9 @@ async def test_stop_runtime_services_stops_all_distributed_listeners(
     model_config_pubsub = _FakeAsyncService()
     memory_pubsub = _FakeAsyncService()
     websocket_manager = _FakeWebSocketManager()
+    channel_pubsub = _FakeAsyncService()
+    tool_cache_pubsub = _FakeAsyncService()
+    mcp_cache_pubsub = _FakeAsyncService()
     memory_shutdown = SimpleNamespace(calls=0)
 
     async def _memory_shutdown() -> None:
@@ -79,6 +97,15 @@ async def test_stop_runtime_services_stops_all_distributed_listeners(
     monkeypatch.setattr(runtime_services, "get_model_config_pubsub", lambda: model_config_pubsub)
     monkeypatch.setattr(runtime_services, "get_memory_pubsub", lambda: memory_pubsub)
     monkeypatch.setattr(runtime_services, "get_connection_manager", lambda: websocket_manager)
+    monkeypatch.setattr(
+        runtime_services, "get_channel_config_pubsub", lambda: channel_pubsub, raising=False
+    )
+    monkeypatch.setattr(
+        runtime_services, "get_tool_cache_pubsub", lambda: tool_cache_pubsub, raising=False
+    )
+    monkeypatch.setattr(
+        runtime_services, "get_mcp_cache_pubsub", lambda: mcp_cache_pubsub, raising=False
+    )
     monkeypatch.setattr(runtime_services, "memory_shutdown", _memory_shutdown)
 
     await runtime_services.stop_runtime_services()
@@ -88,4 +115,7 @@ async def test_stop_runtime_services_stops_all_distributed_listeners(
     assert model_config_pubsub.stop_calls == 1
     assert memory_pubsub.stop_calls == 1
     assert websocket_manager.stop_calls == 1
+    assert channel_pubsub.stop_calls == 1
+    assert tool_cache_pubsub.stop_calls == 1
+    assert mcp_cache_pubsub.stop_calls == 1
     assert memory_shutdown.calls == 1

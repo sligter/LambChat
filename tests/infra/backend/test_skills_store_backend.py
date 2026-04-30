@@ -109,3 +109,15 @@ async def test_skills_store_backend_reads_disabled_skills_from_runtime_config() 
     result = await backend.als("/skills/")
 
     assert [_field(entry, "path") for entry in _field(result, "entries")] == ["/visible/"]
+
+
+async def test_skills_store_backend_sync_read_rejects_running_event_loop() -> None:
+    backend = SkillsStoreBackend(user_id="user-1", disabled_skills=[])
+    backend._storage = _FakeSkillStorage()
+
+    try:
+        backend.read("/skills/visible/SKILL.md")
+    except RuntimeError as exc:
+        assert "async" in str(exc).lower()
+    else:
+        raise AssertionError("expected sync read to reject running event loop")

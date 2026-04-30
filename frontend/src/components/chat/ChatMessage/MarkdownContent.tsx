@@ -10,7 +10,7 @@ import { useTranslation } from "react-i18next";
 import { clsx } from "clsx";
 import { getFullUrl } from "../../../services/api/config";
 import { MermaidDiagram } from "./MermaidDiagram";
-import { CodeMirrorViewer } from "../../common/CodeMirrorViewer";
+import { DeferredCodeMirrorViewer } from "../../common/DeferredCodeMirrorViewer";
 import { ImageViewer } from "../../common";
 import { createHeadingAnchorId } from "../../layout/AppContent/messageOutline";
 import { isFileLink } from "../../documents/utils";
@@ -142,7 +142,7 @@ function CodeBlock({
 
       {/* Code content */}
       <div className="bg-white dark:bg-[#282c34] [&_.cm-line]:leading-5 [&_.cm-gutterElement]:leading-5 overflow-hidden rounded-b-xl">
-        <CodeMirrorViewer
+        <DeferredCodeMirrorViewer
           value={codeString}
           language={language || undefined}
           lineNumbers={true}

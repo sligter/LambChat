@@ -104,10 +104,9 @@ class ConnectionManager:
 
         # 清理断开的连接
         if disconnected:
-            async with self._lock:
-                for user_id, ws in disconnected:
-                    if user_id in self._connections:
-                        self._connections[user_id].discard(ws)
+            users_to_unregister = await self._cleanup_disconnected_connections(disconnected)
+            for user_id in users_to_unregister:
+                await self._sync_route_registration(user_id, 0)
 
         return sent_count
 
@@ -206,12 +205,31 @@ class ConnectionManager:
 
         # 清理断开的连接
         if disconnected:
-            async with self._lock:
-                for ws in disconnected:
-                    if user_id in self._connections:
-                        self._connections[user_id].discard(ws)
+            users_to_unregister = await self._cleanup_disconnected_connections(
+                {(user_id, ws) for ws in disconnected}
+            )
+            for target_user_id in users_to_unregister:
+                await self._sync_route_registration(target_user_id, 0)
 
         return sent_count
+
+    async def _cleanup_disconnected_connections(
+        self,
+        disconnected: set[tuple[str, WebSocket]],
+    ) -> set[str]:
+        """Remove disconnected sockets and fully release empty user buckets."""
+        users_to_unregister: set[str] = set()
+        async with self._lock:
+            for user_id, ws in disconnected:
+                connections = self._connections.get(user_id)
+                if connections is None:
+                    continue
+                connections.discard(ws)
+                if not connections:
+                    del self._connections[user_id]
+                    self._stop_route_refresh_task(user_id)
+                    users_to_unregister.add(user_id)
+        return users_to_unregister
 
     async def send_to_user_with_broadcast(self, user_id: str, message: dict) -> int:
         """

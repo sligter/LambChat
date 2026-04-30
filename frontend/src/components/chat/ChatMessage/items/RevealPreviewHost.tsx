@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Code2, Download } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import DocumentPreview from "../../../documents/DocumentPreview";
-import ProjectPreview from "../../../documents/previews/ProjectPreview";
 import { LoadingSpinner } from "../../../common";
+import { LazyDocumentPreview } from "../../../documents/LazyDocumentPreview";
+import { LazyProjectPreview } from "../../../documents/previews/LazyProjectPreview";
 import { ToolResultPanel } from "./ToolResultPanel";
 import { exportProjectZip } from "../../../../utils/exportProjectZip";
 import {
@@ -232,7 +232,7 @@ function ProjectRevealPreviewPanel({
           </div>
         </div>
       ) : (
-        <ProjectPreview
+        <LazyProjectPreview
           name={project.name}
           template={project.template}
           files={filesForPreview}
@@ -265,7 +265,7 @@ export function RevealPreviewHost({
 
   if (preview.kind === "file") {
     return (
-      <DocumentPreview
+      <LazyDocumentPreview
         path={preview.filePath}
         s3Key={preview.s3Key}
         signedUrl={preview.signedUrl}

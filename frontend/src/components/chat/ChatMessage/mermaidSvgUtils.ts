@@ -12,7 +12,12 @@ export function stripResponsiveWidthAttribute(svg: string): string {
 }
 
 export function prepareFullscreenMermaidSvg(svg: string): string {
-  return svg.replace(/<svg\b([^>]*)>/, (_match, attrs) => {
+  const xmlSafeSvg = svg.replace(/<br(\s[^>]*?)?>/g, (_match, attrs = "") => {
+    const trimmedAttrs = attrs.trim();
+    return trimmedAttrs ? `<br ${trimmedAttrs} />` : "<br />";
+  });
+
+  return xmlSafeSvg.replace(/<svg\b([^>]*)>/, (_match, attrs) => {
     const styleMatch = attrs.match(/\sstyle="([^"]*)"/);
     const declarations = new Map<string, string>();
 

@@ -2,7 +2,7 @@ import { memo } from "react";
 import { Pencil } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { CollapsiblePill } from "../../../common";
-import { CodeMirrorViewer } from "../../../common/CodeMirrorViewer";
+import { DeferredCodeMirrorViewer } from "../../../common/DeferredCodeMirrorViewer";
 import { extractText } from "./toolUtils";
 import { openPersistentToolPanel } from "./persistentToolPanelState";
 
@@ -45,7 +45,7 @@ const EditFileItem = memo(function EditFileItem({
             {t("chat.message.toolEditRemoved")}
           </div>
           <div className="rounded-lg border border-red-200/60 dark:border-red-800/40 bg-red-50 dark:bg-red-950/30 overflow-hidden">
-            <CodeMirrorViewer
+            <DeferredCodeMirrorViewer
               value={oldString}
               filePath={filePath}
               lineNumbers={false}
@@ -61,7 +61,7 @@ const EditFileItem = memo(function EditFileItem({
             {t("chat.message.toolEditAdded")}
           </div>
           <div className="rounded-lg border border-emerald-200/60 dark:border-emerald-800/40 bg-emerald-50 dark:bg-emerald-950/30 overflow-hidden">
-            <CodeMirrorViewer
+            <DeferredCodeMirrorViewer
               value={newString}
               filePath={filePath}
               lineNumbers={false}
@@ -113,7 +113,7 @@ const EditFileItem = memo(function EditFileItem({
                   -
                 </div>
                 <div className="overflow-y-auto rounded-md border border-red-200/60 dark:border-red-800/40 bg-red-50 dark:bg-red-950/30">
-                  <CodeMirrorViewer
+                  <DeferredCodeMirrorViewer
                     value={oldString}
                     filePath={filePath}
                     lineNumbers={false}
@@ -129,7 +129,7 @@ const EditFileItem = memo(function EditFileItem({
                   +
                 </div>
                 <div className="overflow-y-auto rounded-md border border-emerald-200/60 dark:border-emerald-800/40 bg-emerald-50 dark:bg-emerald-950/30">
-                  <CodeMirrorViewer
+                  <DeferredCodeMirrorViewer
                     value={newString}
                     filePath={filePath}
                     lineNumbers={false}

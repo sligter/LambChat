@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from src.api.deps import get_current_user_required, require_permissions
 from src.infra.agent.config_storage import get_agent_config_storage
 from src.infra.channel.channel_storage import ChannelStorage
+from src.infra.channel.pubsub import publish_channel_config_changed
 from src.infra.channel.registry import get_registry
 from src.infra.logging import get_logger
 from src.infra.role.storage import RoleStorage
@@ -271,9 +272,16 @@ async def create_channel_instance(
         if manager_class:
             try:
                 manager = manager_class.get_instance()
-                await manager.reload_user(user.sub)
+                await manager.reload_user(user.sub, config.get("instance_id"))
             except Exception as e:
                 logger.warning(f"Failed to reload {channel_type} client: {e}")
+
+        await publish_channel_config_changed(
+            user_id=user.sub,
+            channel_type=channel_type.value,
+            channel_instance_id=config.get("instance_id"),
+            action="created",
+        )
 
         return await storage.get_response(
             user.sub, channel_type, config.get("instance_id"), metadata
@@ -355,9 +363,16 @@ async def update_channel_instance(
     if manager_class:
         try:
             manager = manager_class.get_instance()
-            await manager.reload_user(user.sub)
+            await manager.reload_user(user.sub, instance_id)
         except Exception as e:
             logger.warning(f"Failed to reload {channel_type} client: {e}")
+
+    await publish_channel_config_changed(
+        user_id=user.sub,
+        channel_type=channel_type.value,
+        channel_instance_id=instance_id,
+        action="updated",
+    )
 
     return await storage.get_response(user.sub, channel_type, instance_id, metadata)
 
@@ -400,6 +415,13 @@ async def delete_channel_instance(
                 f"Failed to stop {channel_type} client for user {user.sub}, instance {instance_id}. "
                 f"The channel may still be running. Error: {e}"
             )
+
+    await publish_channel_config_changed(
+        user_id=user.sub,
+        channel_type=channel_type.value,
+        channel_instance_id=instance_id,
+        action="deleted",
+    )
 
     return {"message": "Channel instance deleted successfully"}
 

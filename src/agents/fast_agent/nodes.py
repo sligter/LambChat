@@ -35,7 +35,7 @@ from src.infra.llm.client import LLMClient
 from src.infra.logging import get_logger
 from src.infra.skill.loader import build_skills_prompt
 from src.infra.storage.checkpoint import get_async_checkpointer
-from src.infra.storage.mongodb_store import create_store
+from src.infra.storage.mongodb_store import acreate_store
 from src.kernel.config import settings
 
 logger = get_logger(__name__)
@@ -117,7 +117,7 @@ async def fast_agent_node(state: Dict[str, Any], config: RunnableConfig) -> Dict
     logger.debug(f"[FastAgent] Backend init: {backend_init_time * 1000:.3f}ms")
 
     # 创建 store（优先 PostgreSQL → MongoDB fallback）
-    store = create_store()
+    store = await acreate_store()
 
     # 过滤工具（懒加载 MCP 工具）
     filtered_tools = None
@@ -136,7 +136,7 @@ async def fast_agent_node(state: Dict[str, Any], config: RunnableConfig) -> Dict
 
     # 创建内层 graph (deep agent)
     checkpointer_start = time.time()
-    inner_checkpointer = await get_async_checkpointer()
+    inner_checkpointer = await get_async_checkpointer(thread_id=state.get("session_id"))
     checkpointer_init_time = time.time() - checkpointer_start
     logger.debug(f"[FastAgent] Checkpointer init: {checkpointer_init_time * 1000:.3f}ms")
 
@@ -215,6 +215,7 @@ async def fast_agent_node(state: Dict[str, Any], config: RunnableConfig) -> Dict
             "thread_id": state.get("session_id", str(uuid.uuid4())),
             "backend": backend_factory,
             "context": context,
+            "disabled_skills": configurable.get("disabled_skills"),
             "base_url": configurable.get("base_url", ""),
             "presenter": presenter,  # 传递 presenter 给工具调用
         },

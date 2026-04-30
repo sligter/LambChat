@@ -38,3 +38,13 @@ test("prepareFullscreenMermaidSvg injects a style attribute when the svg has non
     /<svg viewBox="0 0 120 80" style="display: block; width: auto; height: auto; min-width: 200px; min-height: 100px; max-height: 85vh;">/,
   );
 });
+
+test("prepareFullscreenMermaidSvg normalizes HTML line breaks for XML image parsing", () => {
+  const svg =
+    '<svg viewBox="0 0 120 80"><foreignObject><div><p>line 1<br>line 2</p></div></foreignObject></svg>';
+
+  const prepared = prepareFullscreenMermaidSvg(svg);
+
+  assert.match(prepared, /<br \/>/);
+  assert.doesNotMatch(prepared, /<br>(?!<\/br>)/);
+});

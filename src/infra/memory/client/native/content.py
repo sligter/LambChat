@@ -19,16 +19,16 @@ def memory_store_namespace(user_id: str) -> tuple[str, ...]:
     return (base, user_id, "content")
 
 
-def get_store(backend) -> Any:
+async def get_store(backend) -> Any:
     if backend._store is None:
-        from src.infra.storage.mongodb_store import create_store
+        from src.infra.storage.mongodb_store import acreate_store
 
-        backend._store = create_store()
+        backend._store = await acreate_store()
     return backend._store
 
 
 async def store_put(backend, namespace: tuple[str, ...], key: str, value: dict[str, Any]) -> None:
-    store = get_store(backend)
+    store = await get_store(backend)
     if store is None:
         return
     if hasattr(store, "aput"):
@@ -39,7 +39,7 @@ async def store_put(backend, namespace: tuple[str, ...], key: str, value: dict[s
 
 
 async def store_get(backend, namespace: tuple[str, ...], key: str) -> Any:
-    store = get_store(backend)
+    store = await get_store(backend)
     if store is None:
         return None
     if hasattr(store, "aget"):
@@ -50,7 +50,7 @@ async def store_get(backend, namespace: tuple[str, ...], key: str) -> Any:
 
 
 async def store_delete(backend, namespace: tuple[str, ...], key: str) -> None:
-    store = get_store(backend)
+    store = await get_store(backend)
     if store is None:
         return
     if hasattr(store, "adelete"):

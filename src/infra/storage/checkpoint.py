@@ -10,6 +10,8 @@ Checkpoint 存储实现
 两者都不可用时回退到 MemorySaver（内存存储，重启丢失）。
 """
 
+import time
+from collections import OrderedDict
 from typing import AsyncContextManager, Optional
 
 from src.infra.logging import get_logger
@@ -17,12 +19,63 @@ from src.kernel.config import settings
 
 logger = get_logger(__name__)
 
+_MEMORY_SAVER_MAX_THREADS = max(int(getattr(settings, "MEMORY_SAVER_MAX_THREADS", 200) or 0), 1)
+_MEMORY_SAVER_TTL_SECONDS = max(
+    int(getattr(settings, "MEMORY_SAVER_TTL_SECONDS", 3600) or 0),
+    1,
+)
+_MEMORY_SAVER_CLEANUP_INTERVAL = max(
+    int(getattr(settings, "MEMORY_SAVER_CLEANUP_INTERVAL", 50) or 0),
+    1,
+)
+
 # MongoDB Checkpointer 单例
 _mongo_checkpointer: Optional[object] = None
 
 # PostgreSQL Checkpointer 单例
 _pg_checkpointer: Optional[object] = None
 _pg_checkpointer_ctx: Optional[AsyncContextManager] = None
+
+
+def _cleanup_memory_saver_cache(now: float | None = None) -> int:
+    cache: OrderedDict[str, tuple[object, float]] | None = getattr(
+        get_async_checkpointer,
+        "_memory_saver_cache",
+        None,
+    )
+    if not cache:
+        return 0
+
+    current_time = time.time() if now is None else now
+    removed = 0
+
+    stale_threads = [
+        thread_id
+        for thread_id, (_, last_access) in list(cache.items())
+        if current_time - last_access > _MEMORY_SAVER_TTL_SECONDS
+    ]
+    for thread_id in stale_threads:
+        cache.pop(thread_id, None)
+        removed += 1
+
+    while len(cache) > _MEMORY_SAVER_MAX_THREADS:
+        cache.popitem(last=False)
+        removed += 1
+
+    if not cache and hasattr(get_async_checkpointer, "_memory_saver_cache"):
+        delattr(get_async_checkpointer, "_memory_saver_cache")
+
+    return removed
+
+
+def close_async_checkpointer() -> None:
+    """Release MemorySaver fallback references so the process can reclaim memory."""
+    if hasattr(get_async_checkpointer, "_memory_saver"):
+        delattr(get_async_checkpointer, "_memory_saver")
+    if hasattr(get_async_checkpointer, "_memory_saver_cache"):
+        delattr(get_async_checkpointer, "_memory_saver_cache")
+    if hasattr(get_async_checkpointer, "_memory_saver_access_count"):
+        delattr(get_async_checkpointer, "_memory_saver_access_count")
 
 
 def get_mongo_checkpointer(collection_name: str = "checkpoints"):
@@ -139,7 +192,7 @@ async def close_pg_checkpointer():
             _pg_checkpointer_ctx = None
 
 
-async def get_async_checkpointer():
+async def get_async_checkpointer(thread_id: str | None = None):
     """
     获取 checkpointer 实例（兼容异步调用）
 
@@ -147,6 +200,10 @@ async def get_async_checkpointer():
     - "postgres": 优先使用 PostgreSQL（无 16MB 限制）
     - "mongodb": 使用 MongoDB（默认）
     - 都不可用: 回退到 MemorySaver
+
+    Args:
+        thread_id: 可选的会话/线程 ID。仅在 MemorySaver fallback 时使用，
+            用于按线程复用并限制进程内缓存规模。
 
     Returns:
         Checkpointer 实例
@@ -170,6 +227,36 @@ async def get_async_checkpointer():
 
     # MemorySaver fallback
     from langgraph.checkpoint.memory import MemorySaver
+
+    if thread_id:
+        if not hasattr(get_async_checkpointer, "_memory_saver_cache"):
+            get_async_checkpointer._memory_saver_cache = OrderedDict()  # type: ignore[attr-defined]
+            get_async_checkpointer._memory_saver_access_count = 0  # type: ignore[attr-defined]
+            logger.warning(
+                "Using thread-scoped MemorySaver fallback cache (data will be lost on restart)"
+            )
+
+        cache: OrderedDict[str, tuple[MemorySaver, float]] = getattr(
+            get_async_checkpointer,
+            "_memory_saver_cache",
+        )
+        access_count = getattr(get_async_checkpointer, "_memory_saver_access_count", 0) + 1
+        get_async_checkpointer._memory_saver_access_count = access_count  # type: ignore[attr-defined]
+        if access_count % _MEMORY_SAVER_CLEANUP_INTERVAL == 0:
+            _cleanup_memory_saver_cache()
+
+        now = time.time()
+        cached = cache.get(thread_id)
+        if cached is not None:
+            saver, _ = cached
+            cache.move_to_end(thread_id)
+            cache[thread_id] = (saver, now)
+            return saver
+
+        saver = MemorySaver()
+        cache[thread_id] = (saver, now)
+        _cleanup_memory_saver_cache(now=now)
+        return saver
 
     if not hasattr(get_async_checkpointer, "_memory_saver"):
         get_async_checkpointer._memory_saver = MemorySaver()  # type: ignore[attr-defined]

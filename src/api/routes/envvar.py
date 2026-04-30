@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from src.api.deps import require_permissions
 from src.infra.envvar.storage import EnvVarStorage
+from src.infra.envvar.sync import sync_envvar_change
 from src.infra.logging import get_logger
 from src.kernel.schemas.envvar import (
     EnvVarBulkUpdateRequest,
@@ -65,6 +66,7 @@ async def create_env_var(
     """创建环境变量"""
     try:
         result = await storage.set_var(user.sub, data.key, data.value)
+        await sync_envvar_change(user.sub)
         return result
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -83,6 +85,7 @@ async def bulk_update_env_vars(
 
     try:
         count = await storage.set_vars_bulk(user.sub, data.variables)
+        await sync_envvar_change(user.sub)
         return EnvVarBulkUpdateResponse(
             updated_count=count,
             message=f"Updated {count} environment variable(s)",
@@ -98,6 +101,7 @@ async def delete_all_env_vars(
 ):
     """删除当前用户所有环境变量"""
     count = await storage.delete_all_vars(user.sub)
+    await sync_envvar_change(user.sub)
     return {"message": f"Deleted {count} environment variable(s)"}
 
 
@@ -130,6 +134,7 @@ async def update_env_var(
     _validate_key(key)
     try:
         result = await storage.set_var(user.sub, key, data.value)
+        await sync_envvar_change(user.sub)
         return result
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -145,4 +150,5 @@ async def delete_env_var(
     deleted = await storage.delete_var(user.sub, key)
     if not deleted:
         raise HTTPException(status_code=404, detail=f"Environment variable '{key}' not found")
+    await sync_envvar_change(user.sub)
     return {"message": f"Environment variable '{key}' deleted"}

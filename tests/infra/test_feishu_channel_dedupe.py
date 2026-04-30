@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import threading
+from types import ModuleType
+
 import pytest
 
 from src.infra.channel.feishu.channel import FeishuChannel
@@ -36,6 +39,65 @@ def _build_channel(user_id: str = "user-1") -> FeishuChannel:
     )
 
 
+def _build_fake_lark_module() -> ModuleType:
+    module = ModuleType("lark_oapi")
+
+    class _FakeBuilder:
+        def app_id(self, _value: str):
+            return self
+
+        def app_secret(self, _value: str):
+            return self
+
+        def log_level(self, _value):
+            return self
+
+        def build(self):
+            return object()
+
+    class _FakeClientFactory:
+        @staticmethod
+        def builder():
+            return _FakeBuilder()
+
+    class _FakeEventHandlerBuilder:
+        def register_p2_im_message_receive_v1(self, _handler):
+            return self
+
+        def build(self):
+            return object()
+
+    class _FakeEventDispatcherHandler:
+        @staticmethod
+        def builder(_encrypt_key: str, _verification_token: str):
+            return _FakeEventHandlerBuilder()
+
+    class _FakeWsClient:
+        def __init__(self, *args, **kwargs):
+            self._reconnect_interval = None
+            self._reconnect_nonce = None
+
+    class _FakeWsNamespace:
+        Client = _FakeWsClient
+
+    class _FakeLogLevel:
+        INFO = "INFO"
+
+    module.Client = _FakeClientFactory
+    module.EventDispatcherHandler = _FakeEventDispatcherHandler
+    module.ws = _FakeWsNamespace()
+    module.LogLevel = _FakeLogLevel
+    return module
+
+
+class _PatchedThread(threading.Thread):
+    def start(self) -> None:
+        target = getattr(self, "_target", None)
+        if getattr(target, "__name__", "") in {"run_ws", "_health_check_loop"}:
+            return None
+        return super().start()
+
+
 @pytest.mark.asyncio
 async def test_mark_message_processed_uses_shared_redis_dedup(
     monkeypatch: pytest.MonkeyPatch,
@@ -64,3 +126,28 @@ async def test_mark_message_processed_skips_redis_after_local_cache_hit(
 
     assert await channel._mark_message_processed("msg-1") is False
     assert fake_redis.values == redis_keys_after_first
+
+
+@pytest.mark.asyncio
+async def test_start_imports_lark_sdk_off_event_loop(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fake_lark = _build_fake_lark_module()
+    import_threads: list[int] = []
+    main_thread_id = threading.get_ident()
+
+    def _import_module(name: str):
+        if name == "lark_oapi":
+            import_threads.append(threading.get_ident())
+            return fake_lark
+        raise AssertionError(f"unexpected import: {name}")
+
+    monkeypatch.setattr("src.infra.channel.feishu.channel.FEISHU_AVAILABLE", True)
+    monkeypatch.setattr("src.infra.channel.feishu.channel.threading.Thread", _PatchedThread)
+    monkeypatch.setattr("src.infra.channel.feishu.channel.importlib.import_module", _import_module)
+
+    channel = _build_channel()
+
+    assert await channel.start() is True
+    assert import_threads
+    assert import_threads[0] != main_thread_id

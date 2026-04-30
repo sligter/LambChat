@@ -124,10 +124,6 @@
   font-weight: 500;
   font-variant-numeric: tabular-nums;
   line-height: 1;
-  color: var(--theme-text-secondary);
-  background: color-mix(in srgb, var(--theme-text-secondary) 8%, transparent);
-  padding: 6 8px;
-  border-radius: 10px;
   flex-shrink: 0;
 }
 

@@ -19,6 +19,11 @@ class _FakeWebSocket:
         self.sent_texts.append(text)
 
 
+class _FailingWebSocket(_FakeWebSocket):
+    async def send_text(self, text: str) -> None:
+        raise RuntimeError("socket closed")
+
+
 class _FakeRedisClient:
     def __init__(self) -> None:
         self.values: dict[str, str] = {}
@@ -211,3 +216,32 @@ async def test_delivery_message_for_local_instance_reaches_connected_websocket(
             ensure_ascii=False,
         )
     ]
+
+
+@pytest.mark.asyncio
+async def test_failed_send_cleans_up_empty_connection_bucket_and_refresh_task(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fake_redis = _FakeRedisClient()
+    monkeypatch.setattr(
+        "src.infra.websocket.create_redis_client",
+        lambda isolated_pool=False: fake_redis,
+    )
+
+    manager = ConnectionManager()
+    manager._instance_id = "instance-a"
+    websocket = _FailingWebSocket()
+
+    await manager.connect(websocket, "user-1", accept=False)
+
+    assert "user-1" in manager._connections
+    assert "user-1" in manager._route_refresh_tasks
+
+    sent = await manager._send_to_user_local(
+        "user-1",
+        {"type": "task:complete", "data": {"run_id": "run-1"}},
+    )
+
+    assert sent == 0
+    assert "user-1" not in manager._connections
+    assert "user-1" not in manager._route_refresh_tasks

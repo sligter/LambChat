@@ -429,7 +429,7 @@ export function SessionListContent({
       </div>
 
       {/* Footer */}
-      <div className="shrink-0 px-2 pt-2 pb-1 border-t border-stone-200/60 dark:border-stone-800/60">
+      <div className="shrink-0 p-2 border-t border-stone-200/60 dark:border-stone-800/60">
         <div
           onClick={onShowProfile}
           className="group flex items-center rounded-xl py-2 px-2 w-full hover:bg-stone-100 dark:hover:bg-stone-800/60 transition cursor-pointer"

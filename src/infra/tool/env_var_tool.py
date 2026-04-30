@@ -12,7 +12,8 @@ from typing import TYPE_CHECKING, Annotated, Any
 from langchain_core.tools import BaseTool, InjectedToolArg
 
 from src.infra.envvar.storage import EnvVarStorage
-from src.infra.tool.backend_utils import get_user_id_from_runtime
+from src.infra.tool.backend_utils import get_backend_from_runtime, get_user_id_from_runtime
+from src.infra.tool.cache_pubsub import publish_tool_cache_invalidation
 from src.infra.tool.env_var_prompt import invalidate_env_var_prompt_cache
 from src.infra.tool.sandbox_mcp_rebuild import ensure_sandbox_mcp
 
@@ -41,10 +42,9 @@ def _get_user_id(runtime: ToolRuntime) -> str | None:
     return user_id if user_id else None
 
 
-async def _sync_current_sandbox(runtime: ToolRuntime, user_id: str) -> None:
-    from src.infra.tool.backend_utils import get_backend_from_runtime
-
-    backend = get_backend_from_runtime(runtime)
+async def _sync_envvar_change(user_id: str, backend: Any | None) -> None:
+    invalidate_env_var_prompt_cache(user_id)
+    await publish_tool_cache_invalidation("env_var_prompt", user_id=user_id)
     if backend is not None:
         await ensure_sandbox_mcp(backend, user_id)
 
@@ -97,8 +97,8 @@ async def env_var_set(
         return _json({"error": validation_error})
 
     variable = await EnvVarStorage().set_var(user_id, key, value)
-    invalidate_env_var_prompt_cache(user_id)
-    await _sync_current_sandbox(runtime, user_id)
+    backend = get_backend_from_runtime(runtime)
+    await _sync_envvar_change(user_id, backend)
     return _json(
         {
             "success": True,
@@ -125,8 +125,8 @@ async def env_var_delete(
     deleted = await EnvVarStorage().delete_var(user_id, key)
     if not deleted:
         return _json({"error": f"Environment variable '{key}' not found"})
-    invalidate_env_var_prompt_cache(user_id)
-    await _sync_current_sandbox(runtime, user_id)
+    backend = get_backend_from_runtime(runtime)
+    await _sync_envvar_change(user_id, backend)
     return _json({"success": True, "message": f"Environment variable '{key}' deleted"})
 
 
@@ -141,8 +141,8 @@ async def env_var_delete_all(
         return _json({"error": "No user context available"})
 
     count = await EnvVarStorage().delete_all_vars(user_id)
-    invalidate_env_var_prompt_cache(user_id)
-    await _sync_current_sandbox(runtime, user_id)
+    backend = get_backend_from_runtime(runtime)
+    await _sync_envvar_change(user_id, backend)
     return _json(
         {
             "success": True,

@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+from unittest.mock import AsyncMock
+
 import pytest
 
+import src.infra.monitoring.distributed_memory_health as distributed_memory_health
 from src.api.routes import health as health_routes
 
 
@@ -37,6 +40,17 @@ class _FakeMonitor:
                 "top_object_types": [{"type": "dict", "count": 4200}],
             },
         }
+
+
+@pytest.fixture(autouse=True)
+def _mock_distributed_helpers(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(distributed_memory_health, "get_instance_id", lambda: "test-instance")
+    monkeypatch.setattr(
+        distributed_memory_health, "load_cluster_snapshots", AsyncMock(return_value=[])
+    )
+    monkeypatch.setattr(
+        distributed_memory_health, "publish_instance_snapshot", AsyncMock(return_value={})
+    )
 
 
 @pytest.mark.asyncio
@@ -144,3 +158,172 @@ async def test_memory_health_route_supports_explicit_refresh(
     await health_routes.memory_health_check(refresh=True)
 
     assert monitor.refresh_calls == [True]
+
+
+_FAKE_CLUSTER_INSTANCES = [
+    {
+        "instance_id": "local-a",
+        "is_local": True,
+        "overview": {
+            "status": "stable",
+            "rss": "123.0MB",
+            "vms": None,
+            "growth": None,
+            "threads": None,
+            "open_files": None,
+            "history_size": None,
+            "last_sample_at": None,
+        },
+        "highlights": [{"kind": "status", "status": "stable", "severity": "info"}],
+        "top_growth": [],
+        "top_allocations": [],
+        "top_objects": [],
+        "summary": {"available": True, "rss_bytes": 123 * 1024 * 1024, "suspected_leak": False},
+    },
+    {
+        "instance_id": "remote-b",
+        "is_local": False,
+        "overview": {
+            "status": "suspected_leak",
+            "rss": "456.0MB",
+            "vms": None,
+            "growth": None,
+            "threads": None,
+            "open_files": None,
+            "history_size": None,
+            "last_sample_at": None,
+        },
+        "highlights": [{"kind": "status", "status": "suspected_leak", "severity": "warning"}],
+        "top_growth": [
+            {
+                "location": "src/leaky.py:88",
+                "size_diff_bytes": 999 * 1024 * 1024,
+                "size_diff": "999.0MB",
+            }
+        ],
+        "top_allocations": [],
+        "top_objects": [],
+        "summary": {"available": True, "rss_bytes": 456 * 1024 * 1024, "suspected_leak": True},
+    },
+]
+
+
+@pytest.mark.asyncio
+async def test_memory_health_route_returns_cluster_fields_when_instances_available(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(health_routes, "get_memory_monitor", lambda: _FakeMonitor())
+    monkeypatch.setattr(
+        distributed_memory_health,
+        "get_instance_id",
+        lambda: "local-a",
+    )
+    monkeypatch.setattr(
+        distributed_memory_health,
+        "load_cluster_snapshots",
+        AsyncMock(return_value=[inst.copy() for inst in _FAKE_CLUSTER_INSTANCES]),
+    )
+    monkeypatch.setattr(
+        distributed_memory_health,
+        "publish_instance_snapshot",
+        AsyncMock(return_value={}),
+    )
+
+    response = await health_routes.memory_health_check()
+
+    assert response["local_instance_id"] == "local-a"
+    assert response["cluster_overview"]["instance_count"] == 2
+    assert response["cluster_overview"]["available_instance_count"] == 2
+    assert response["cluster_overview"]["suspected_leak_count"] == 1
+    assert response["selected_instance"]["instance_id"] == "local-a"
+    assert response["selected_instance"]["is_local"] is True
+    assert len(response["instances"]) == 2
+
+
+@pytest.mark.asyncio
+async def test_memory_health_route_mirrors_selected_instance_into_top_level_fields(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(health_routes, "get_memory_monitor", lambda: _FakeMonitor())
+    monkeypatch.setattr(
+        distributed_memory_health,
+        "get_instance_id",
+        lambda: "local-a",
+    )
+    monkeypatch.setattr(
+        distributed_memory_health,
+        "load_cluster_snapshots",
+        AsyncMock(return_value=[inst.copy() for inst in _FAKE_CLUSTER_INSTANCES]),
+    )
+    monkeypatch.setattr(
+        distributed_memory_health,
+        "publish_instance_snapshot",
+        AsyncMock(return_value={}),
+    )
+
+    response = await health_routes.memory_health_check()
+
+    selected = response["selected_instance"]
+    assert response["overview"] == selected["overview"]
+    assert response["highlights"] == selected["highlights"]
+    assert response["top_growth"] == selected["top_growth"]
+    assert response["top_allocations"] == selected["top_allocations"]
+    assert response["top_objects"] == selected["top_objects"]
+
+
+@pytest.mark.asyncio
+async def test_memory_health_route_refresh_passes_through_to_monitor(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monitor = _FakeMonitor()
+    monkeypatch.setattr(health_routes, "get_memory_monitor", lambda: monitor)
+    monkeypatch.setattr(
+        distributed_memory_health,
+        "get_instance_id",
+        lambda: "local-a",
+    )
+    monkeypatch.setattr(
+        distributed_memory_health,
+        "load_cluster_snapshots",
+        AsyncMock(return_value=[inst.copy() for inst in _FAKE_CLUSTER_INSTANCES]),
+    )
+    monkeypatch.setattr(
+        distributed_memory_health,
+        "publish_instance_snapshot",
+        AsyncMock(return_value={}),
+    )
+
+    await health_routes.memory_health_check(refresh=True)
+
+    assert monitor.refresh_calls == [True]
+
+
+@pytest.mark.asyncio
+async def test_memory_health_route_returns_local_only_when_redis_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(health_routes, "get_memory_monitor", lambda: _FakeMonitor())
+    monkeypatch.setattr(
+        distributed_memory_health,
+        "get_instance_id",
+        lambda: "local-a",
+    )
+    monkeypatch.setattr(
+        distributed_memory_health,
+        "load_cluster_snapshots",
+        AsyncMock(return_value=[]),
+    )
+    monkeypatch.setattr(
+        distributed_memory_health,
+        "publish_instance_snapshot",
+        AsyncMock(side_effect=RuntimeError("redis down")),
+    )
+
+    response = await health_routes.memory_health_check()
+
+    assert response["local_instance_id"] == "local-a"
+    assert response["cluster_overview"]["instance_count"] == 1
+    assert response["selected_instance"]["instance_id"] == "local-a"
+    assert response["selected_instance"]["is_local"] is True
+    assert response["overview"]["status"] == "suspected_leak"
+    assert response["highlights"][0]["kind"] == "status"

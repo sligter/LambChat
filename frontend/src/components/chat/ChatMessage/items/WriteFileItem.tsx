@@ -2,7 +2,7 @@ import { memo } from "react";
 import { FilePlus } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { CollapsiblePill } from "../../../common";
-import { CodeMirrorViewer } from "../../../common/CodeMirrorViewer";
+import { DeferredCodeMirrorViewer } from "../../../common/DeferredCodeMirrorViewer";
 import { extractText } from "./toolUtils";
 import { openPersistentToolPanel } from "./persistentToolPanelState";
 
@@ -40,7 +40,7 @@ const WriteFileItem = memo(function WriteFileItem({
       </div>
       {content && (
         <div className="rounded-lg border border-stone-200/60 dark:border-stone-700/50 overflow-hidden">
-          <CodeMirrorViewer
+          <DeferredCodeMirrorViewer
             value={content}
             filePath={filePath}
             lineNumbers={true}
@@ -86,7 +86,7 @@ const WriteFileItem = memo(function WriteFileItem({
             </div>
             {content && (
               <div className="rounded-md border border-stone-200/60 dark:border-stone-700/50">
-                <CodeMirrorViewer
+                <DeferredCodeMirrorViewer
                   value={content}
                   filePath={filePath}
                   lineNumbers={true}

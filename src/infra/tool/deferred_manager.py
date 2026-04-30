@@ -265,9 +265,9 @@ async def restore_discovered_tools(
 ) -> list[str]:
     """从 BaseStore 恢复上次已发现的工具名列表。失败时返回空列表。"""
     try:
-        from src.infra.storage.mongodb_store import create_store
+        from src.infra.storage.mongodb_store import acreate_store
 
-        store = create_store()
+        store = await acreate_store()
         if store is None:
             return []
 
@@ -304,9 +304,9 @@ async def persist_discovered_tools(
     if not discovered_names:
         return
     try:
-        from src.infra.storage.mongodb_store import create_store
+        from src.infra.storage.mongodb_store import acreate_store
 
-        store = create_store()
+        store = await acreate_store()
         if store is None:
             return
 
@@ -331,9 +331,9 @@ async def persist_discovered_tools(
 async def clear_discovered_tools(session_id: str) -> None:
     """清除指定 session 的已发现工具记录。"""
     try:
-        from src.infra.storage.mongodb_store import create_store
+        from src.infra.storage.mongodb_store import acreate_store
 
-        store = create_store()
+        store = await acreate_store()
         if store is None:
             return
 

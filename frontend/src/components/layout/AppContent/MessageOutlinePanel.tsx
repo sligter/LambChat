@@ -73,7 +73,6 @@ function OutlineFlowNode({ data }: { data: OutlineNodeData }) {
         "px-3 py-[10px] rounded-2xl w-[220px] cursor-pointer transition-all duration-200",
         "bg-stone-100/80 dark:bg-stone-700/40 border",
         "border-stone-200/80 dark:border-stone-600/50",
-        "backdrop-blur-sm",
         "hover:-translate-y-[1px] hover:shadow-lg hover:border-stone-300 dark:hover:border-stone-500",
         data.isActive &&
           "border-[var(--theme-primary)] shadow-lg shadow-[color-mix(in_srgb,var(--theme-primary)_10%,transparent)] ring-1 ring-[color-mix(in_srgb,var(--theme-primary)_15%,transparent)] -translate-y-[1px]",
