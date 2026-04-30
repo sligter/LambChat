@@ -616,6 +616,11 @@ class AgentFactory:
                 return cls._instances[agent_id]
 
             if agent_id not in _AGENT_REGISTRY:
+                from src.agents import discover_agents
+
+                discover_agents()
+
+            if agent_id not in _AGENT_REGISTRY:
                 raise ValueError(f"Agent '{agent_id}' 未注册。可用: {list(_AGENT_REGISTRY.keys())}")
 
             agent_cls = _AGENT_REGISTRY[agent_id]

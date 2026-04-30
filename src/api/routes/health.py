@@ -122,10 +122,11 @@ def _format_object_rows(rows: list[dict] | None) -> list[dict]:
 @router.get("/health", response_model=HealthResponse)
 async def health_check() -> HealthResponse:
     """健康检查"""
+    summary = await get_memory_monitor().get_summary()
     return HealthResponse(
         status="ok",
         version=settings.APP_VERSION,
-        memory=MemoryHealthSummary.model_validate(get_memory_monitor().get_summary()),
+        memory=MemoryHealthSummary.model_validate(summary),
     )
 
 
@@ -141,7 +142,7 @@ async def memory_health_check(
     _=Depends(require_permissions("settings:manage")),
 ):
     """详细内存诊断"""
-    diagnostics = get_memory_monitor().get_diagnostics(refresh=refresh)
+    diagnostics = await get_memory_monitor().get_diagnostics(refresh=refresh)
     summary = diagnostics.get("summary", {})
     last_alert = diagnostics.get("last_alert") or diagnostics.get("current_snapshot") or {}
 

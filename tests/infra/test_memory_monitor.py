@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+import time
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -18,6 +20,7 @@ async def test_monitor_marks_suspicious_growth_when_rss_keeps_rising() -> None:
         leak_threshold_bytes=64 * 1024 * 1024,
         min_samples_for_alert=3,
         alert_cooldown_seconds=0.0,
+        heavy_diagnostics_enabled=True,
     )
 
     def _fake_process_sample() -> dict[str, int]:
@@ -43,8 +46,8 @@ async def test_monitor_marks_suspicious_growth_when_rss_keeps_rising() -> None:
     await monitor._sample_once()
     await monitor._sample_once()
 
-    summary = monitor.get_summary()
-    diagnostics = monitor.get_diagnostics()
+    summary = await monitor.get_summary()
+    diagnostics = await monitor.get_diagnostics()
 
     assert summary["suspected_leak"] is True
     assert summary["growth_bytes"] == 130 * 1024 * 1024
@@ -66,6 +69,7 @@ async def test_monitor_logs_hotspot_summary_when_alert_fires(
         leak_threshold_bytes=64 * 1024 * 1024,
         min_samples_for_alert=3,
         alert_cooldown_seconds=0.0,
+        heavy_diagnostics_enabled=True,
     )
 
     def _fake_process_sample() -> dict[str, int]:
@@ -102,7 +106,7 @@ async def test_monitor_summary_reports_not_available_before_sampling() -> None:
 
     monitor = MemoryMonitor()
 
-    assert monitor.get_summary()["available"] is False
+    assert (await monitor.get_summary())["available"] is False
 
 
 @pytest.mark.asyncio
@@ -143,10 +147,10 @@ async def test_reset_baseline_reanchors_growth_window() -> None:
     await monitor._sample_once()
     await monitor._sample_once()
 
-    assert monitor.get_summary()["growth_bytes"] == 80 * 1024 * 1024
+    assert (await monitor.get_summary())["growth_bytes"] == 80 * 1024 * 1024
 
-    monitor.reset_baseline()
-    summary = monitor.get_summary()
+    await monitor.reset_baseline()
+    summary = await monitor.get_summary()
 
     assert summary["growth_bytes"] == 0
     assert summary["history_size"] == 1
@@ -170,15 +174,16 @@ async def test_reset_baseline_clears_previous_alert_state() -> None:
     monitor._last_alert = {"captured_at": "2026-04-30T03:24:00+00:00"}
     monitor._last_alert_at = reset_timestamp - timedelta(minutes=1)
 
-    monitor.reset_baseline()
+    await monitor.reset_baseline()
 
-    diagnostics = monitor.get_diagnostics()
+    diagnostics = await monitor.get_diagnostics()
 
     assert diagnostics["last_alert"] is None
     assert diagnostics["summary"]["baseline_reset_at"] == reset_timestamp
 
 
-def test_get_diagnostics_skips_live_snapshot_when_refresh_is_false() -> None:
+@pytest.mark.asyncio
+async def test_get_diagnostics_skips_live_snapshot_when_refresh_is_false() -> None:
     from src.infra.monitoring.memory import MemoryMonitor
 
     monitor = MemoryMonitor(interval_seconds=60.0, history_limit=10)
@@ -200,16 +205,21 @@ def test_get_diagnostics_skips_live_snapshot_when_refresh_is_false() -> None:
 
     monitor._capture_diagnostics_snapshot = _capture  # type: ignore[method-assign]
 
-    diagnostics = monitor.get_diagnostics(refresh=False)
+    diagnostics = await monitor.get_diagnostics(refresh=False)
 
     assert diagnostics["current_snapshot"] is None
     assert called is False
 
 
-def test_get_diagnostics_refreshes_live_snapshot_when_requested() -> None:
+@pytest.mark.asyncio
+async def test_get_diagnostics_refreshes_live_snapshot_when_requested() -> None:
     from src.infra.monitoring.memory import MemoryMonitor
 
-    monitor = MemoryMonitor(interval_seconds=60.0, history_limit=10)
+    monitor = MemoryMonitor(
+        interval_seconds=60.0,
+        history_limit=10,
+        heavy_diagnostics_enabled=True,
+    )
     monitor._history.append(
         {
             "timestamp": datetime(2026, 4, 30, 3, 25, tzinfo=timezone.utc),
@@ -224,6 +234,113 @@ def test_get_diagnostics_refreshes_live_snapshot_when_requested() -> None:
         "captured_at": "2026-04-30T03:26:00+00:00"
     }
 
-    diagnostics = monitor.get_diagnostics(refresh=True)
+    diagnostics = await monitor.get_diagnostics(refresh=True)
 
     assert diagnostics["current_snapshot"] == {"captured_at": "2026-04-30T03:26:00+00:00"}
+
+
+@pytest.mark.asyncio
+async def test_monitor_skips_heavy_diagnostics_when_disabled() -> None:
+    from src.infra.monitoring.memory import MemoryMonitor
+
+    rss_values = iter([100 * 1024 * 1024, 150 * 1024 * 1024, 230 * 1024 * 1024])
+    diagnostics_calls: list[int] = []
+
+    monitor = MemoryMonitor(
+        interval_seconds=60.0,
+        history_limit=10,
+        leak_threshold_bytes=64 * 1024 * 1024,
+        min_samples_for_alert=3,
+        alert_cooldown_seconds=0.0,
+        heavy_diagnostics_enabled=False,
+    )
+
+    monitor._collect_process_sample = lambda: {  # type: ignore[method-assign]
+        "rss_bytes": next(rss_values),
+        "vms_bytes": 400 * 1024 * 1024,
+        "thread_count": 12,
+        "open_file_count": 3,
+    }
+
+    def _fake_capture_diagnostics() -> dict[str, object]:
+        diagnostics_calls.append(1)
+        return {"captured_at": "unexpected"}
+
+    monitor._capture_diagnostics_snapshot = _fake_capture_diagnostics  # type: ignore[method-assign]
+
+    await monitor._sample_once()
+    await monitor._sample_once()
+    await monitor._sample_once()
+
+    summary = await monitor.get_summary()
+    diagnostics = await monitor.get_diagnostics(refresh=True)
+
+    assert summary["suspected_leak"] is True
+    assert summary["heavy_diagnostics_enabled"] is False
+    assert diagnostics_calls == []
+    assert diagnostics["last_alert"] is None
+    assert diagnostics["current_snapshot"]["reason"] == "heavy_diagnostics_disabled"
+
+
+@pytest.mark.asyncio
+async def test_start_does_not_enable_tracemalloc_when_heavy_diagnostics_disabled(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from src.infra.monitoring.memory import MemoryMonitor
+
+    monitor = MemoryMonitor(heavy_diagnostics_enabled=False)
+    start_calls: list[int] = []
+    stop_calls: list[int] = []
+    release_loop = asyncio.Event()
+    loop_started = asyncio.Event()
+
+    monkeypatch.setattr("src.infra.monitoring.memory.tracemalloc.is_tracing", lambda: False)
+    monkeypatch.setattr(
+        "src.infra.monitoring.memory.tracemalloc.start",
+        lambda *_args, **_kwargs: start_calls.append(1),
+    )
+    monkeypatch.setattr(
+        "src.infra.monitoring.memory.tracemalloc.stop",
+        lambda: stop_calls.append(1),
+    )
+
+    async def _fake_run_loop() -> None:
+        loop_started.set()
+        await release_loop.wait()
+
+    monkeypatch.setattr(monitor, "_run_loop", _fake_run_loop)
+
+    await monitor.start()
+    await asyncio.wait_for(loop_started.wait(), timeout=0.05)
+    release_loop.set()
+    await monitor.stop()
+
+    assert start_calls == []
+    assert stop_calls == []
+
+
+@pytest.mark.asyncio
+async def test_start_returns_without_waiting_for_initial_baseline(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from src.infra.monitoring.memory import MemoryMonitor
+
+    monitor = MemoryMonitor(interval_seconds=60.0, history_limit=10)
+    release_loop = asyncio.Event()
+    loop_started = asyncio.Event()
+
+    def _blocking_reset_baseline() -> None:
+        time.sleep(0.2)
+
+    async def _fake_run_loop() -> None:
+        loop_started.set()
+        await release_loop.wait()
+
+    monkeypatch.setattr(monitor, "reset_baseline", _blocking_reset_baseline)
+    monkeypatch.setattr(monitor, "_run_loop", _fake_run_loop)
+
+    await asyncio.wait_for(monitor.start(), timeout=0.05)
+    await asyncio.wait_for(loop_started.wait(), timeout=0.05)
+
+    release_loop.set()
+    await monitor.stop()

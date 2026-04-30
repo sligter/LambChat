@@ -9,7 +9,7 @@ class _FakeMonitor:
     def __init__(self) -> None:
         self.refresh_calls: list[bool] = []
 
-    def get_summary(self) -> dict[str, object]:
+    async def get_summary(self) -> dict[str, object]:
         return {
             "available": True,
             "rss_bytes": 123 * 1024 * 1024,
@@ -22,10 +22,10 @@ class _FakeMonitor:
             "baseline_reset_at": "2026-04-30T12:05:00+00:00",
         }
 
-    def get_diagnostics(self, refresh: bool = False) -> dict[str, object]:
+    async def get_diagnostics(self, refresh: bool = False) -> dict[str, object]:
         self.refresh_calls.append(refresh)
         return {
-            "summary": self.get_summary(),
+            "summary": await self.get_summary(),
             "last_alert": {
                 "captured_at": "2026-04-30T12:00:00+00:00",
                 "top_growth": [

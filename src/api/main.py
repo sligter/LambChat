@@ -110,11 +110,17 @@ async def lifespan(app: FastAPI):
     await memory_monitor.start()
     logger.info("Memory monitor started")
 
-    # 发现并注册所有 Agent
-    from src.agents import discover_agents
+    # 后台预热 Agent 注册，避免阻塞服务启动；请求路径仍有懒发现兜底
+    async def _warm_agent_registry() -> None:
+        try:
+            from src.agents import discover_agents
 
-    discover_agents()
-    logger.info("Agents discovered")
+            await asyncio.to_thread(discover_agents)
+            logger.info("Agents discovered")
+        except Exception as e:
+            logger.warning("Agent discovery warm-up failed: %s", e)
+
+    app.state.agent_discovery_task = asyncio.create_task(_warm_agent_registry())
 
     # 初始化 Agent 配置存储索引
     from src.infra.agent.config_storage import get_agent_config_storage
@@ -177,7 +183,7 @@ async def lifespan(app: FastAPI):
             logger.warning("Session search backfill failed: %s", e)
         finally:
             await worker.close()
-            memory_monitor.reset_baseline()
+            await memory_monitor.reset_baseline()
             logger.info("Memory monitor baseline reset after session search backfill")
 
     _session_search_backfill_task = asyncio.create_task(_backfill_session_search())
@@ -211,8 +217,17 @@ async def lifespan(app: FastAPI):
     # Keep task reference to prevent GC from cancelling it
     _feishu_task = asyncio.create_task(_start_feishu())
     app.state.feishu_task = _feishu_task
-    memory_monitor.reset_baseline()
-    logger.info("Memory monitor baseline reset after startup initialization")
+
+    async def _reset_memory_monitor_after_startup() -> None:
+        try:
+            await memory_monitor.reset_baseline()
+            logger.info("Memory monitor baseline reset after startup initialization")
+        except Exception as e:
+            logger.warning("Memory monitor baseline reset after startup failed: %s", e)
+
+    app.state.memory_monitor_startup_reset_task = asyncio.create_task(
+        _reset_memory_monitor_after_startup()
+    )
 
     try:
         yield
@@ -267,6 +282,16 @@ async def lifespan(app: FastAPI):
         session_search_backfill_task = getattr(app.state, "session_search_backfill_task", None)
         if session_search_backfill_task and not session_search_backfill_task.done():
             session_search_backfill_task.cancel()
+
+        memory_monitor_startup_reset_task = getattr(
+            app.state, "memory_monitor_startup_reset_task", None
+        )
+        if memory_monitor_startup_reset_task and not memory_monitor_startup_reset_task.done():
+            memory_monitor_startup_reset_task.cancel()
+
+        agent_discovery_task = getattr(app.state, "agent_discovery_task", None)
+        if agent_discovery_task and not agent_discovery_task.done():
+            agent_discovery_task.cancel()
 
         # 关闭 PostgreSQL 连接池
         from src.infra.storage.checkpoint import close_pg_checkpointer

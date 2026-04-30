@@ -47,6 +47,7 @@ class MemoryMonitor:
         traceback_limit: int | None = None,
         top_stats_limit: int | None = None,
         gc_object_limit: int | None = None,
+        heavy_diagnostics_enabled: bool | None = None,
     ) -> None:
         self.interval_seconds = (
             interval_seconds
@@ -86,10 +87,16 @@ class MemoryMonitor:
             if gc_object_limit is not None
             else settings.MEMORY_MONITOR_GC_OBJECT_LIMIT
         )
+        self.heavy_diagnostics_enabled = (
+            heavy_diagnostics_enabled
+            if heavy_diagnostics_enabled is not None
+            else settings.MEMORY_MONITOR_HEAVY_DIAGNOSTICS or settings.DEBUG
+        )
 
         self._history: deque[dict[str, Any]] = deque(maxlen=max(1, self.history_limit))
         self._running = False
         self._task: asyncio.Task[None] | None = None
+        self._state_lock = asyncio.Lock()
         self._process = psutil.Process(os.getpid()) if psutil is not None else None
         self._baseline_snapshot: tracemalloc.Snapshot | None = None
         self._baseline_reset_at: datetime | None = None
@@ -109,11 +116,10 @@ class MemoryMonitor:
             logger.warning("[MemoryMonitor] psutil is unavailable; monitoring disabled")
             return
 
-        if not tracemalloc.is_tracing():
+        if self.heavy_diagnostics_enabled and not tracemalloc.is_tracing():
             tracemalloc.start(self.traceback_limit)
             self._started_tracemalloc = True
 
-        self.reset_baseline()
         self._task = asyncio.create_task(self._run_loop())
         self._task.add_done_callback(
             lambda task: task.exception() if not task.cancelled() else None
@@ -140,6 +146,17 @@ class MemoryMonitor:
             self._started_tracemalloc = False
 
     async def _run_loop(self) -> None:
+        if not self._history:
+            try:
+                await self.reset_baseline()
+            except Exception as exc:
+                self._last_error = str(exc)
+                logger.warning(
+                    "[MemoryMonitor] initial baseline capture failed: %s",
+                    exc,
+                    exc_info=True,
+                )
+
         while self._running:
             try:
                 await asyncio.sleep(self.interval_seconds)
@@ -151,23 +168,28 @@ class MemoryMonitor:
                 logger.warning("[MemoryMonitor] sampling failed: %s", exc, exc_info=True)
 
     async def _sample_once(self) -> None:
-        sample = self._collect_process_sample()
-        sample.setdefault("timestamp", _utc_now())
-        self._history.append(sample)
+        async with self._state_lock:
+            sample = await asyncio.to_thread(self._collect_process_sample)
+            sample.setdefault("timestamp", _utc_now())
+            self._history.append(sample)
 
-        if self._is_suspicious_growth(sample["timestamp"]):
-            now = sample["timestamp"]
-            if self._should_emit_alert(now):
-                self._last_alert = self._capture_diagnostics_snapshot()
-                self._last_alert_at = now
-                logger.warning(
-                    "[MemoryMonitor] suspicious memory growth detected rss=%s growth=%s top_growth=%s top_allocations=%s top_objects=%s",
-                    _format_bytes_as_mb(sample["rss_bytes"]),
-                    _format_bytes_as_mb(self._growth_bytes()),
-                    self._format_growth_summary(self._last_alert),
-                    self._format_allocation_summary(self._last_alert),
-                    self._format_object_summary(self._last_alert),
-                )
+            if self._is_suspicious_growth(sample["timestamp"]):
+                now = sample["timestamp"]
+                if self._should_emit_alert(now):
+                    self._last_alert = None
+                    if self.heavy_diagnostics_enabled:
+                        self._last_alert = await asyncio.to_thread(
+                            self._capture_diagnostics_snapshot
+                        )
+                    self._last_alert_at = now
+                    logger.warning(
+                        "[MemoryMonitor] suspicious memory growth detected rss=%s growth=%s top_growth=%s top_allocations=%s top_objects=%s",
+                        _format_bytes_as_mb(sample["rss_bytes"]),
+                        _format_bytes_as_mb(self._growth_bytes()),
+                        self._format_growth_summary(self._last_alert),
+                        self._format_allocation_summary(self._last_alert),
+                        self._format_object_summary(self._last_alert),
+                    )
 
     def _collect_process_sample(self) -> dict[str, Any]:
         if self._process is None:
@@ -190,28 +212,30 @@ class MemoryMonitor:
     def _capture_diagnostics_snapshot(self) -> dict[str, Any]:
         return {
             "captured_at": _utc_now().isoformat(),
+            "heavy_diagnostics_enabled": self.heavy_diagnostics_enabled,
             "top_growth": self._build_growth_stats(),
             "top_allocations": self._build_allocation_stats(),
             "top_object_types": self._build_object_type_stats(),
         }
 
-    def reset_baseline(self) -> None:
+    async def reset_baseline(self) -> None:
         """Re-anchor growth tracking to the current process state."""
-        sample = self._collect_process_sample()
-        sample.setdefault("timestamp", _utc_now())
+        async with self._state_lock:
+            sample = await asyncio.to_thread(self._collect_process_sample)
+            sample.setdefault("timestamp", _utc_now())
 
-        if tracemalloc.is_tracing():
-            try:
-                self._baseline_snapshot = tracemalloc.take_snapshot()
-            except RuntimeError:
+            if tracemalloc.is_tracing():
+                try:
+                    self._baseline_snapshot = await asyncio.to_thread(tracemalloc.take_snapshot)
+                except RuntimeError:
+                    self._baseline_snapshot = None
+            else:
                 self._baseline_snapshot = None
-        else:
-            self._baseline_snapshot = None
 
-        self._baseline_reset_at = sample["timestamp"]
-        self._history = deque([sample], maxlen=max(1, self.history_limit))
-        self._last_alert = None
-        self._last_alert_at = None
+            self._baseline_reset_at = sample["timestamp"]
+            self._history = deque([sample], maxlen=max(1, self.history_limit))
+            self._last_alert = None
+            self._last_alert_at = None
 
     def _format_growth_summary(self, diagnostics: dict[str, Any] | None) -> str:
         if not diagnostics:
@@ -313,7 +337,7 @@ class MemoryMonitor:
         elapsed = (now - self._last_alert_at).total_seconds()
         return elapsed >= self.alert_cooldown_seconds
 
-    def get_summary(self) -> dict[str, Any]:
+    def _get_summary_locked(self) -> dict[str, Any]:
         if not settings.MEMORY_MONITOR_ENABLED:
             return {"available": False, "reason": "disabled"}
 
@@ -337,22 +361,40 @@ class MemoryMonitor:
             "history_size": len(self._history),
             "growth_bytes": self._growth_bytes(),
             "suspected_leak": self._is_suspicious_growth(latest["timestamp"]),
+            "heavy_diagnostics_enabled": self.heavy_diagnostics_enabled,
+            "tracemalloc_tracing": tracemalloc.is_tracing(),
             "sample_interval_seconds": self.interval_seconds,
             "baseline_reset_at": self._baseline_reset_at,
             "last_sample_at": latest["timestamp"],
             "last_error": self._last_error,
         }
 
-    def get_diagnostics(self, refresh: bool = False) -> dict[str, Any]:
+    async def get_summary(self) -> dict[str, Any]:
+        async with self._state_lock:
+            return self._get_summary_locked()
+
+    async def get_diagnostics(self, refresh: bool = False) -> dict[str, Any]:
+        async with self._state_lock:
+            summary = self._get_summary_locked()
+            current_snapshot = self._last_alert
+            if refresh and self._history and self.heavy_diagnostics_enabled:
+                current_snapshot = await asyncio.to_thread(self._capture_diagnostics_snapshot)
+            elif refresh and self._history and not self.heavy_diagnostics_enabled:
+                current_snapshot = {
+                    "captured_at": _utc_now().isoformat(),
+                    "heavy_diagnostics_enabled": False,
+                    "reason": "heavy_diagnostics_disabled",
+                    "top_growth": [],
+                    "top_allocations": [],
+                    "top_object_types": [],
+                }
+
         diagnostics = {
-            "summary": self.get_summary(),
+            "summary": summary,
             "last_alert": self._last_alert,
             "last_error": self._last_error,
-            "current_snapshot": self._last_alert,
+            "current_snapshot": current_snapshot,
         }
-
-        if refresh and self._history:
-            diagnostics["current_snapshot"] = self._capture_diagnostics_snapshot()
 
         return diagnostics
 

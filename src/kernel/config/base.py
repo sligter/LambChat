@@ -120,6 +120,7 @@ class Settings(BaseSettings):
     MEMORY_MONITOR_TRACEBACK_LIMIT: int = 8
     MEMORY_MONITOR_TOP_STATS_LIMIT: int = 8
     MEMORY_MONITOR_GC_OBJECT_LIMIT: int = 10
+    MEMORY_MONITOR_HEAVY_DIAGNOSTICS: bool = False
 
     # Long-term Storage Settings
     ENABLE_POSTGRES_STORAGE: bool = False
