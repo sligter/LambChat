@@ -103,10 +103,10 @@
 .dark .markdown-content blockquote {
   background-color: #1c1917;
   /* stone-900 */
-  color: #a8a29e;
+  color: #d6d3d1;
+  /* stone-300 */
+  border-left-color: #a8a29e;
   /* stone-400 */
-  border-left-color: #78716c;
-  /* stone-500 */
 }
 
 .markdown-content hr {
@@ -164,8 +164,8 @@
 }
 
 .dark .prose {
-  --tw-prose-body: #a8a29e;
-  /* stone-400 */
+  --tw-prose-body: #d6d3d1;
+  /* stone-300 */
   --tw-prose-headings: #f5f5f4;
   /* stone-100 */
   --tw-prose-links: #60a5fa;
@@ -248,7 +248,7 @@
   font-size: 0.9em;
 }
 .dark .markdown-preview.thinking-content {
-  color: #a8a29e;
+  color: #d6d3d1;
 }
 
 /* Mermaid diagram styles */

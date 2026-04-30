@@ -1,3 +1,13 @@
+/* Shared page server preview transition */
+#shared-server-preview {
+  transition: opacity 0.35s ease;
+  min-height: 100vh;
+}
+#shared-server-preview.shared-preview-fade-out {
+  opacity: 0;
+  pointer-events: none;
+}
+
 /* Typewriter dots animation */
 .typing-dots::after {
   content: "...";
@@ -340,7 +350,7 @@
 }
 
 .dark .pagination-btn {
-  color: #a8a29e;
+  color: #d6d3d1;
 }
 
 .dark .pagination-btn:hover:not(:disabled) {
@@ -369,7 +379,7 @@
 }
 
 .dark .pagination-page {
-  color: #a8a29e;
+  color: #d6d3d1;
 }
 
 .dark .pagination-page:hover:not(.pagination-page-active) {
@@ -395,6 +405,10 @@
   height: 2rem;
   color: #a8a29e;
   flex-shrink: 0;
+}
+
+.dark .pagination-ellipsis {
+  color: #d6d3d1;
 }
 
 /* Session menu — shared item styles (mobile bottom sheet & desktop dropdown) */

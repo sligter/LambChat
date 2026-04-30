@@ -20,7 +20,7 @@ import {
   Loader2,
   XCircle,
 } from "lucide-react";
-import { Loading } from "../common/LoadingSpinner";
+
 import { shareApi } from "../../services/api/share";
 import type { SharedContentResponse } from "../../types";
 import { ChatMessage } from "../chat/ChatMessage";
@@ -415,15 +415,25 @@ export function SharedPage() {
     };
   }, [data, messages, t]);
 
-  // Loading state
+  // Fade out server-rendered preview when React content is ready
+  useEffect(() => {
+    if (isLoading) return;
+    const el = document.getElementById("shared-server-preview");
+    if (!el) return;
+    const onEnd = () => el.remove();
+    el.addEventListener("transitionend", onEnd);
+    el.classList.add("shared-preview-fade-out");
+    // Safety: remove after transition timeout in case event doesn't fire
+    const timer = setTimeout(onEnd, 500);
+    return () => {
+      el.removeEventListener("transitionend", onEnd);
+      clearTimeout(timer);
+    };
+  }, [isLoading]);
+
+  // Loading state — render nothing so the server preview stays visible
   if (isLoading) {
-    return (
-      <div className="min-h-dvh bg-[#faf9f7] dark:bg-[#0f0e0d] flex items-center justify-center">
-        <div className="flex flex-col items-center gap-6 animate-in fade-in duration-500">
-          <Loading text={t("common.loading")} />
-        </div>
-      </div>
-    );
+    return null;
   }
 
   // Auth required error

@@ -425,7 +425,14 @@ function App() {
             {/* Registration pending verification page - no auth required */}
             <Route path="/auth/pending" element={<RegistrationPending />} />
             {/* Public shared session page - no auth required */}
-            <Route path="/shared/:shareId" element={<SharedPage />} />
+            <Route
+              path="/shared/:shareId"
+              element={
+                <Suspense fallback={null}>
+                  <SharedPage />
+                </Suspense>
+              }
+            />
             <Route path="*" element={<NotFoundPage />} />
           </Routes>
         </Suspense>

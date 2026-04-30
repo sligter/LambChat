@@ -103,14 +103,14 @@ html.dark .auth-input {
 }
 
 html.dark .auth-input::placeholder {
-  color: rgba(168, 162, 158, 0.45);
+  color: rgba(214, 211, 209, 0.45);
 }
 
 html.dark .auth-input:focus {
-  border-color: #a8a29e;
+  border-color: #d6d3d1;
   background: rgba(12, 10, 9, 0.7);
   box-shadow:
-    0 0 0 3px rgba(168, 162, 158, 0.06),
+    0 0 0 3px rgba(214, 211, 209, 0.06),
     0 1px 4px rgba(0, 0, 0, 0.15);
 }
 
@@ -224,7 +224,7 @@ html.dark .auth-primary-button::after {
 
 html.dark .auth-secondary-button {
   border-color: rgba(68, 64, 60, 0.5);
-  color: #a8a29e;
+  color: #d6d3d1;
 }
 
 html.dark .auth-secondary-button:hover {
@@ -240,7 +240,7 @@ html.dark .auth-secondary-button:hover {
 
 html.dark .auth-accent-icon {
   background: rgba(41, 37, 36, 0.8);
-  color: #a8a29e;
+  color: #d6d3d1;
 }
 
 .auth-accent-badge {
@@ -250,7 +250,7 @@ html.dark .auth-accent-icon {
 
 html.dark .auth-accent-badge {
   background: rgba(41, 37, 36, 0.8);
-  color: #a8a29e;
+  color: #d6d3d1;
 }
 
 .auth-muted-panel {

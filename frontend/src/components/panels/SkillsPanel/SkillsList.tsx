@@ -257,7 +257,7 @@ export function SkillsList({
             )}
           </div>
         ) : (
-          <div className="skill-grid grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="skill-grid grid grid-cols-1 gap-4 grid-cols-2 sm:grid-cols-3">
             {paginatedSkills.map((skill) => (
               <SkillCard
                 key={skill.name}

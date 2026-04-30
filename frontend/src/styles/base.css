@@ -84,17 +84,29 @@ select:-webkit-autofill:active {
 }
 
 .dark {
-  --theme-primary: #a8a29e; /* stone-400 */
-  --theme-primary-hover: #d6d3d1; /* stone-300 */
+  --theme-primary: #d6d3d1; /* stone-300 */
+  --theme-primary-hover: #e7e5e4; /* stone-200 */
   --theme-primary-light: #292524; /* stone-800 */
-  --theme-ring: #a8a29e; /* stone-400 */
+  --theme-ring: #d6d3d1; /* stone-300 */
   --theme-bg: #151210; /* closer to sidebar */
   --theme-bg-card: #1c1917; /* stone-900 */
   --theme-bg-sidebar: #171412; /* stone-950 variant */
   --theme-border: #44403c; /* stone-700 */
-  --theme-text: #fafaf9; /* stone-50 */
-  --theme-text-secondary: #a8a29e; /* stone-400 */
+  --theme-text: #ffffff; /* pure white */
+  --theme-text-secondary: #d6d3d1; /* stone-300 */
 }
+
+/* Dark mode text brightness boost — shift stone-400/500/600 one step lighter */
+.dark .dark\:text-stone-400 {
+  color: #d6d3d1;
+}
+.dark .dark\:text-stone-500 {
+  color: #a8a29e;
+}
+.dark .dark\:text-stone-600 {
+  color: #a8a29e;
+}
+
 /* Skeleton shimmer animation */
 @keyframes shimmer {
   0% {

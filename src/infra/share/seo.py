@@ -12,6 +12,9 @@ DEFAULT_SHARE_DESCRIPTION = "View this shared session on LambChat."
 
 _WHITESPACE_RE = re.compile(r"\s+")
 _ROOT_DIV_RE = re.compile(r'<div id="root"></div>')
+_SHARED_PREVIEW_RE = re.compile(
+    r'(<div id="shared-server-preview">.*?</div>\s*)?<div id="root"></div>', re.S
+)
 
 
 @dataclass(frozen=True)
@@ -209,17 +212,18 @@ def inject_share_seo_into_html(html_doc: str, seo: SharedPageSeo) -> str:
     summary_html = html.escape(seo.preview_summary, quote=True)
     byline_html = html.escape(byline, quote=True)
 
-    preview_markup = f"""
-<div id="root">
-  <main data-shared-preview="server" style="max-width: 760px; margin: 0 auto; padding: 48px 24px; font-family: 'Source Sans 3', sans-serif; color: #1c1917; background: #faf9f7;">
+    preview_markup = f"""<div id="shared-server-preview">
+  <main data-shared-preview="server" style="max-width: 760px; margin: 0 auto; padding: 48px 24px; font-family: 'Source Sans 3', sans-serif; color: #1c1917; background: #faf9f7; min-height: 100vh;">
     <p style="margin: 0 0 12px; font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: #78716c;">{html.escape(seo.preview_label, quote=True)}</p>
     <h1 style="margin: 0 0 16px; font-size: 40px; line-height: 1.15; color: #1c1917;">{html.escape(seo.preview_title, quote=True)}</h1>
     <p style="margin: 0 0 16px; font-size: 18px; line-height: 1.7; color: #44403c;">{summary_html}</p>
     <p style="margin: 0; font-size: 14px; color: #78716c;">{byline_html}</p>
   </main>
-</div>
-""".strip()
+</div>"""
 
+    replacement = f'{preview_markup}\n<div id="root"></div>'
+    if _SHARED_PREVIEW_RE.search(rendered):
+        return _SHARED_PREVIEW_RE.sub(replacement, rendered, count=1)
     if _ROOT_DIV_RE.search(rendered):
-        return _ROOT_DIV_RE.sub(preview_markup, rendered, count=1)
+        return _ROOT_DIV_RE.sub(replacement, rendered, count=1)
     return rendered

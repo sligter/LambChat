@@ -344,22 +344,22 @@ export function AuthPage({ onSuccess, initialMode }: AuthPageProps) {
 
       {/* Main content */}
       <div className="relative z-10 flex min-h-screen items-center justify-center px-4 py-6 sm:px-6">
-        <div className="w-full max-w-[350px] sm:max-w-[450px]">
+        <div className="w-full max-w-[350px] sm:max-w-[420px] lg:max-w-[450px] 2xl:max-w-[480px]">
           {/* Title area */}
           <div className="mb-6 text-center">
-            <h1 className="text-3xl sm:text-4xl font-extrabold font-serif tracking-[-0.03em] leading-[0.95] text-stone-900 dark:text-stone-50 mb-2">
+            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold font-serif tracking-[-0.03em] leading-[0.95] text-stone-900 dark:text-stone-50 mb-2">
               {APP_NAME}
             </h1>
-            <p className="text-[13px] text-stone-500 dark:text-stone-400">
+            <p className="text-[13px] sm:text-[13px] lg:text-sm text-stone-500 dark:text-stone-400">
               {mode === "login" ? t("auth.loginHint") : t("auth.registerHint")}
             </p>
           </div>
 
           {/* Form card */}
-          <div className="auth-panel rounded-2xl p-5 sm:p-8">
+          <div className="auth-panel rounded-2xl p-5 sm:p-6 lg:p-8 2xl:p-10">
             {/* OAuth buttons */}
             {oauthProviders.length > 0 && (
-              <div className="mb-4 sm:mb-6">
+              <div className="mb-4 sm:mb-5 lg:mb-6 2xl:mb-8">
                 <div className="flex items-center justify-center gap-2.5 sm:gap-3">
                   {oauthProviders.map((provider) => (
                     <Fragment key={provider.id}>
@@ -415,7 +415,7 @@ export function AuthPage({ onSuccess, initialMode }: AuthPageProps) {
                 </div>
 
                 {/* Divider */}
-                <div className="relative mt-3 flex items-center sm:mt-4">
+                <div className="relative mt-3 flex items-center sm:mt-3.5 lg:mt-4 2xl:mt-5">
                   <div className="flex-grow border-t border-stone-200 dark:border-stone-700" />
                   <span className="flex-shrink-0 mx-3 text-[10px] font-medium uppercase tracking-widest text-stone-400 dark:text-stone-500 sm:mx-4 sm:text-xs">
                     {t("auth.or")}
@@ -428,7 +428,7 @@ export function AuthPage({ onSuccess, initialMode }: AuthPageProps) {
             <form
               onSubmit={handleSubmit}
               key={mode}
-              className="auth-form-animate space-y-4 sm:space-y-6"
+              className="auth-form-animate space-y-4 sm:space-y-5 lg:space-y-6 2xl:space-y-7"
             >
               {/* Error */}
               {error && (
@@ -563,7 +563,7 @@ export function AuthPage({ onSuccess, initialMode }: AuthPageProps) {
               <button
                 type="submit"
                 disabled={isSubmitting || isRedirecting}
-                className="auth-primary-button w-full rounded-xl py-3 text-sm font-semibold transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50 sm:py-3.5"
+                className="auth-primary-button w-full rounded-xl py-3 text-sm font-semibold transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50 sm:py-3 lg:py-3.5 2xl:py-4"
               >
                 <span className="inline-flex items-center justify-center gap-2">
                   {isSubmitting && (
@@ -578,7 +578,7 @@ export function AuthPage({ onSuccess, initialMode }: AuthPageProps) {
             </form>
 
             {/* Switch mode */}
-            <div className="mt-5 flex flex-wrap items-center justify-center gap-1 text-xs text-stone-500 dark:text-stone-400 sm:mt-5 sm:text-sm">
+            <div className="mt-5 flex flex-wrap items-center justify-center gap-1 text-xs text-stone-500 dark:text-stone-400 sm:text-sm">
               {registrationEnabled ? (
                 <>
                   <span>
@@ -616,13 +616,13 @@ export function AuthPage({ onSuccess, initialMode }: AuthPageProps) {
             )}
 
             {/* Terms */}
-            <p className="mt-3 text-center text-[10px] text-stone-400 dark:text-stone-500 sm:mt-4 sm:text-xs">
+            <p className="mt-3 text-center text-[10px] text-stone-400 dark:text-stone-500 sm:mt-3 sm:text-xs lg:mt-4 2xl:mt-5">
               {t("auth.termsHint")}
             </p>
           </div>
 
           {/* Footer */}
-          <div className="mt-4 flex flex-wrap items-center justify-center gap-x-2 text-[10px] text-stone-400 dark:text-stone-500 sm:mt-6 sm:gap-x-3 sm:text-xs">
+          <div className="mt-4 flex flex-wrap items-center justify-center gap-x-2 text-[10px] text-stone-400 dark:text-stone-500 sm:mt-4 sm:gap-x-3 sm:text-xs lg:mt-6 2xl:mt-8">
             <a
               href={GITHUB_URL}
               target="_blank"
