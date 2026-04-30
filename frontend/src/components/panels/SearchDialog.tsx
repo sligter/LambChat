@@ -333,6 +333,12 @@ export function SearchDialog({
               {/* Session items */}
               {allSessions.map(({ session, projectName }, index) => {
                 const isActive = index === activeIndex;
+                const searchMatch =
+                  typeof (session.metadata as Record<string, unknown>)
+                    ?.search_match === "string"
+                    ? ((session.metadata as Record<string, unknown>)
+                        .search_match as string)
+                    : null;
                 return (
                   <button
                     key={session.id}
@@ -351,8 +357,18 @@ export function SearchDialog({
                         : "hover:bg-stone-50 dark:hover:bg-stone-800/30"
                     }`}
                   >
-                    <span className="flex-1 min-w-0 text-sm text-stone-700 dark:text-stone-200 truncate leading-snug">
-                      {getSessionTitle(session, t)}
+                    <span className="flex-1 min-w-0">
+                      <span className="block text-sm text-stone-700 dark:text-stone-200 truncate leading-snug">
+                        {getSessionTitle(session, t)}
+                      </span>
+                      {searchMatch && (
+                        <span
+                          title={searchMatch}
+                          className="mt-0.5 block text-xs text-stone-400 dark:text-stone-500 truncate leading-relaxed"
+                        >
+                          {searchMatch}
+                        </span>
+                      )}
                     </span>
                     {projectName && (
                       <span className="flex-shrink-0 flex items-center gap-1 text-[11px] text-stone-400 dark:text-stone-500 bg-stone-100 dark:bg-stone-800/50 px-1.5 py-0.5 rounded-md">

@@ -15,7 +15,7 @@ import {
 } from "../../chat/ChatMessage/items/persistentToolPanelState";
 import { ChatInput } from "../../chat/ChatInput";
 import { WelcomePage } from "../../chat/WelcomePage";
-import { Virtuoso } from "react-virtuoso";
+import { Virtuoso, type ListRange } from "react-virtuoso";
 import { ApprovalPanel } from "../../panels/ApprovalPanel";
 import {
   ChatSkeleton,
@@ -29,10 +29,11 @@ import {
 } from "./messageScrollUtils";
 import { getNextMessageListSessionKey } from "./useMessageScroll";
 import {
+  createMessageAnchorId,
+  getOutlineActiveAnchorIdForRange,
   shouldShowMessageOutline,
   extractMessageOutline,
 } from "./messageOutline";
-import { useActiveOutlineItem } from "./useActiveOutlineItem";
 import { MessageOutlinePanel } from "./MessageOutlinePanel";
 import {
   isSessionRunning,
@@ -235,6 +236,7 @@ export function ChatView({
   );
   const previousSessionIdRef = useRef<string | null | undefined>(sessionId);
   const messageListSessionKeyRef = useRef(sessionId ?? "__new_session__");
+  const [visibleRange, setVisibleRange] = useState<ListRange | null>(null);
 
   useEffect(() => {
     const previousSessionId = previousSessionIdRef.current;
@@ -247,10 +249,18 @@ export function ChatView({
     previousSessionIdRef.current = sessionId;
   }, [messages.length, sessionId]);
 
-  const activeOutlineId = useActiveOutlineItem(
-    outlineItems,
-    virtuosoScrollerRef,
-  );
+  const activeOutlineId = useMemo(() => {
+    const rangeActiveId = getOutlineActiveAnchorIdForRange(
+      messages,
+      visibleRange,
+    );
+    if (rangeActiveId) {
+      return rangeActiveId;
+    }
+
+    const latestMessage = messages[messages.length - 1];
+    return latestMessage ? createMessageAnchorId(latestMessage.id) : null;
+  }, [messages, visibleRange]);
 
   const handleOutlineNavigate = useCallback(
     (anchorId: string, messageIndex: number) => {
@@ -483,6 +493,15 @@ export function ChatView({
   const isMobileViewport =
     typeof window !== "undefined" ? window.innerWidth < 640 : false;
 
+  const handleVirtuosoRangeChanged = useCallback((range: ListRange) => {
+    setVisibleRange((current) =>
+      current?.startIndex === range.startIndex &&
+      current?.endIndex === range.endIndex
+        ? current
+        : range,
+    );
+  }, []);
+
   const virtuosoComponents = useMemo(
     () => ({
       Scroller: (
@@ -659,6 +678,7 @@ export function ChatView({
             atBottomStateChange={handleVirtuosoAtBottomChange}
             atBottomThreshold={getAtBottomThresholdPx(isMobileViewport)}
             followOutput={"smooth"}
+            rangeChanged={handleVirtuosoRangeChanged}
             components={virtuosoComponents}
             itemContent={virtuosoItemContent}
             initialTopMostItemIndex={getInitialBottomItemLocation(

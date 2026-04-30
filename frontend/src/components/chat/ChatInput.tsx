@@ -479,7 +479,7 @@ export const ChatInput = memo(function ChatInput({
             </div>
           )}
 
-          <div className="px-2.5 pt-2 flex items-start gap-2">
+          <div className="px-2.5 pt-1 flex items-start gap-2">
             <textarea
               ref={textareaRef}
               value={input}

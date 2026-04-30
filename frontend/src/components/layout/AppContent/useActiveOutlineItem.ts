@@ -3,25 +3,23 @@ import type { MessageOutlineItem } from "./messageOutline";
 
 export function useActiveOutlineItem(
   outlineItems: MessageOutlineItem[],
-  scrollerRef: React.RefObject<HTMLDivElement | null>,
+  scroller: HTMLDivElement | null,
 ): string | null {
   const [activeId, setActiveId] = useState<string | null>(null);
   const observerRef = useRef<IntersectionObserver | null>(null);
 
   const buildRootMargin = useCallback(() => {
-    const scroller = scrollerRef.current;
     if (!scroller) return "0px";
     const height = scroller.clientHeight;
     const top = Math.floor(height * 0.2);
     const bottom = Math.floor(height * 0.6);
     return `-${top}px 0px -${bottom}px 0px`;
-  }, [scrollerRef]);
+  }, [scroller]);
 
   useEffect(() => {
     observerRef.current?.disconnect();
     observerRef.current = null;
 
-    const scroller = scrollerRef.current;
     if (outlineItems.length === 0 || !scroller) {
       setActiveId(null);
       return;
@@ -80,7 +78,7 @@ export function useActiveOutlineItem(
     return () => {
       observer.disconnect();
     };
-  }, [outlineItems, scrollerRef, buildRootMargin]);
+  }, [outlineItems, scroller, buildRootMargin]);
 
   return activeId;
 }

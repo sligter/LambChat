@@ -849,6 +849,7 @@
     "uploading": "アップロード中..."
   },
   "imageViewer": {
+    "fullscreen": "[TODO]imageViewer.fullscreen",
     "hint": "スクロール/ピンチでズーム · ドラッグ/スワイプで移動 · ESCで閉じる",
     "reset": "リセット",
     "rotateLeft": "左に回転",
@@ -1118,6 +1119,10 @@
       "reference": "リファレンス",
       "user": "ユーザー"
     }
+  },
+  "mermaidViewer": {
+    "hideCode": "コードを隠す",
+    "showCode": "コードを表示"
   },
   "nav": {
     "adminMarketplace": "管理マーケット",
@@ -1809,6 +1814,20 @@
     "storage": "ストレージ",
     "title": "タイトル生成",
     "turnstile": "Turnstile"
+  },
+  "systemHealth": {
+    "fetchFailed": "ヘルスデータの取得に失敗",
+    "growth": "増加",
+    "lastSample": "最終サンプル",
+    "openFiles": "オープンファイル",
+    "stable": "安定",
+    "suspectedLeak": "メモリリーク疑い",
+    "threads": "スレッド",
+    "title": "システムヘルス",
+    "topAllocations": "割り当て上位",
+    "topGrowth": "増加上位",
+    "topObjects": "オブジェクトタイプ上位",
+    "unavailable": "利用不可"
   },
   "theme": {
     "switchToDark": "ダークモードに切り替え",

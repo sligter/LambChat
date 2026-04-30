@@ -110,6 +110,17 @@ class Settings(BaseSettings):
     ENABLE_EVENT_MERGER: bool = True  # 是否启用事件合并
     EVENT_MERGE_INTERVAL: float = 300.0  # 合并间隔（秒，默认 1 分钟）
 
+    # Memory Monitoring Settings
+    MEMORY_MONITOR_ENABLED: bool = True
+    MEMORY_MONITOR_INTERVAL_SECONDS: float = 60.0
+    MEMORY_MONITOR_HISTORY_LIMIT: int = 60
+    MEMORY_MONITOR_LEAK_THRESHOLD_MB: int = 128
+    MEMORY_MONITOR_MIN_SAMPLES: int = 5
+    MEMORY_MONITOR_ALERT_COOLDOWN_SECONDS: float = 600.0
+    MEMORY_MONITOR_TRACEBACK_LIMIT: int = 8
+    MEMORY_MONITOR_TOP_STATS_LIMIT: int = 8
+    MEMORY_MONITOR_GC_OBJECT_LIMIT: int = 10
+
     # Long-term Storage Settings
     ENABLE_POSTGRES_STORAGE: bool = False
     POSTGRES_HOST: str = "localhost"

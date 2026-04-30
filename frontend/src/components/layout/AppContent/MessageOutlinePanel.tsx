@@ -1,6 +1,4 @@
 import { clsx } from "clsx";
-import { ListTree } from "lucide-react";
-import { useTranslation } from "react-i18next";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ReactFlow,
@@ -16,7 +14,10 @@ import {
   type NodeMouseHandler,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import type { MessageOutlineItem } from "./messageOutline";
+import {
+  getOutlineFlowActiveAnchorId,
+  type MessageOutlineItem,
+} from "./messageOutline";
 import { useAuth } from "../../../hooks/useAuth";
 import { AssistantAvatar } from "../../chat/ChatMessage/AssistantAvatar";
 import "./outlineFlow.css";
@@ -48,15 +49,15 @@ function UserAvatar({
       <img
         src={avatarUrl}
         alt={username}
-        className="size-5 object-cover rounded-full"
+        className="size-[22px] object-cover rounded-full ring-1 ring-white/20"
         onError={() => setImgError(true)}
       />
     );
   }
 
   return (
-    <div className="flex size-5 items-center justify-center bg-[var(--theme-primary)] rounded-full">
-      <span className="text-[10px] font-semibold text-white">
+    <div className="flex size-[22px] items-center justify-center bg-gradient-to-br from-amber-400 to-orange-500 rounded-full shadow-[0_1px_3px_rgba(0,0,0,0.15)]">
+      <span className="text-[10px] font-bold text-white leading-none">
         {username.charAt(0).toUpperCase() || "U"}
       </span>
     </div>
@@ -69,37 +70,40 @@ function OutlineFlowNode({ data }: { data: OutlineNodeData }) {
   return (
     <div
       className={clsx(
-        "px-3 py-2.5 rounded-xl w-[220px] cursor-pointer transition-all",
-        "bg-[var(--theme-bg-card)] border",
-        data.isActive
-          ? "border-[var(--theme-primary)] shadow-md ring-1 ring-[color-mix(in_srgb,var(--theme-primary)_20%,transparent)]"
-          : "border-[var(--theme-border)] shadow-sm hover:shadow-md hover:border-[color-mix(in_srgb,var(--theme-primary)_30%,var(--theme-border))]",
+        "px-3 py-[10px] rounded-2xl w-[220px] cursor-pointer transition-all duration-200",
+        "bg-stone-100/80 dark:bg-stone-700/40 border",
+        "border-stone-200/80 dark:border-stone-600/50",
+        "backdrop-blur-sm",
+        "hover:-translate-y-[1px] hover:shadow-lg hover:border-stone-300 dark:hover:border-stone-500",
+        data.isActive &&
+          "border-[var(--theme-primary)] shadow-lg shadow-[color-mix(in_srgb,var(--theme-primary)_10%,transparent)] ring-1 ring-[color-mix(in_srgb,var(--theme-primary)_15%,transparent)] -translate-y-[1px]",
+        !data.isActive && "shadow-sm",
       )}
     >
       <Handle
         type="target"
         position={Position.Top}
         className={clsx(
-          "!w-[6px] !h-[6px] !border-none !-top-[3px]",
+          "!w-[5px] !h-[5px] !border-none !-top-[2.5px] !rounded-full transition-colors duration-200",
           data.isActive
             ? "!bg-[var(--theme-primary)]"
-            : "!bg-[var(--theme-border)]",
+            : "!bg-stone-300 dark:!bg-stone-500",
         )}
       />
-      <div className="flex items-center gap-2.5">
-        <div className="shrink-0">
+      <div className="flex items-start gap-2">
+        <div className="shrink-0 pt-[1px]">
           {isUser ? (
             <UserAvatar avatarUrl={data.avatarUrl} username={data.username} />
           ) : (
-            <AssistantAvatar className="size-5 rounded-full" />
+            <AssistantAvatar className="size-[22px] rounded-full ring-1 ring-white/20" />
           )}
         </div>
         <div className="min-w-0 flex-1">
-          <span className="text-[10px] font-medium text-[var(--theme-text-secondary)]">
+          <span className="text-[10px] font-medium text-[var(--theme-text-secondary)] leading-none">
             {isUser ? data.username : "Assistant"}
           </span>
           <div
-            className="text-[12px] text-[var(--theme-text)] line-clamp-2 mt-[2px] leading-snug [&_strong]:font-semibold [&_strong]:text-[var(--theme-primary)] [&_em]:italic [&_code]:text-[11px] [&_code]:rounded [&_code]:bg-[var(--theme-primary-light)] [&_code]:px-0.5 [&_code]:text-[var(--theme-primary)]"
+            className="text-[12px] text-[var(--theme-text)] line-clamp-2 mt-1 leading-[1.45] [&_strong]:font-semibold [&_strong]:text-[var(--theme-primary)] [&_em]:italic [&_code]:text-[11px] [&_code]:rounded [&_code]:bg-[var(--theme-primary-light)] [&_code]:px-0.5 [&_code]:text-[var(--theme-primary)]"
             dangerouslySetInnerHTML={{
               __html: renderInlineMarkdown(data.label),
             }}
@@ -110,10 +114,10 @@ function OutlineFlowNode({ data }: { data: OutlineNodeData }) {
         type="source"
         position={Position.Bottom}
         className={clsx(
-          "!w-[6px] !h-[6px] !border-none !-bottom-[3px]",
+          "!w-[5px] !h-[5px] !border-none !-bottom-[2.5px] !rounded-full transition-colors duration-200",
           data.isActive
             ? "!bg-[var(--theme-primary)]"
-            : "!bg-[var(--theme-border)]",
+            : "!bg-stone-300 dark:!bg-stone-500",
         )}
       />
     </div>
@@ -189,23 +193,26 @@ function OutlineFlowInner({
   activeId,
   onNavigate,
 }: MessageOutlinePanelProps) {
-  const { t } = useTranslation();
   const { user } = useAuth();
   const { fitView, setViewport } = useReactFlow();
   const containerRef = useRef<HTMLDivElement>(null);
 
   const avatarUrl = user?.avatar_url;
   const username = user?.username || "You";
+  const flowActiveId = useMemo(
+    () => getOutlineFlowActiveAnchorId(items, activeId),
+    [items, activeId],
+  );
 
   const { nodes, edges } = useMemo(
-    () => buildFlowData(items, activeId, avatarUrl, username),
-    [items, activeId, avatarUrl, username],
+    () => buildFlowData(items, flowActiveId, avatarUrl, username),
+    [items, flowActiveId, avatarUrl, username],
   );
 
   // zoom into the target node and position it at the top of the viewport
   useEffect(() => {
     if (nodes.length === 0) return;
-    const target = activeId ? nodes.find((n) => n.data.isActive) : nodes[0];
+    const target = flowActiveId ? nodes.find((n) => n.data.isActive) : nodes[0];
     if (target) {
       const zoom = 1.2;
       const padding = 48;
@@ -222,7 +229,7 @@ function OutlineFlowInner({
     } else {
       fitView({ padding: 0.2, duration: 200 });
     }
-  }, [nodes, activeId, fitView, setViewport]);
+  }, [nodes, flowActiveId, fitView, setViewport]);
 
   const onNodeClick: NodeMouseHandler = useCallback(
     (_event, node) => {
@@ -236,22 +243,6 @@ function OutlineFlowInner({
 
   return (
     <div ref={containerRef} className="relative w-full h-full">
-      {/* header */}
-      <div className="absolute top-0 left-0 right-0 z-10 flex items-center px-4 py-3 pointer-events-none">
-        <div className="flex items-center gap-2">
-          <ListTree
-            size={14}
-            className="text-[var(--theme-primary)] opacity-60"
-          />
-          <span className="text-[13px] font-medium text-[var(--theme-text-secondary)]">
-            {t("chat.outline")}
-          </span>
-          <span className="text-[13px] text-[var(--theme-text-secondary)] opacity-40">
-            {items.length}
-          </span>
-        </div>
-      </div>
-
       <ReactFlow
         nodes={nodes}
         edges={edges}

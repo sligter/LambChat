@@ -340,11 +340,27 @@ export function SessionListContent({
               {!isChatsCollapsed && (
                 <>
                   {isUncategorizedLoading ? (
-                    <div className="flex justify-center py-4">
-                      <LoadingSpinner
-                        size="sm"
-                        color="text-[var(--theme-primary)]"
-                      />
+                    <div className="space-y-px px-0">
+                      {Array.from({ length: 5 }).map((_, i) => (
+                        <div
+                          key={i}
+                          className="flex items-center gap-2 px-[9px] h-10 rounded-[10px]"
+                        >
+                          <div
+                            className="skeleton-line h-[13px] rounded-md flex-1"
+                            style={{
+                              width:
+                                i === 0
+                                  ? "70%"
+                                  : i === 1
+                                    ? "85%"
+                                    : i === 2
+                                      ? "55%"
+                                      : "65%",
+                            }}
+                          />
+                        </div>
+                      ))}
                     </div>
                   ) : (
                     groupedUncategorized.map((group) => (

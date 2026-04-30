@@ -848,6 +848,7 @@
     "uploading": "上传中..."
   },
   "imageViewer": {
+    "fullscreen": "【待翻译】imageViewer.fullscreen",
     "hint": "滚轮/双指缩放 · 拖拽/滑动移动 · ESC 关闭",
     "reset": "重置",
     "rotateLeft": "向左旋转",
@@ -1120,6 +1121,10 @@
       "reference": "参考",
       "user": "用户"
     }
+  },
+  "mermaidViewer": {
+    "hideCode": "隐藏代码",
+    "showCode": "查看代码"
   },
   "nav": {
     "adminMarketplace": "管理员商店",
@@ -1811,6 +1816,20 @@
     "storage": "存储",
     "title": "标题生成",
     "turnstile": "Turnstile"
+  },
+  "systemHealth": {
+    "fetchFailed": "获取健康数据失败",
+    "growth": "增长",
+    "lastSample": "最后采样",
+    "openFiles": "打开文件",
+    "stable": "稳定",
+    "suspectedLeak": "疑似泄漏",
+    "threads": "线程",
+    "title": "系统健康",
+    "topAllocations": "最大分配",
+    "topGrowth": "增长热点",
+    "topObjects": "对象类型统计",
+    "unavailable": "不可用"
   },
   "theme": {
     "switchToDark": "切换到深色模式",

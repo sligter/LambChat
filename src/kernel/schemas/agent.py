@@ -85,6 +85,25 @@ class HealthResponse(BaseModel):
     status: str = "ok"
     version: str
     timestamp: datetime = Field(default_factory=datetime.now)
+    memory: Optional["MemoryHealthSummary"] = None
+
+
+class MemoryHealthSummary(BaseModel):
+    """Compact memory diagnostics for health checks."""
+
+    available: bool = False
+    reason: Optional[str] = None
+    rss_bytes: Optional[int] = None
+    vms_bytes: Optional[int] = None
+    thread_count: Optional[int] = None
+    open_file_count: Optional[int] = None
+    history_size: Optional[int] = None
+    growth_bytes: int = 0
+    suspected_leak: bool = False
+    sample_interval_seconds: Optional[float] = None
+    baseline_reset_at: Optional[datetime] = None
+    last_sample_at: Optional[datetime] = None
+    last_error: Optional[str] = None
 
 
 class ToolParamInfo(BaseModel):

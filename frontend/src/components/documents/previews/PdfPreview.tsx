@@ -113,7 +113,7 @@ const PdfPreview = memo(function PdfPreview({ url }: PdfPreviewProps) {
       </div>
 
       {/* PDF content */}
-      <div className="flex-1 overflow-auto flex items-start justify-center py-6 px-4">
+      <div className="flex-1 overflow-auto flex items-start justify-center px-4">
         {loading && (
           <div className="flex items-center justify-center h-full">
             <LoadingSpinner

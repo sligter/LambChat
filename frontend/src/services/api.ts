@@ -43,6 +43,7 @@ export { memoryApi } from "./api/memory";
 export { envvarApi } from "./api/envvar";
 export { uploadApi } from "./api/upload";
 export { versionApi } from "./api/version";
+export { healthApi } from "./api/health";
 export { projectApi } from "./api/project";
 export {
   revealedFileApi,

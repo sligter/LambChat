@@ -248,7 +248,7 @@ export function ProfileModal({
 
       {/* ===== Desktop: centered with sidebar ===== */}
       <div
-        className="hidden sm:flex relative z-10 w-[660px] sm:w-[800px] h-[640px] bg-white dark:bg-stone-800 rounded-2xl shadow-2xl shadow-stone-900/10 dark:shadow-black/40 border border-stone-200/80 dark:border-stone-700/50 overflow-hidden flex-col animate-scale-in"
+        className="hidden sm:flex relative z-10 w-[80vw] max-w-[680px] h-[75vh] max-h-[640px] bg-white dark:bg-stone-800 rounded-2xl shadow-2xl shadow-stone-900/10 dark:shadow-black/40 border border-stone-200/80 dark:border-stone-700/50 overflow-hidden flex-col animate-scale-in"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}

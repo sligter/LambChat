@@ -12,7 +12,7 @@ import {
   forwardRef,
   useImperativeHandle,
 } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 import { Users, Shield, Bot, Cpu, Star, Bell, Settings } from "lucide-react";
@@ -188,6 +188,7 @@ export const SessionSidebar = forwardRef<
     enabled: isMoreMenuOpen && isMobile,
   });
   const location = useLocation();
+  const navigate = useNavigate();
 
   useEffect(() => {
     const mq = window.matchMedia("(max-width: 639px)");
@@ -758,6 +759,7 @@ export const SessionSidebar = forwardRef<
               setIsRecentChatsOpen(false);
             }}
             onOpenRecentChats={() => setIsRecentChatsOpen(true)}
+            onOpenFileLibrary={() => navigate("/files")}
             hasMoreMenuItems={hasMoreMenuItems}
             onToggleMoreMenu={() => {
               setIsMoreMenuOpen((prev) => !prev);

@@ -51,15 +51,15 @@ export function MobileMoreMenuSheet({
         <div className="flex justify-center py-2">
           <div className="w-10 h-1 rounded-full bg-stone-300 dark:bg-stone-600" />
         </div>
-        <div className="flex items-center justify-between px-4 pb-2">
-          <span className="text-sm font-medium text-stone-700 dark:text-stone-200">
+        <div className="flex items-center justify-between px-4 pb-1.5">
+          <span className="text-[13px] font-medium text-stone-700 dark:text-stone-200">
             {t("nav.more", "更多")}
           </span>
           <button
             onClick={onClose}
             className="p-1 rounded-full hover:bg-stone-100 dark:hover:bg-stone-700"
           >
-            <X size={18} className="text-stone-400" />
+            <X size={16} className="text-stone-400" />
           </button>
         </div>
         <div className="px-2 pb-4">
@@ -67,30 +67,30 @@ export function MobileMoreMenuSheet({
             <button
               key={item.path}
               type="button"
-              className="w-full flex items-center gap-3 px-3 py-3 text-base text-stone-700 dark:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-700 rounded-lg transition-colors"
+              className="w-full flex items-center gap-2.5 px-3 py-2.5 text-[13px] text-stone-700 dark:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-700 rounded-lg transition-colors"
               onClick={() => {
                 onClose();
                 navigate(item.path);
               }}
             >
-              <item.icon size={18} />
+              <item.icon size={16} />
               <span>{item.label}</span>
             </button>
           ))}
           {visibleUser.length > 0 && visibleSys.length > 0 && (
-            <div className="h-px bg-stone-200 dark:bg-stone-700 my-2" />
+            <div className="h-px bg-stone-200 dark:bg-stone-700 my-1.5" />
           )}
           {visibleSys.map((item) => (
             <button
               key={item.path}
               type="button"
-              className="w-full flex items-center gap-3 px-3 py-3 text-base text-stone-700 dark:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-700 rounded-lg transition-colors"
+              className="w-full flex items-center gap-2.5 px-3 py-2.5 text-[13px] text-stone-700 dark:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-700 rounded-lg transition-colors"
               onClick={() => {
                 onClose();
                 navigate(item.path);
               }}
             >
-              <item.icon size={18} />
+              <item.icon size={16} />
               <span>{item.label}</span>
             </button>
           ))}

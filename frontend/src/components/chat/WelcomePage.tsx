@@ -58,7 +58,7 @@ export const WelcomePage = memo(function WelcomePage({
       className="welcome-root relative flex h-full flex-col items-center justify-center px-4 overflow-hidden"
     >
       {/* Greeting section */}
-      <div className="relative flex flex-col items-center mb-4 sm:mb-8 2xl:mb-10 w-full max-w-[90vw]">
+      <div className="relative flex flex-col items-center mb-3 sm:mb-5 2xl:mb-7 w-full max-w-[90vw]">
         {/* App icon (mobile only) */}
         <div className="sm:hidden relative mb-3">
           <img
@@ -96,7 +96,7 @@ export const WelcomePage = memo(function WelcomePage({
 
       {/* Suggestions with refresh */}
       {suggestions && suggestions.length > 0 && (
-        <div className="welcome-suggestions relative w-[19rem] sm:max-w-[32rem] 2xl:max-w-[42rem] sm:w-full px-2 sm:px-4 sm:mt-5 2xl:mt-6">
+        <div className="welcome-suggestions relative w-[19rem] sm:max-w-[32rem] 2xl:max-w-[42rem] sm:w-full px-2 sm:px-4 sm:mt-2 2xl:mt-4">
           <div className="flex items-center justify-between mb-2 sm:mb-3 2xl:mb-4">
             <div
               className="flex items-center gap-1 text-xs sm:text-sm font-medium font-serif"

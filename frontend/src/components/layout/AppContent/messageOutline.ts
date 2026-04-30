@@ -1,4 +1,5 @@
 import type { Message, MessagePart } from "../../../types";
+import type { ListRange } from "react-virtuoso";
 
 export type MessageOutlineItem =
   | {
@@ -135,6 +136,46 @@ export function extractMessageOutline(
   });
 
   return outline;
+}
+
+export function getOutlineFlowActiveAnchorId(
+  outlineItems: MessageOutlineItem[],
+  activeAnchorId: string | null,
+): string | null {
+  if (!activeAnchorId) {
+    return null;
+  }
+
+  const activeItem = outlineItems.find(
+    (item) => item.anchorId === activeAnchorId,
+  );
+  if (!activeItem) {
+    return activeAnchorId;
+  }
+
+  if (activeItem.kind !== "assistant-heading") {
+    return activeAnchorId;
+  }
+
+  const messageItem = outlineItems.find(
+    (item) =>
+      item.kind === "assistant-message" &&
+      item.messageId === activeItem.messageId,
+  );
+
+  return messageItem?.anchorId ?? activeAnchorId;
+}
+
+export function getOutlineActiveAnchorIdForRange(
+  messages: Pick<Message, "id">[],
+  range: ListRange | null,
+): string | null {
+  if (!range || messages.length === 0) {
+    return null;
+  }
+
+  const index = Math.min(Math.max(range.startIndex, 0), messages.length - 1);
+  return createMessageAnchorId(messages[index].id);
 }
 
 function summarizeUserMessage(message: Message): string {

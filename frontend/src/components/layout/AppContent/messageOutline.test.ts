@@ -6,6 +6,8 @@ import {
   createHeadingAnchorId,
   createMessageAnchorId,
   extractMessageOutline,
+  getOutlineActiveAnchorIdForRange,
+  getOutlineFlowActiveAnchorId,
   shouldShowMessageOutline,
 } from "./messageOutline.ts";
 
@@ -153,4 +155,47 @@ test("ignores headings inside fenced code blocks", () => {
       messageIndex: 0,
     },
   ]);
+});
+
+test("maps assistant heading anchors back to their message anchor for flow focus", () => {
+  const outline = extractMessageOutline([
+    createMessage({
+      id: "u1",
+      role: "user",
+      content: "生成一个好看的 mermaid",
+    }),
+    createMessage({
+      id: "a1",
+      role: "assistant",
+      content: "# 总览\n正文\n## 细节\n更多内容",
+    }),
+  ]);
+
+  assert.equal(
+    getOutlineFlowActiveAnchorId(
+      outline,
+      createHeadingAnchorId({
+        messageId: "a1",
+        partIndex: 0,
+        headingText: "细节",
+      }),
+    ),
+    createMessageAnchorId("a1"),
+  );
+});
+
+test("maps the first visible message index to its outline anchor", () => {
+  const messages: Message[] = [
+    createMessage({ id: "u1", role: "user", content: "one" }),
+    createMessage({ id: "a1", role: "assistant", content: "two" }),
+    createMessage({ id: "u2", role: "user", content: "three" }),
+  ];
+
+  assert.equal(
+    getOutlineActiveAnchorIdForRange(messages, {
+      startIndex: 1,
+      endIndex: 2,
+    }),
+    createMessageAnchorId("a1"),
+  );
 });

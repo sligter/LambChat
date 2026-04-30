@@ -27,6 +27,17 @@
   animation: shimmer 2s ease-in-out infinite;
 }
 
+.dark .skeleton-line {
+  background: linear-gradient(
+    90deg,
+    #3d3835 0%,
+    #57534e 20%,
+    #292524 40%,
+    #57534e 60%,
+    #3d3835 100%
+  );
+}
+
 /* Panel card - modern style without borders */
 .panel-card {
   background-color: var(--theme-bg-card);

@@ -1,4 +1,10 @@
-import { MessageSquarePlus, Search, Clock, MoreHorizontal } from "lucide-react";
+import {
+  MessageSquarePlus,
+  Search,
+  Clock,
+  MoreHorizontal,
+  FolderOpen,
+} from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { APP_NAME } from "../../../constants";
 
@@ -10,6 +16,7 @@ interface SidebarRailProps {
   onNewSession: () => void;
   onOpenSearch: () => void;
   onOpenRecentChats: () => void;
+  onOpenFileLibrary: () => void;
   hasMoreMenuItems: boolean;
   onToggleMoreMenu: () => void;
   moreMenuBtnRef: React.RefObject<HTMLButtonElement | null>;
@@ -25,6 +32,7 @@ export function SidebarRail({
   onNewSession,
   onOpenSearch,
   onOpenRecentChats,
+  onOpenFileLibrary,
   hasMoreMenuItems,
   onToggleMoreMenu,
   moreMenuBtnRef,
@@ -85,6 +93,15 @@ export function SidebarRail({
           aria-label={t("sidebar.searchSessions")}
         >
           <Search size={20} />
+        </button>
+        <button
+          type="button"
+          onClick={onOpenFileLibrary}
+          className="flex h-9 w-9 items-center justify-center rounded-lg text-stone-600 hover:bg-stone-100 dark:text-stone-400 dark:hover:bg-stone-800/60 transition-colors mx-2 touch-manipulation"
+          title={t("fileLibrary.title")}
+          aria-label={t("fileLibrary.title")}
+        >
+          <FolderOpen size={20} />
         </button>
         <button
           type="button"

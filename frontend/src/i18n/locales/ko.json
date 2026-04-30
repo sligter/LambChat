@@ -849,6 +849,7 @@
     "uploading": "업로드 중..."
   },
   "imageViewer": {
+    "fullscreen": "[TODO]imageViewer.fullscreen",
     "hint": "스크롤/핀치로 확대 · 드래그/스와이프로 이동 · ESC로 닫기",
     "reset": "재설정",
     "rotateLeft": "왼쪽 회전",
@@ -1118,6 +1119,10 @@
       "reference": "참조",
       "user": "사용자"
     }
+  },
+  "mermaidViewer": {
+    "hideCode": "코드 숨기기",
+    "showCode": "코드 보기"
   },
   "nav": {
     "adminMarketplace": "관리자 마켓플레이스",
@@ -1809,6 +1814,20 @@
     "storage": "스토리지",
     "title": "제목 생성",
     "turnstile": "Turnstile"
+  },
+  "systemHealth": {
+    "fetchFailed": "상태 데이터 가져오기 실패",
+    "growth": "증가",
+    "lastSample": "마지막 샘플",
+    "openFiles": "열린 파일",
+    "stable": "안정",
+    "suspectedLeak": "메모리 누수 의심",
+    "threads": "스레드",
+    "title": "시스템 상태",
+    "topAllocations": "할당 상위",
+    "topGrowth": "증가 상위",
+    "topObjects": "객체 유형 상위",
+    "unavailable": "사용 불가"
   },
   "theme": {
     "switchToDark": "다크 모드로 전환",

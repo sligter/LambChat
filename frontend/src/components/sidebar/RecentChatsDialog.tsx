@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
-import { Loader2 } from "lucide-react";
 import { sessionApi } from "../../services/api/session";
 import { getSessionTitle } from "../panels/sessionHelpers";
 import { APP_NAME } from "../../constants";
@@ -123,8 +122,21 @@ export function RecentChatsDialog({
       {/* Session list */}
       <div className="overflow-y-auto max-h-[420px] py-1">
         {isLoading ? (
-          <div className="flex items-center justify-center py-10">
-            <Loader2 size={18} className="animate-spin text-stone-400" />
+          <div className="px-4 py-2 space-y-1">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="flex items-center gap-3 px-0 py-2.5">
+                <div className="flex-1 min-w-0 space-y-1.5">
+                  <div
+                    className="skeleton-line h-[13px] rounded-md"
+                    style={{ width: i % 2 === 0 ? "75%" : "60%" }}
+                  />
+                  <div
+                    className="skeleton-line h-[11px] rounded-md !opacity-50"
+                    style={{ width: "40%" }}
+                  />
+                </div>
+              </div>
+            ))}
           </div>
         ) : sessions.length === 0 ? (
           <div className="text-center py-10 text-xs text-stone-400 dark:text-stone-500">

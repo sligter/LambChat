@@ -53,6 +53,7 @@ dependencies = [
     "hindsight-client>=0.4.18",
     "lark-oapi>=1.5.3",
     "e2b>=2.15.3",
+    "psutil>=7.2.2",
 ]
 
 [dependency-groups]

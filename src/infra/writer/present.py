@@ -829,6 +829,16 @@ class Presenter:
         """输出用户消息并保存"""
         event = self.present_user_message(content, attachments)
         await self.save_event(event)
+        if self.config.session_id:
+            try:
+                from src.infra.session.storage import SessionStorage
+
+                await SessionStorage().append_user_message_search_content(
+                    self.config.session_id,
+                    content,
+                )
+            except Exception as e:
+                logger.warning("Failed to update session search index for user message: %s", e)
         attachment_keys = _extract_attachment_keys(attachments)
         if attachment_keys:
             try:

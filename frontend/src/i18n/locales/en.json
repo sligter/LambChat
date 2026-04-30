@@ -847,6 +847,7 @@
     "uploading": "Uploading..."
   },
   "imageViewer": {
+    "fullscreen": "Fullscreen",
     "hint": "Scroll/Pinch to zoom · Drag/Swipe to move · ESC to close",
     "reset": "Reset",
     "rotateLeft": "Rotate Left",
@@ -1119,6 +1120,10 @@
       "reference": "Reference",
       "user": "User"
     }
+  },
+  "mermaidViewer": {
+    "hideCode": "Hide code",
+    "showCode": "Show code"
   },
   "nav": {
     "adminMarketplace": "Admin Marketplace",
@@ -1590,7 +1595,7 @@
     "newChatShortcut": "Ctrl+Shift+O",
     "newProject": "New Project",
     "noMatchingSessions": "No matching sessions found",
-    "noMessages": "sidebar.noMessages",
+    "noMessages": "No messages",
     "noSearchResults": "No matching sessions found",
     "noSessions": "No chat sessions yet",
     "older": "Older",
@@ -1810,6 +1815,20 @@
     "storage": "Storage",
     "title": "Title Generation",
     "turnstile": "Turnstile"
+  },
+  "systemHealth": {
+    "fetchFailed": "Failed to fetch health data",
+    "growth": "Growth",
+    "lastSample": "Last sample",
+    "openFiles": "Open Files",
+    "stable": "Stable",
+    "suspectedLeak": "Suspected Leak",
+    "threads": "Threads",
+    "title": "System Health",
+    "topAllocations": "Top Allocations",
+    "topGrowth": "Top Growth",
+    "topObjects": "Top Object Types",
+    "unavailable": "Unavailable"
   },
   "theme": {
     "switchToDark": "Switch to dark mode",

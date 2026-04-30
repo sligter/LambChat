@@ -2,7 +2,7 @@
 会话存储层
 """
 
-import re
+import asyncio
 from datetime import datetime
 from typing import Any, Dict, Optional
 
@@ -11,6 +11,15 @@ from bson import ObjectId
 from src.infra.session.favorites import (
     is_session_favorite,
     normalize_session_metadata,
+)
+from src.infra.session.search_index import (
+    SESSION_SEARCH_INDEX_VERSION,
+    append_message_to_search_index,
+    build_backfilled_search_index,
+    build_search_preview,
+    build_search_query_terms,
+    compose_session_search_index,
+    merge_search_state,
 )
 from src.kernel.config import settings
 from src.kernel.schemas.session import Session, SessionCreate, SessionUpdate
@@ -22,6 +31,12 @@ class SessionStorage:
 
     使用 MongoDB 存储会话数据。
     """
+
+    SEARCH_BACKFILL_SKIP_RECENT_SECONDS = 120
+    SEARCH_UPDATE_MAX_RETRIES = 3
+    _indexes_done = False
+    _indexes_task: asyncio.Task | None = None
+    _indexes_lock: asyncio.Lock | None = None
 
     def __init__(self):
         self._collection = None
@@ -36,6 +51,71 @@ class SessionStorage:
             db = client[settings.MONGODB_DB]
             self._collection = db[settings.MONGODB_SESSIONS_COLLECTION]
         return self._collection
+
+    async def ensure_indexes_if_needed(self):
+        """Ensure session indexes exist."""
+        cls = type(self)
+        if cls._indexes_done:
+            return
+
+        if cls._indexes_lock is None:
+            cls._indexes_lock = asyncio.Lock()
+
+        async with cls._indexes_lock:
+            if cls._indexes_done:
+                return
+            if cls._indexes_task is None or cls._indexes_task.cancelled():
+                cls._indexes_task = asyncio.create_task(self._ensure_indexes())
+            task = cls._indexes_task
+
+        succeeded = await task
+        if succeeded:
+            cls._indexes_done = True
+            return
+
+        async with cls._indexes_lock:
+            if cls._indexes_task is task:
+                cls._indexes_task = None
+
+    async def _ensure_indexes(self) -> bool:
+        try:
+            collection = self.collection
+            await collection.create_index(
+                [("user_id", 1), ("is_active", 1), ("updated_at", -1)],
+                name="user_status_updated_idx",
+                background=True,
+            )
+            await collection.create_index(
+                [("user_id", 1), ("metadata.project_id", 1), ("updated_at", -1)],
+                name="user_project_updated_idx",
+                background=True,
+            )
+            await collection.create_index(
+                [("session_id", 1)],
+                name="session_id_idx",
+                background=True,
+                sparse=True,
+            )
+            await collection.create_index(
+                [("user_id", 1), ("search_terms", 1), ("updated_at", -1)],
+                name="user_search_terms_updated_idx",
+                background=True,
+            )
+            await collection.create_index(
+                [("search_index_version", 1), ("updated_at", -1)],
+                name="search_index_version_updated_idx",
+                background=True,
+            )
+            await collection.create_index(
+                [("search_index_updated_at", 1)],
+                name="search_index_updated_at_idx",
+                background=True,
+                sparse=True,
+            )
+            return True
+        except Exception:
+            # Search index creation is best-effort and should not block the app.
+            return False
 
     @staticmethod
     def _build_session(
@@ -60,10 +140,17 @@ class SessionStorage:
         session_id: Optional[str] = None,
     ) -> Session:
         """创建会话"""
+        await self.ensure_indexes_if_needed()
         now = datetime.now()
 
         # 使用自定义 session_id 或生成新的
         actual_session_id = session_id or None
+        search_payload = compose_session_search_index(
+            session_name=session_data.name,
+            message_search_terms=[],
+            search_text="",
+            latest_user_message="",
+        )
 
         session_dict = {
             "name": session_data.name,
@@ -73,6 +160,13 @@ class SessionStorage:
             "created_at": now,
             "updated_at": now,
             "is_active": True,
+            "name_search_terms": search_payload.name_search_terms,
+            "message_search_terms": search_payload.message_search_terms,
+            "search_terms": search_payload.search_terms,
+            "search_text": search_payload.search_text,
+            "latest_user_message": search_payload.latest_user_message,
+            "search_index_version": search_payload.search_index_version,
+            "search_index_updated_at": now,
         }
 
         # 如果提供了自定义 session_id，存储它
@@ -88,6 +182,7 @@ class SessionStorage:
 
     async def get_by_session_id(self, session_id: str) -> Optional[Session]:
         """通过自定义 session_id 获取会话"""
+        await self.ensure_indexes_if_needed()
         session_dict = await self.collection.find_one({"session_id": session_id})
 
         if not session_dict:
@@ -99,6 +194,7 @@ class SessionStorage:
         """通过 session_id 列表批量获取会话，返回 {session_id: Session} 映射"""
         if not session_ids:
             return {}
+        await self.ensure_indexes_if_needed()
         unique_ids = list(set(session_ids))
         cursor = self.collection.find({"session_id": {"$in": unique_ids}})
         result: Dict[str, Session] = {}
@@ -109,6 +205,7 @@ class SessionStorage:
 
     async def update_user_id(self, session_id: str, user_id: str) -> bool:
         """通过自定义 session_id 更新 user_id"""
+        await self.ensure_indexes_if_needed()
         result = await self.collection.update_one(
             {"session_id": session_id, "user_id": None},
             {"$set": {"user_id": user_id, "updated_at": datetime.now()}},
@@ -117,6 +214,7 @@ class SessionStorage:
 
     async def get_by_id(self, session_id: str) -> Optional[Session]:
         """通过 ID 获取会话"""
+        await self.ensure_indexes_if_needed()
         try:
             session_dict = await self.collection.find_one({"_id": ObjectId(session_id)})
         except Exception:
@@ -129,10 +227,31 @@ class SessionStorage:
 
     async def update(self, session_id: str, session_data: SessionUpdate) -> Optional[Session]:
         """更新会话（支持自定义 session_id 或 ObjectId）"""
+        await self.ensure_indexes_if_needed()
         update_dict: dict = {"updated_at": datetime.now()}
+
+        existing_doc = None
+        if session_data.name is not None:
+            existing_doc = await self._find_doc(
+                session_id,
+                {
+                    "name": 1,
+                    "message_search_terms": 1,
+                },
+            )
 
         if session_data.name is not None:
             update_dict["name"] = session_data.name
+            search_payload = compose_session_search_index(
+                session_name=session_data.name,
+                message_search_terms=(existing_doc or {}).get("message_search_terms") or [],
+                search_text="",
+                latest_user_message="",
+            )
+            update_dict["name_search_terms"] = search_payload.name_search_terms
+            update_dict["search_terms"] = search_payload.search_terms
+            update_dict["search_index_version"] = SESSION_SEARCH_INDEX_VERSION
+            update_dict["search_index_updated_at"] = datetime.now()
 
         if session_data.metadata is not None:
             # 使用深度合并而非直接覆盖，保留未指定的 metadata 字段
@@ -164,6 +283,7 @@ class SessionStorage:
 
     async def delete(self, session_id: str) -> bool:
         """删除会话（支持自定义 session_id 或 ObjectId）"""
+        await self.ensure_indexes_if_needed()
         # 优先使用自定义 session_id
         result = await self.collection.delete_one({"session_id": session_id})
         if result.deleted_count > 0:
@@ -197,6 +317,7 @@ class SessionStorage:
                        - 其他值: 只返回该项目内的会话
             search: 搜索关键词，模糊匹配会话名称
         """
+        await self.ensure_indexes_if_needed()
         query: dict[str, Any] = {}
         if user_id is not None:
             # 严格匹配用户ID，空字符串也会被当作过滤条件
@@ -205,7 +326,11 @@ class SessionStorage:
             query["is_active"] = is_active
 
         if search:
-            query["name"] = {"$regex": re.escape(search), "$options": "i"}
+            search_terms = build_search_query_terms(search)
+            if search_terms:
+                query["search_terms"] = {"$all": search_terms}
+            else:
+                query["session_id"] = {"$in": []}
 
         # Project filter
         if project_id == "none":
@@ -236,7 +361,20 @@ class SessionStorage:
         sessions = []
 
         for session_dict in await cursor.to_list(length=limit):
-            sessions.append(self._build_session(session_dict, favorites_project_id))
+            session = self._build_session(session_dict, favorites_project_id)
+            if search:
+                match_preview = build_search_preview(session_dict.get("search_text"), search)
+                if match_preview:
+                    session = session.model_copy(
+                        update={
+                            "metadata": {
+                                **session.metadata,
+                                "search_match": match_preview,
+                                "search_match_source": "user_message",
+                            }
+                        }
+                    )
+            sessions.append(session)
 
         return sessions, total
 
@@ -254,6 +392,7 @@ class SessionStorage:
         Returns:
             Number of modified sessions
         """
+        await self.ensure_indexes_if_needed()
         result = await self.collection.update_many(
             {"user_id": user_id, "metadata.project_id": project_id},
             {"$set": {"metadata.project_id": None, "updated_at": datetime.now()}},
@@ -262,6 +401,7 @@ class SessionStorage:
 
     async def increment_unread_count(self, session_id: str) -> bool:
         """递增会话未读计数"""
+        await self.ensure_indexes_if_needed()
         result = await self.collection.update_one(
             {"session_id": session_id},
             {"$inc": {"unread_count": 1}, "$set": {"updated_at": datetime.now()}},
@@ -270,6 +410,7 @@ class SessionStorage:
 
     async def mark_read(self, session_id: str) -> bool:
         """将会话标记为已读（清除未读计数）"""
+        await self.ensure_indexes_if_needed()
         result = await self.collection.update_one(
             {"session_id": session_id},
             {"$set": {"unread_count": 0}},
@@ -286,6 +427,7 @@ class SessionStorage:
         Returns:
             Number of deleted sessions
         """
+        await self.ensure_indexes_if_needed()
         result = await self.collection.delete_many(
             {"user_id": user_id, "metadata.project_id": project_id},
         )
@@ -331,6 +473,212 @@ class SessionStorage:
             return None
 
         return self._build_session(result)
+
+    async def append_user_message_search_content(self, session_id: str, content: str) -> bool:
+        """Persist user-message search terms and preview text on the session document."""
+        await self.ensure_indexes_if_needed()
+        for _ in range(self.SEARCH_UPDATE_MAX_RETRIES):
+            existing_doc = await self._find_doc(
+                session_id,
+                {
+                    "name": 1,
+                    "message_search_terms": 1,
+                    "search_text": 1,
+                    "updated_at": 1,
+                    "search_index_updated_at": 1,
+                },
+            )
+            if not existing_doc:
+                return False
+
+            payload = append_message_to_search_index(
+                session_name=existing_doc.get("name"),
+                existing_message_search_terms=existing_doc.get("message_search_terms") or [],
+                existing_search_text=existing_doc.get("search_text"),
+                latest_user_message=content,
+            )
+            update_dict = {
+                "name_search_terms": payload.name_search_terms,
+                "message_search_terms": payload.message_search_terms,
+                "search_terms": payload.search_terms,
+                "search_text": payload.search_text,
+                "latest_user_message": payload.latest_user_message,
+                "search_index_version": payload.search_index_version,
+                "search_index_updated_at": datetime.now(),
+            }
+            cas_field, cas_value = self._get_search_index_cas(existing_doc)
+            result = await self._update_doc(
+                session_id,
+                {"$set": update_dict},
+                expected_cas_field=cas_field,
+                expected_cas_value=cas_value,
+            )
+            if result.modified_count > 0:
+                return True
+        return False
+
+    async def rebuild_search_index(self, session_id: str) -> bool:
+        """Rebuild session search data from persisted user:message events."""
+        await self.ensure_indexes_if_needed()
+        existing_doc = await self._find_doc(
+            session_id,
+            {
+                "name": 1,
+            },
+        )
+        if not existing_doc:
+            return False
+
+        from src.infra.session.trace_storage import get_trace_storage
+
+        trace_storage = get_trace_storage()
+        events = await trace_storage.get_session_events(
+            session_id,
+            event_types=["user:message"],
+            completed_only=False,
+        )
+        user_messages = [
+            data.get("content", "").strip()
+            for event in events
+            if isinstance((data := event.get("data")), dict)
+            and isinstance(data.get("content"), str)
+            and data.get("content", "").strip()
+        ]
+
+        payload = build_backfilled_search_index(
+            session_name=existing_doc.get("name"),
+            user_messages=user_messages,
+        )
+        for _ in range(self.SEARCH_UPDATE_MAX_RETRIES):
+            current_doc = await self._find_doc(
+                session_id,
+                {
+                    "name": 1,
+                    "message_search_terms": 1,
+                    "search_text": 1,
+                    "latest_user_message": 1,
+                    "updated_at": 1,
+                    "search_index_updated_at": 1,
+                },
+            )
+            if not current_doc:
+                return False
+
+            merged = merge_search_state(
+                session_name=current_doc.get("name") or existing_doc.get("name"),
+                base_message_terms=payload.message_search_terms,
+                base_search_text=payload.search_text,
+                base_latest_user_message=payload.latest_user_message,
+                extra_message_terms=current_doc.get("message_search_terms") or [],
+                extra_search_text=current_doc.get("search_text"),
+                extra_latest_user_message=current_doc.get("latest_user_message"),
+            )
+            update_dict = {
+                "name_search_terms": merged.name_search_terms,
+                "message_search_terms": merged.message_search_terms,
+                "search_terms": merged.search_terms,
+                "search_text": merged.search_text,
+                "latest_user_message": merged.latest_user_message,
+                "search_index_version": merged.search_index_version,
+                "search_index_updated_at": datetime.now(),
+            }
+            cas_field, cas_value = self._get_search_index_cas(current_doc)
+            result = await self._update_doc(
+                session_id,
+                {"$set": update_dict},
+                expected_cas_field=cas_field,
+                expected_cas_value=cas_value,
+            )
+            if result.modified_count > 0:
+                return True
+        return False
+
+    async def backfill_search_indexes(self, batch_size: int = 100) -> int:
+        """Backfill stale session search indexes in small batches."""
+        await self.ensure_indexes_if_needed()
+        cutoff = datetime.now().timestamp() - self.SEARCH_BACKFILL_SKIP_RECENT_SECONDS
+        cutoff_dt = datetime.fromtimestamp(cutoff)
+        stale_query = {
+            "$and": [
+                {
+                    "$or": [
+                        {"search_index_version": {"$ne": SESSION_SEARCH_INDEX_VERSION}},
+                        {"search_index_version": None},
+                    ]
+                },
+                {"updated_at": {"$lt": cutoff_dt}},
+            ]
+        }
+        cursor = (
+            self.collection.find(stale_query, {"session_id": 1, "_id": 1})
+            .sort("updated_at", -1)
+            .limit(batch_size)
+        )
+        docs = await cursor.to_list(length=batch_size)
+        rebuilt = 0
+        for doc in docs:
+            lookup_id = doc.get("session_id") or str(doc.get("_id"))
+            if lookup_id and await self.rebuild_search_index(lookup_id):
+                rebuilt += 1
+        return rebuilt
+
+    async def _find_doc(
+        self,
+        session_id: str,
+        projection: dict[str, Any] | None = None,
+    ) -> Optional[dict[str, Any]]:
+        doc = await self.collection.find_one({"session_id": session_id}, projection)
+        if doc:
+            return doc
+        try:
+            return await self.collection.find_one({"_id": ObjectId(session_id)}, projection)
+        except Exception:
+            return None
+
+    async def _update_doc(
+        self,
+        session_id: str,
+        update: dict[str, Any],
+        expected_cas_field: str | None = None,
+        expected_cas_value: Any = None,
+    ):
+        result = await self._update_doc_with_query(
+            {"session_id": session_id},
+            update,
+            expected_cas_field=expected_cas_field,
+            expected_cas_value=expected_cas_value,
+        )
+        if result.modified_count > 0:
+            return result
+        try:
+            return await self._update_doc_with_query(
+                {"_id": ObjectId(session_id)},
+                update,
+                expected_cas_field=expected_cas_field,
+                expected_cas_value=expected_cas_value,
+            )
+        except Exception:
+            return result
+
+    async def _update_doc_with_query(
+        self,
+        query: dict[str, Any],
+        update: dict[str, Any],
+        expected_cas_field: str | None = None,
+        expected_cas_value: Any = None,
+    ):
+        actual_query = dict(query)
+        if expected_cas_field is not None:
+            actual_query[expected_cas_field] = expected_cas_value
+        return await self.collection.update_one(actual_query, update)
+
+    @staticmethod
+    def _get_search_index_cas(doc: dict[str, Any]) -> tuple[str | None, Any]:
+        if "search_index_updated_at" in doc:
+            return "search_index_updated_at", doc.get("search_index_updated_at")
+        if "updated_at" in doc:
+            return "updated_at", doc.get("updated_at")
+        return None, None
 
     async def toggle_favorite(
         self,

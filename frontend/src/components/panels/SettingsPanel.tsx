@@ -19,6 +19,7 @@ import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 import { useSettingsContext } from "../../contexts/SettingsContext";
 import { JsonSchemaEditor } from "./JsonSchemaEditor";
+import { SystemHealthSection } from "./SystemHealthSection";
 import { useAuth } from "../../hooks/useAuth";
 import { roleApi, agentApi } from "../../services/api";
 import { Permission, type AgentInfo } from "../../types";
@@ -634,6 +635,9 @@ export function SettingsPanel() {
 
           {/* Settings List */}
           <div className="flex-1 overflow-y-auto p-3 sm:p-6">
+            {/* System Health Monitor */}
+            <SystemHealthSection />
+
             {isLoading && !settings ? (
               <PanelLoadingState text={t("settings.loading")} />
             ) : filteredSettings.length === 0 ? (

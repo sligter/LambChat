@@ -46,6 +46,7 @@ from src.api.routes.agent import model as agent_model
 from src.frontend_resolution import resolve_frontend_target
 from src.infra.local_filesystem import ensure_local_filesystem_dirs
 from src.infra.logging import get_logger, setup_logging
+from src.infra.monitoring import get_memory_monitor
 from src.infra.runtime_services import start_runtime_services, stop_runtime_services
 from src.kernel.config import initialize_settings, settings
 
@@ -99,6 +100,11 @@ async def lifespan(app: FastAPI):
     # 初始化本地文件系统目录（使用数据库覆盖后的最终配置）
     ensure_local_filesystem_dirs(settings)
 
+    # 启动进程内存监控
+    memory_monitor = get_memory_monitor()
+    await memory_monitor.start()
+    logger.info("Memory monitor started")
+
     # 发现并注册所有 Agent
     from src.agents import discover_agents
 
@@ -150,6 +156,28 @@ async def lifespan(app: FastAPI):
     await trace_storage.ensure_indexes_if_needed()
     logger.info("TraceStorage initialized")
 
+    # 初始化 SessionStorage 搜索索引，并异步回填历史会话
+    from src.infra.session.backfill import SessionSearchBackfillWorker
+    from src.infra.session.storage import SessionStorage
+
+    await SessionStorage().ensure_indexes_if_needed()
+    logger.info("SessionStorage indexes initialized")
+
+    async def _backfill_session_search():
+        worker = SessionSearchBackfillWorker()
+        try:
+            rebuilt = await worker.run_until_complete()
+            logger.info("Session search backfill finished, rebuilt %s sessions", rebuilt)
+        except Exception as e:
+            logger.warning("Session search backfill failed: %s", e)
+        finally:
+            await worker.close()
+            memory_monitor.reset_baseline()
+            logger.info("Memory monitor baseline reset after session search backfill")
+
+    _session_search_backfill_task = asyncio.create_task(_backfill_session_search())
+    app.state.session_search_backfill_task = _session_search_backfill_task
+
     # 初始化 RevealedFile 索引
     from src.infra.revealed_file.storage import get_revealed_file_storage
 
@@ -178,6 +206,8 @@ async def lifespan(app: FastAPI):
     # Keep task reference to prevent GC from cancelling it
     _feishu_task = asyncio.create_task(_start_feishu())
     app.state.feishu_task = _feishu_task
+    memory_monitor.reset_baseline()
+    logger.info("Memory monitor baseline reset after startup initialization")
 
     try:
         yield
@@ -204,6 +234,10 @@ async def lifespan(app: FastAPI):
         await stop_runtime_services()
         logger.info("Runtime distributed listeners stopped")
 
+        memory_monitor = get_memory_monitor()
+        await memory_monitor.stop()
+        logger.info("Memory monitor stopped")
+
         await task_manager.shutdown()
         logger.info("Background tasks marked as failed")
 
@@ -224,6 +258,10 @@ async def lifespan(app: FastAPI):
         logger.info("User sandboxes stopped")
 
         await AgentFactory.close_all()
+
+        session_search_backfill_task = getattr(app.state, "session_search_backfill_task", None)
+        if session_search_backfill_task and not session_search_backfill_task.done():
+            session_search_backfill_task.cancel()
 
         # 关闭 PostgreSQL 连接池
         from src.infra.storage.checkpoint import close_pg_checkpointer

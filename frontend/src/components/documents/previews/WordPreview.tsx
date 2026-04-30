@@ -330,10 +330,10 @@ const WordPreview = memo(function WordPreview({
   }
 
   return (
-    <div className="h-full overflow-auto bg-stone-200 dark:bg-stone-950 py-6">
+    <div className="h-full overflow-auto bg-stone-200 dark:bg-stone-950">
       <div className="max-w-[816px] mx-auto">
         <div className="bg-white dark:bg-stone-900 shadow-lg rounded-sm border border-stone-300/60 dark:border-stone-700/60">
-          <div className="px-16 py-12 min-h-[1056px]">
+          <div className="px-4 py-6 min-h-[1056px]">
             <div
               className={`word-preview-content ${isDark ? "dark" : ""}`}
               dangerouslySetInnerHTML={{ __html: processedHtml }}

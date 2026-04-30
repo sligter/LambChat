@@ -464,7 +464,7 @@ export function ToolResultPanel({
 
       {/* Header section — sidebar mode always; center mode only when customHeader is provided */}
       {(isSidebar || (isCenter && hasCustomHeader)) && (
-        <div className="flex flex-col shrink-0 bg-gradient-to-r from-stone-50 to-white dark:from-stone-800/50 dark:to-[#1e1e1e]">
+        <div className="flex flex-col shrink-0 bg-gradient-to-r from-stone-50 to-white dark:from-stone-800 dark:to-[#292524]">
           {/* Mobile drag handle — sidebar mode only */}
           {isMobile && isSidebar && (
             <div className="flex justify-center pt-2 pb-1">
