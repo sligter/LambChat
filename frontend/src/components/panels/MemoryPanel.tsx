@@ -505,7 +505,7 @@ export function MemoryPanel() {
             </p>
           </div>
         ) : (
-          <div className="grid gap-3 grid-cols-2 sm:grid-cols-3">
+          <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
             {memories.map((memory) => {
               const badge = TYPE_STYLES[memory.memory_type] ?? TYPE_STYLES.user;
               const checked = checkedIds.has(memory.memory_id);
