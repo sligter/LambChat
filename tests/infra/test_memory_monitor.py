@@ -176,3 +176,54 @@ async def test_reset_baseline_clears_previous_alert_state() -> None:
 
     assert diagnostics["last_alert"] is None
     assert diagnostics["summary"]["baseline_reset_at"] == reset_timestamp
+
+
+def test_get_diagnostics_skips_live_snapshot_when_refresh_is_false() -> None:
+    from src.infra.monitoring.memory import MemoryMonitor
+
+    monitor = MemoryMonitor(interval_seconds=60.0, history_limit=10)
+    monitor._history.append(
+        {
+            "timestamp": datetime(2026, 4, 30, 3, 25, tzinfo=timezone.utc),
+            "rss_bytes": 220 * 1024 * 1024,
+            "vms_bytes": 440 * 1024 * 1024,
+            "thread_count": 12,
+            "open_file_count": 4,
+        }
+    )
+    called = False
+
+    def _capture() -> dict[str, object]:
+        nonlocal called
+        called = True
+        return {"captured_at": "2026-04-30T03:26:00+00:00"}
+
+    monitor._capture_diagnostics_snapshot = _capture  # type: ignore[method-assign]
+
+    diagnostics = monitor.get_diagnostics(refresh=False)
+
+    assert diagnostics["current_snapshot"] is None
+    assert called is False
+
+
+def test_get_diagnostics_refreshes_live_snapshot_when_requested() -> None:
+    from src.infra.monitoring.memory import MemoryMonitor
+
+    monitor = MemoryMonitor(interval_seconds=60.0, history_limit=10)
+    monitor._history.append(
+        {
+            "timestamp": datetime(2026, 4, 30, 3, 25, tzinfo=timezone.utc),
+            "rss_bytes": 220 * 1024 * 1024,
+            "vms_bytes": 440 * 1024 * 1024,
+            "thread_count": 12,
+            "open_file_count": 4,
+        }
+    )
+
+    monitor._capture_diagnostics_snapshot = lambda: {  # type: ignore[method-assign]
+        "captured_at": "2026-04-30T03:26:00+00:00"
+    }
+
+    diagnostics = monitor.get_diagnostics(refresh=True)
+
+    assert diagnostics["current_snapshot"] == {"captured_at": "2026-04-30T03:26:00+00:00"}

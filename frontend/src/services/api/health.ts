@@ -72,7 +72,8 @@ export interface MemoryDiagnostics {
 }
 
 export const healthApi = {
-  async getMemoryDiagnostics(): Promise<MemoryDiagnostics> {
-    return authFetch<MemoryDiagnostics>(`${API_BASE}/health/memory`);
+  async getMemoryDiagnostics(refresh = false): Promise<MemoryDiagnostics> {
+    const params = refresh ? "?refresh=true" : "";
+    return authFetch<MemoryDiagnostics>(`${API_BASE}/health/memory${params}`);
   },
 };

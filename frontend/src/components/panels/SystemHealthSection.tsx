@@ -131,24 +131,27 @@ export function SystemHealthSection() {
 
   const canView = hasPermission(Permission.SETTINGS_MANAGE);
 
-  const fetchDiagnostics = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const data = await healthApi.getMemoryDiagnostics();
-      setDiagnostics(data);
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : t("systemHealth.fetchFailed"),
-      );
-    } finally {
-      setIsLoading(false);
-    }
-  }, [t]);
+  const fetchDiagnostics = useCallback(
+    async (refresh = false) => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const data = await healthApi.getMemoryDiagnostics(refresh);
+        setDiagnostics(data);
+      } catch (err) {
+        setError(
+          err instanceof Error ? err.message : t("systemHealth.fetchFailed"),
+        );
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [t],
+  );
 
   useEffect(() => {
     if (canView) {
-      fetchDiagnostics();
+      fetchDiagnostics(false);
     }
   }, [canView, fetchDiagnostics]);
 
@@ -190,7 +193,7 @@ export function SystemHealthSection() {
           <button
             onClick={(e) => {
               e.stopPropagation();
-              fetchDiagnostics();
+              fetchDiagnostics(true);
             }}
             disabled={isLoading}
             className="rounded-lg p-1.5 text-stone-400 transition-colors hover:bg-[var(--glass-bg)] hover:text-stone-600 disabled:opacity-50 dark:text-stone-500 dark:hover:text-stone-300"

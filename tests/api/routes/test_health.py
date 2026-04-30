@@ -6,6 +6,9 @@ from src.api.routes import health as health_routes
 
 
 class _FakeMonitor:
+    def __init__(self) -> None:
+        self.refresh_calls: list[bool] = []
+
     def get_summary(self) -> dict[str, object]:
         return {
             "available": True,
@@ -19,7 +22,8 @@ class _FakeMonitor:
             "baseline_reset_at": "2026-04-30T12:05:00+00:00",
         }
 
-    def get_diagnostics(self) -> dict[str, object]:
+    def get_diagnostics(self, refresh: bool = False) -> dict[str, object]:
+        self.refresh_calls.append(refresh)
         return {
             "summary": self.get_summary(),
             "last_alert": {
@@ -116,3 +120,27 @@ async def test_memory_health_route_returns_baseline_reset_timestamp(
     response = await health_routes.memory_health_check()
 
     assert response["summary"]["baseline_reset_at"] == "2026-04-30T12:05:00+00:00"
+
+
+@pytest.mark.asyncio
+async def test_memory_health_route_defaults_to_cached_diagnostics_only(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monitor = _FakeMonitor()
+    monkeypatch.setattr(health_routes, "get_memory_monitor", lambda: monitor)
+
+    await health_routes.memory_health_check()
+
+    assert monitor.refresh_calls == [False]
+
+
+@pytest.mark.asyncio
+async def test_memory_health_route_supports_explicit_refresh(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monitor = _FakeMonitor()
+    monkeypatch.setattr(health_routes, "get_memory_monitor", lambda: monitor)
+
+    await health_routes.memory_health_check(refresh=True)
+
+    assert monitor.refresh_calls == [True]

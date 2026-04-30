@@ -137,10 +137,11 @@ async def readiness_check():
 
 @router.get("/health/memory")
 async def memory_health_check(
+    refresh: bool = False,
     _=Depends(require_permissions("settings:manage")),
 ):
     """详细内存诊断"""
-    diagnostics = get_memory_monitor().get_diagnostics()
+    diagnostics = get_memory_monitor().get_diagnostics(refresh=refresh)
     summary = diagnostics.get("summary", {})
     last_alert = diagnostics.get("last_alert") or diagnostics.get("current_snapshot") or {}
 

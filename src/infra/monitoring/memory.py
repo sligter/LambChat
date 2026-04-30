@@ -343,16 +343,15 @@ class MemoryMonitor:
             "last_error": self._last_error,
         }
 
-    def get_diagnostics(self) -> dict[str, Any]:
+    def get_diagnostics(self, refresh: bool = False) -> dict[str, Any]:
         diagnostics = {
             "summary": self.get_summary(),
             "last_alert": self._last_alert,
             "last_error": self._last_error,
+            "current_snapshot": self._last_alert,
         }
 
-        if self._last_alert is not None:
-            diagnostics["current_snapshot"] = self._last_alert
-        elif self._history:
+        if refresh and self._history:
             diagnostics["current_snapshot"] = self._capture_diagnostics_snapshot()
 
         return diagnostics
