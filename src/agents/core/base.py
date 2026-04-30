@@ -748,6 +748,22 @@ def get_agent_class(agent_id: str) -> Type[BaseGraphAgent]:
     return _AGENT_REGISTRY[agent_id]
 
 
+def resolve_agent_name(agent_id: str) -> str:
+    """Resolve a stable display name for trace and presenter metadata."""
+    if agent_id not in _AGENT_REGISTRY:
+        try:
+            from src.agents import discover_agents
+
+            discover_agents()
+        except Exception:
+            return agent_id.title()
+
+    agent_cls = _AGENT_REGISTRY.get(agent_id)
+    if agent_cls is None:
+        return agent_id.title()
+    return getattr(agent_cls, "_agent_name", agent_id.title())
+
+
 def list_registered_agents() -> List[str]:
     """列出所有已注册的 Agent ID"""
     return list(_AGENT_REGISTRY.keys())

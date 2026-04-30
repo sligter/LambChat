@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Awaitable, Callable
 
+from src.agents.core import resolve_agent_name
 from src.infra.logging import get_logger
 from src.infra.session.trace_storage import get_trace_storage
 from src.infra.storage.redis import get_redis_client
@@ -155,6 +156,7 @@ class TaskRecoveryService:
             PresenterConfig(
                 session_id=session.id,
                 agent_id=agent_id,
+                agent_name=resolve_agent_name(agent_id),
                 user_id=session.user_id,
                 run_id=new_run_id,
                 enable_storage=False,
@@ -231,6 +233,7 @@ class TaskRecoveryService:
                 PresenterConfig(
                     session_id=session.id,
                     agent_id=agent_id,
+                    agent_name=resolve_agent_name(agent_id),
                     user_id=session.user_id,
                     run_id=new_run_id,
                     trace_id=recovery_trace_id,

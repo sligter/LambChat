@@ -10,6 +10,7 @@ import asyncio
 from datetime import datetime
 from typing import Any, Callable, Dict, List, Optional
 
+from src.agents.core import resolve_agent_name
 from src.infra.logging import get_logger
 from src.infra.session.dual_writer import get_dual_writer
 from src.infra.session.favorites import is_session_favorite
@@ -82,6 +83,7 @@ class TaskExecutor:
                 PresenterConfig(
                     session_id=session_id,
                     agent_id=agent_id,
+                    agent_name=resolve_agent_name(agent_id),
                     user_id=user_id,
                     run_id=run_id,  # 传递 run_id
                     trace_id=existing_trace_id,  # reuse trace from queued path

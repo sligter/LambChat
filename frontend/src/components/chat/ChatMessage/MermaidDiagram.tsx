@@ -11,6 +11,7 @@ import {
   ZoomIn,
   ZoomOut,
   RotateCcw,
+  RotateCw,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import {
@@ -560,27 +561,33 @@ function MermaidViewer({
 }) {
   const { t } = useTranslation();
   const [scale, setScale] = useState(1);
+  const [rotation, setRotation] = useState(0);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [showCode, setShowCode] = useState(initialShowCode);
   const [copied, setCopied] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
-  const svgRef = useRef<HTMLDivElement>(null);
-
-  const [touchStart, setTouchStart] = useState<{ x: number; y: number } | null>(
-    null,
-  );
-  const [initialPinchDistance, setInitialPinchDistance] = useState<
-    number | null
-  >(null);
-  const [initialScale, setInitialScale] = useState(1);
 
   const MIN_SCALE = 0.1;
   const MAX_SCALE = 5;
   const SCALE_STEP = 0.25;
 
+  // Ref to read current position/scale inside native event listeners
+  const gestureStateRef = useRef({ position: { x: 0, y: 0 }, scale: 1 });
+  gestureStateRef.current = { position, scale };
+
   const fullscreenSvg = useMemo(() => prepareFullscreenMermaidSvg(svg), [svg]);
+
+  // Render SVG as <img> via blob URL for GPU-accelerated transforms (same as ImageViewer)
+  const svgBlobUrl = useMemo(() => {
+    const blob = new Blob([fullscreenSvg], { type: "image/svg+xml" });
+    return URL.createObjectURL(blob);
+  }, [fullscreenSvg]);
+
+  useEffect(() => {
+    return () => URL.revokeObjectURL(svgBlobUrl);
+  }, [svgBlobUrl]);
 
   useEffect(() => {
     document.body.style.overflow = "hidden";
@@ -613,54 +620,66 @@ function MermaidViewer({
     [position],
   );
 
-  const getPinchDistance = (touches: React.TouchList): number =>
-    Math.hypot(
-      touches[0].clientX - touches[1].clientX,
-      touches[0].clientY - touches[1].clientY,
-    );
+  // Native non-passive touch listeners (React onTouchMove is passive, preventDefault is ignored)
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
 
-  const handleTouchStart = useCallback(
-    (e: React.TouchEvent) => {
+    let ts: { x: number; y: number } | null = null;
+    let pinchDist: number | null = null;
+    let pinchScale = 1;
+
+    const onStart = (e: TouchEvent) => {
       if (e.touches.length === 1) {
         const touch = e.touches[0];
-        setTouchStart({
-          x: touch.clientX - position.x,
-          y: touch.clientY - position.y,
-        });
+        const pos = gestureStateRef.current.position;
+        ts = { x: touch.clientX - pos.x, y: touch.clientY - pos.y };
         setIsDragging(true);
       } else if (e.touches.length === 2) {
         setIsDragging(false);
-        setTouchStart(null);
-        setInitialPinchDistance(getPinchDistance(e.touches));
-        setInitialScale(scale);
+        ts = null;
+        pinchDist = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY,
+        );
+        pinchScale = gestureStateRef.current.scale;
       }
-    },
-    [position, scale],
-  );
+    };
 
-  const handleTouchMove = useCallback(
-    (e: React.TouchEvent) => {
+    const onMove = (e: TouchEvent) => {
       e.preventDefault();
-      if (e.touches.length === 1 && touchStart) {
+      if (e.touches.length === 1 && ts) {
         const touch = e.touches[0];
         setPosition({
-          x: touch.clientX - touchStart.x,
-          y: touch.clientY - touchStart.y,
+          x: touch.clientX - ts.x,
+          y: touch.clientY - ts.y,
         });
-      } else if (e.touches.length === 2 && initialPinchDistance !== null) {
-        const scaleFactor = getPinchDistance(e.touches) / initialPinchDistance;
+      } else if (e.touches.length === 2 && pinchDist !== null) {
+        const dist = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY,
+        );
+        const sf = dist / pinchDist;
         setScale(() =>
-          Math.min(MAX_SCALE, Math.max(MIN_SCALE, initialScale * scaleFactor)),
+          Math.min(MAX_SCALE, Math.max(MIN_SCALE, pinchScale * sf)),
         );
       }
-    },
-    [touchStart, initialPinchDistance, initialScale],
-  );
+    };
 
-  const handleTouchEnd = useCallback(() => {
-    setIsDragging(false);
-    setTouchStart(null);
-    setInitialPinchDistance(null);
+    const onEnd = () => {
+      setIsDragging(false);
+      ts = null;
+      pinchDist = null;
+    };
+
+    container.addEventListener("touchstart", onStart, { passive: true });
+    container.addEventListener("touchmove", onMove, { passive: false });
+    container.addEventListener("touchend", onEnd, { passive: true });
+    return () => {
+      container.removeEventListener("touchstart", onStart);
+      container.removeEventListener("touchmove", onMove);
+      container.removeEventListener("touchend", onEnd);
+    };
   }, []);
 
   useEffect(() => {
@@ -705,6 +724,28 @@ function MermaidViewer({
         </button>
 
         <div className="flex items-center gap-1">
+          {/* Rotate left */}
+          <button
+            type="button"
+            onClick={() => setRotation((prev) => prev - 90)}
+            className="flex items-center justify-center w-10 h-10 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
+            aria-label={t("imageViewer.rotateLeft")}
+          >
+            <RotateCcw size={20} className="text-white" />
+          </button>
+
+          {/* Rotate right */}
+          <button
+            type="button"
+            onClick={() => setRotation((prev) => prev + 90)}
+            className="flex items-center justify-center w-10 h-10 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
+            aria-label={t("imageViewer.rotateRight")}
+          >
+            <RotateCw size={20} className="text-white" />
+          </button>
+
+          <div className="w-px h-6 bg-white/20 mx-2" />
+
           {/* Zoom out */}
           <button
             type="button"
@@ -742,12 +783,13 @@ function MermaidViewer({
             type="button"
             onClick={() => {
               setScale(1);
+              setRotation(0);
               setPosition({ x: 0, y: 0 });
             }}
             className="flex items-center justify-center w-10 h-10 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
             aria-label={t("imageViewer.reset")}
           >
-            <RotateCcw size={20} className="text-white" />
+            <Maximize2 size={20} className="text-white" />
           </button>
 
           <div className="w-px h-6 bg-white/20 mx-2" />
@@ -809,6 +851,7 @@ function MermaidViewer({
           className={`flex-1 overflow-hidden relative ${
             showCode ? "hidden sm:flex" : "flex"
           }`}
+          style={{ touchAction: "none" }}
           onWheel={handleWheel}
         >
           <div
@@ -817,20 +860,18 @@ function MermaidViewer({
               cursor:
                 scale > 1 ? (isDragging ? "grabbing" : "grab") : "default",
             }}
+            onMouseDown={handleMouseDown}
           >
-            <div
-              ref={svgRef}
-              dangerouslySetInnerHTML={{ __html: fullscreenSvg }}
+            <img
+              src={svgBlobUrl}
+              alt="mermaid diagram"
+              className="max-w-[90vw] max-h-[85vh] object-contain select-none"
               style={{
-                transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`,
+                transform: `translate(${position.x}px, ${position.y}px) scale(${scale}) rotate(${rotation}deg)`,
                 transition: isDragging ? "none" : "transform 0.1s ease-out",
                 touchAction: "none",
               }}
-              onMouseDown={handleMouseDown}
-              onTouchStart={handleTouchStart}
-              onTouchMove={handleTouchMove}
-              onTouchEnd={handleTouchEnd}
-              className="[&_>svg]:block [&_>svg]:w-auto [&_>svg]:h-auto [&_>svg]:max-w-[90vw] [&_>svg]:max-h-[85vh] [&_>svg]:min-w-[200px] [&_>svg]:min-h-[100px]"
+              draggable={false}
             />
           </div>
         </div>

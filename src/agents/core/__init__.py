@@ -17,6 +17,7 @@ from src.agents.core.base import (
     get_presenter,
     list_registered_agents,
     register_agent,
+    resolve_agent_name,
 )
 
 __all__ = [
@@ -32,4 +33,5 @@ __all__ = [
     "AgentFactory",
     # 辅助
     "get_presenter",
+    "resolve_agent_name",
 ]

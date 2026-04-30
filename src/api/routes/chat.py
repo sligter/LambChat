@@ -12,6 +12,7 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 
+from src.agents.core import resolve_agent_name
 from src.agents.core.base import AgentFactory
 from src.api.deps import get_current_user_required, require_permissions
 from src.api.routes.auth.utils import _get_language
@@ -158,6 +159,7 @@ async def chat_stream(
         PresenterConfig(
             session_id=session_id,
             agent_id=agent_id,
+            agent_name=resolve_agent_name(agent_id),
             user_id=user.sub,
             run_id=run_id,
             enable_storage=False,
@@ -223,6 +225,7 @@ async def chat_stream(
             PresenterConfig(
                 session_id=session_id,
                 agent_id=agent_id,
+                agent_name=resolve_agent_name(agent_id),
                 user_id=user.sub,
                 run_id=run_id,
                 trace_id=trace_id,
