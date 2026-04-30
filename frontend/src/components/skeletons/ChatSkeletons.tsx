@@ -271,7 +271,7 @@ export function WelcomeSkeleton() {
 
       {/* Suggestions skeleton — mobile: 2 cards, desktop: 4 cards */}
       <div className="w-full px-2 sm:mt-5">
-        <div className="w-[19rem] sm:max-w-[36rem] lg:max-w-[48rem] xl:max-w-[56rem] sm:w-full mx-auto">
+        <div className="w-[19rem] sm:max-w-[36rem] lg:max-w-[48rem] xl:max-w-[56rem] sm:w-full mx-auto px-4 sm:px-8">
           {/* Label + refresh */}
           <div className="flex items-center justify-between mb-2 sm:mb-3">
             <div className="flex items-center gap-1.5">
